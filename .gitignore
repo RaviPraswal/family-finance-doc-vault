@@ -1,0 +1,25 @@
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.DS_Store
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# Backend
+backend/target/
+backend/bin/
+backend/.settings/
+backend/.classpath
+backend/.project
+backend/.idea/
+backend/*.iml
+backend/*.log
+backend/logs/
+backend/uploads/
+
+# OS
+.DS_Store
+Thumbs.db

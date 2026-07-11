@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:17
+    container_name: finnest_db
+    environment:
+      POSTGRES_USER: finnest
+      POSTGRES_PASSWORD: finnest_password
+      POSTGRES_DB: finnest_db
+    ports:
+      - "5435:5432"
+    volumes:
+      - finnest_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  finnest_postgres_data:

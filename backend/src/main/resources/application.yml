@@ -1,6 +1,8 @@
 spring:
   application:
     name: finnest
+  config:
+    import: optional:classpath:application-secrets.yml
   datasource:
     url: jdbc:postgresql://localhost:5435/finnest_db
     username: finnest

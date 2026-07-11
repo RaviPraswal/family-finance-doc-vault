@@ -50,4 +50,12 @@ public class DocumentController {
         service.deleteDocument(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/{id}/share")
+    public ResponseEntity<Void> shareDocument(@PathVariable UUID id, @RequestBody ShareRequest request) {
+        service.shareDocument(id, request.email());
+        return ResponseEntity.ok().build();
+    }
+
+    public record ShareRequest(String email) {}
 }

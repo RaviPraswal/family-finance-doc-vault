@@ -3,7 +3,8 @@ import { useAuthStore } from '../store/authStore';
 import { apiClient } from '../api/client';
 import { useNavigate } from 'react-router-dom';
 import UploadModal from '../components/UploadModal';
-import { LogOut, Upload, FileText, Trash2, Download, Bell, AlertTriangle } from 'lucide-react';
+import ShareModal from '../components/ShareModal';
+import { LogOut, Upload, FileText, Trash2, Download, Bell, AlertTriangle, Share2 } from 'lucide-react';
 
 interface Document {
   id: string;
@@ -27,6 +28,7 @@ export default function Dashboard() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [shareDocument, setShareDocument] = useState<{id: string, name: string} | null>(null);
   const logout = useAuthStore((state) => state.logout);
   const navigate = useNavigate();
 
@@ -210,6 +212,13 @@ export default function Dashboard() {
                       <Download className="h-5 w-5" />
                     </button>
                     <button 
+                      onClick={() => setShareDocument({ id: doc.id, name: doc.name })}
+                      className="p-2 text-muted-foreground hover:text-primary transition-colors"
+                      title="Share via Email"
+                    >
+                      <Share2 className="h-5 w-5" />
+                    </button>
+                    <button 
                       onClick={() => handleDelete(doc.id)}
                       className="p-2 text-muted-foreground hover:text-destructive transition-colors"
                       title="Delete"
@@ -231,6 +240,18 @@ export default function Dashboard() {
             setIsUploadOpen(false);
             fetchDocuments();
           }} 
+        />
+      )}
+
+      {shareDocument && (
+        <ShareModal 
+          documentId={shareDocument.id}
+          documentName={shareDocument.name}
+          onClose={() => setShareDocument(null)}
+          onSuccess={() => {
+            setShareDocument(null);
+            alert('Document shared successfully!');
+          }}
         />
       )}
     </div>

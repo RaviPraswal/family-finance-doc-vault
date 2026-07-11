@@ -10,6 +10,8 @@ interface UploadModalProps {
 export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [category, setCategory] = useState('TAX');
+  const [description, setDescription] = useState('');
+  const [tags, setTags] = useState('');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const token = useAuthStore((state) => state.token);
@@ -21,12 +23,19 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
       return;
     }
 
+    if (file.size > 10 * 1024 * 1024) {
+      setError('File size exceeds the 10MB limit.');
+      return;
+    }
+
     setUploading(true);
     setError('');
 
     const formData = new FormData();
     formData.append('file', file);
     formData.append('category', category);
+    if (description) formData.append('description', description);
+    if (tags) formData.append('tags', tags);
 
     try {
       const response = await fetch('/api/documents', {
@@ -38,7 +47,21 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Upload failed');
+        let errorMsg = 'Upload failed';
+        try {
+          const text = await response.text();
+          if (text) {
+            try {
+              const json = JSON.parse(text);
+              if (json.message) errorMsg = json.message;
+              else if (json.error) errorMsg = json.error;
+              else errorMsg = text;
+            } catch (e) {
+              errorMsg = text;
+            }
+          }
+        } catch (e) {}
+        throw new Error(errorMsg);
       }
 
       onSuccess();
@@ -98,8 +121,35 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
               <option value="PROPERTY">Property & Vehicles</option>
               <option value="ESTATE">Estate Planning</option>
               <option value="IDENTIFICATION">IDs & Passports</option>
+              <option value="INVESTMENT">Investments</option>
+              <option value="MEDICAL">Medical Records</option>
+              <option value="LEGAL">Legal Documents</option>
+              <option value="RECEIPTS">Receipts</option>
+              <option value="BILLS">Bills</option>
               <option value="OTHER">Other</option>
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2 text-foreground">Description (Optional)</label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Brief description of the document"
+              className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+              rows={2}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2 text-foreground">Tags (Optional)</label>
+            <input
+              type="text"
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+              placeholder="e.g. 2024, personal, urgent (comma separated)"
+              className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+            />
           </div>
 
           <div className="flex gap-3 justify-end pt-4">

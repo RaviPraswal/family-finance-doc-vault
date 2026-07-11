@@ -38,4 +38,13 @@ public class NotificationController {
             return ResponseEntity.ok().build();
         }).orElse(ResponseEntity.notFound().build());
     }
+
+    @PutMapping("/read-all")
+    public ResponseEntity<?> markAllAsRead() {
+        UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
+        List<Notification> unread = repository.findAllByTenantIdAndIsReadFalseOrderByCreatedAtDesc(tenantId);
+        unread.forEach(n -> n.setRead(true));
+        repository.saveAll(unread);
+        return ResponseEntity.ok().build();
+    }
 }

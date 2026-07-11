@@ -6,11 +6,13 @@ import { apiClient } from '../api/client';
 interface ShareModalProps {
   documentId: string;
   documentName: string;
+  versionId?: string;
+  versionNumber?: number;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export default function ShareModal({ documentId, documentName, onClose, onSuccess }: ShareModalProps) {
+export default function ShareModal({ documentId, documentName, versionId, versionNumber, onClose, onSuccess }: ShareModalProps) {
   const [email, setEmail] = useState('');
   const [sharing, setSharing] = useState(false);
   const [error, setError] = useState('');
@@ -26,7 +28,11 @@ export default function ShareModal({ documentId, documentName, onClose, onSucces
     setError('');
 
     try {
-      await apiClient(`/api/documents/${documentId}/share`, {
+      const url = versionId 
+        ? `/api/documents/${documentId}/versions/${versionId}/share` 
+        : `/api/documents/${documentId}/share`;
+        
+      await apiClient(url, {
         method: 'POST',
         body: JSON.stringify({ email }),
       });
@@ -53,7 +59,7 @@ export default function ShareModal({ documentId, documentName, onClose, onSucces
           Share Document
         </h2>
         <p className="text-sm text-muted-foreground mb-6">
-          Securely share <span className="font-semibold text-foreground">{documentName}</span> via email attachment.
+          Securely share <span className="font-semibold text-foreground">{documentName} {versionNumber ? `(v${versionNumber})` : ''}</span> via email attachment.
         </p>
 
         {error && <p className="text-destructive text-sm mb-4">{error}</p>}

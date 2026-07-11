@@ -8,6 +8,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -39,6 +40,16 @@ public class Document extends TenantBaseEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "extracted_data", columnDefinition = "jsonb")
     private Map<String, Object> extractedData;
+
+    @Column(columnDefinition = "text")
+    private String description;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private List<String> tags;
+
+    @jakarta.persistence.OneToMany(mappedBy = "document", cascade = jakarta.persistence.CascadeType.ALL, orphanRemoval = true)
+    private List<DocumentVersion> versions = new java.util.ArrayList<>();
 
     public LocalDate getExpiryDate() {
         return expiryDate;
@@ -103,5 +114,29 @@ public class Document extends TenantBaseEntity {
 
     public void setUploadedBy(UUID uploadedBy) {
         this.uploadedBy = uploadedBy;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public List<String> getTags() {
+        return tags;
+    }
+
+    public void setTags(List<String> tags) {
+        this.tags = tags;
+    }
+
+    public List<DocumentVersion> getVersions() {
+        return versions;
+    }
+
+    public void setVersions(List<DocumentVersion> versions) {
+        this.versions = versions;
     }
 }

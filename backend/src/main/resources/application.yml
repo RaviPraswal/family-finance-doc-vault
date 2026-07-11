@@ -1,6 +1,10 @@
 spring:
   application:
     name: finnest
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
   config:
     import: optional:classpath:application-secrets.yml
   datasource:

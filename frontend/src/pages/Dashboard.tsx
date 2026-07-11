@@ -4,12 +4,16 @@ import { apiClient } from '../api/client';
 import { useNavigate } from 'react-router-dom';
 import UploadModal from '../components/UploadModal';
 import ShareModal from '../components/ShareModal';
-import { LogOut, Upload, FileText, Trash2, Download, Bell, AlertTriangle, Share2 } from 'lucide-react';
+import PreviewModal from '../components/PreviewModal';
+import { LogOut, Upload, FileText, Trash2, Download, Bell, AlertTriangle, Share2, Search, Eye } from 'lucide-react';
 
 interface Document {
   id: string;
   name: string;
+  type: string;
   category: string;
+  description?: string;
+  tags?: string[];
   size: number;
   createdAt: string;
   expiryDate?: string;
@@ -25,12 +29,15 @@ interface Notification {
 
 export default function Dashboard() {
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [shareDocument, setShareDocument] = useState<{id: string, name: string} | null>(null);
+  const [previewDocument, setPreviewDocument] = useState<{id: string, name: string, type: string} | null>(null);
   const logout = useAuthStore((state) => state.logout);
   const navigate = useNavigate();
+  const token = useAuthStore((state) => state.token);
 
   const fetchDocuments = async () => {
     try {
@@ -53,7 +60,6 @@ export default function Dashboard() {
   useEffect(() => {
     fetchDocuments();
     fetchNotifications();
-    // Poll for AI extraction updates every 10 seconds
     const interval = setInterval(() => {
       fetchDocuments();
       fetchNotifications();
@@ -68,7 +74,9 @@ export default function Dashboard() {
 
   const handleDownload = async (id: string, name: string) => {
     try {
-      const response = await apiClient(`/api/documents/${id}/download`);
+      const response = await fetch(`/api/documents/${id}/download`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -101,13 +109,40 @@ export default function Dashboard() {
     }
   };
 
+  const markAllAsRead = async () => {
+    try {
+      await apiClient(`/api/notifications/read-all`, { method: 'PUT' });
+      fetchNotifications();
+    } catch (err) {
+      console.error('Failed to mark all as read', err);
+    }
+  };
+
   const getExpiryStyles = (expiryDate?: string) => {
     if (!expiryDate) return '';
     const daysUntil = Math.ceil((new Date(expiryDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
-    if (daysUntil <= 7) return 'bg-red-500/10 border-l-4 border-red-500';
-    if (daysUntil <= 30) return 'bg-orange-500/10 border-l-4 border-orange-500';
+    if (daysUntil <= 7) return 'bg-red-500/10';
+    if (daysUntil <= 30) return 'bg-orange-500/10';
     return '';
   };
+
+  const getExpiryIndicator = (expiryDate?: string) => {
+    if (!expiryDate) return null;
+    const daysUntil = Math.ceil((new Date(expiryDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+    if (daysUntil <= 7) return <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500" />;
+    if (daysUntil <= 30) return <div className="absolute left-0 top-0 bottom-0 w-1 bg-orange-500" />;
+    return null;
+  };
+
+  const filteredDocuments = documents.filter(doc => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    const matchesName = doc.name.toLowerCase().includes(query);
+    const matchesCategory = doc.category.toLowerCase().includes(query);
+    const matchesDescription = doc.description?.toLowerCase().includes(query) || false;
+    const matchesTags = doc.tags?.some(tag => tag.toLowerCase().includes(query)) || false;
+    return matchesName || matchesCategory || matchesDescription || matchesTags;
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -126,8 +161,16 @@ export default function Dashboard() {
               
               {showNotifications && (
                 <div className="absolute right-0 mt-3 w-80 bg-card border border-border rounded-lg shadow-xl z-50 overflow-hidden">
-                  <div className="p-4 border-b border-border bg-muted/30">
+                  <div className="p-4 border-b border-border bg-muted/30 flex justify-between items-center">
                     <h3 className="font-semibold text-foreground">Notifications</h3>
+                    {notifications.length > 0 && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); markAllAsRead(); }} 
+                        className="text-xs text-primary hover:underline font-medium"
+                      >
+                        Mark all as read
+                      </button>
+                    )}
                   </div>
                   <div className="max-h-80 overflow-y-auto">
                     {notifications.length === 0 ? (
@@ -162,11 +205,23 @@ export default function Dashboard() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <h2 className="text-xl font-semibold text-foreground">Your Vault</h2>
+          
+          <div className="flex flex-1 max-w-md w-full items-center bg-card border border-border rounded-md px-3 py-2 shadow-sm focus-within:ring-1 focus-within:ring-primary transition-all">
+            <Search className="h-5 w-5 text-muted-foreground mr-2" />
+            <input 
+              type="text"
+              placeholder="Search by name, tag, or description..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-transparent border-none outline-none w-full text-foreground text-sm"
+            />
+          </div>
+
           <button
             onClick={() => setIsUploadOpen(true)}
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-all shadow-md hover:shadow-lg"
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-all shadow-md hover:shadow-lg shrink-0"
           >
             <Upload className="h-4 w-4" />
             Upload Document
@@ -174,36 +229,74 @@ export default function Dashboard() {
         </div>
 
         <div className="bg-card border border-border rounded-lg shadow-sm overflow-hidden">
-          {documents.length === 0 ? (
+          {filteredDocuments.length === 0 ? (
             <div className="p-12 text-center text-muted-foreground">
               <FileText className="h-12 w-12 mx-auto mb-4 opacity-20" />
-              <p>No documents found. Upload your first document to get started.</p>
+              <p>No documents found matching your criteria.</p>
             </div>
           ) : (
             <ul className="divide-y divide-border">
-              {documents.map((doc) => (
-                <li key={doc.id} className={`p-4 hover:bg-muted/50 transition-colors flex items-center justify-between group ${getExpiryStyles(doc.expiryDate)}`}>
-                  <div className="flex items-center gap-4">
-                    <div className="p-2 bg-primary/10 rounded-md text-primary">
-                      <FileText className="h-6 w-6" />
+              {filteredDocuments.map((doc) => (
+                <li key={doc.id} className={`relative p-4 hover:bg-muted/50 transition-colors flex items-center justify-between group ${getExpiryStyles(doc.expiryDate)}`}>
+                  {getExpiryIndicator(doc.expiryDate)}
+                  <div className="flex items-center gap-4 flex-1 pr-4 min-w-0 z-10">
+                    <div className="h-16 w-16 bg-muted rounded-md border border-border overflow-hidden shrink-0 flex items-center justify-center relative cursor-pointer" onClick={() => setPreviewDocument({id: doc.id, name: doc.name, type: doc.type})}>
+                      {/* Using the image as a background to handle object-cover easily */}
+                      <img 
+                        src={`/api/documents/${doc.id}/thumbnail`}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.parentElement?.classList.add('bg-primary/10');
+                          e.currentTarget.parentElement?.querySelector('svg')?.classList.remove('hidden');
+                        }}
+                      />
+                      <FileText className="h-8 w-8 text-primary hidden absolute" />
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-foreground">{doc.name}</p>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p 
+                          className="font-medium text-foreground truncate cursor-pointer hover:text-primary transition-colors"
+                          onClick={() => setPreviewDocument({id: doc.id, name: doc.name, type: doc.type})}
+                        >
+                          {doc.name}
+                        </p>
                         {doc.expiryDate && (
-                          <span className="flex items-center gap-1 text-xs bg-muted px-2 py-0.5 rounded-md text-muted-foreground">
+                          <span className="flex items-center gap-1 text-xs bg-muted px-2 py-0.5 rounded-md text-muted-foreground shrink-0">
                             <AlertTriangle className="h-3 w-3" /> Expires: {new Date(doc.expiryDate).toLocaleDateString()}
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                        <span className="bg-secondary px-2 py-0.5 rounded-full">{doc.category}</span>
+                      
+                      {doc.description && (
+                        <p className="text-sm text-muted-foreground truncate mb-1">{doc.description}</p>
+                      )}
+
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                        <span className="bg-secondary text-secondary-foreground font-medium px-2 py-0.5 rounded-full">{doc.category}</span>
                         <span>{(doc.size / 1024 / 1024).toFixed(2)} MB</span>
                         <span>Uploaded: {new Date(doc.createdAt).toLocaleDateString()}</span>
+                        
+                        {doc.tags && doc.tags.length > 0 && (
+                          <div className="flex items-center gap-1">
+                            {doc.tags.map((tag, i) => (
+                              <span key={i} className="bg-muted px-2 py-0.5 rounded-sm border border-border">#{tag}</span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  
+                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                    <button 
+                      onClick={() => setPreviewDocument({ id: doc.id, name: doc.name, type: doc.type })}
+                      className="p-2 text-muted-foreground hover:text-primary transition-colors"
+                      title="Preview"
+                    >
+                      <Eye className="h-5 w-5" />
+                    </button>
                     <button 
                       onClick={() => handleDownload(doc.id, doc.name)}
                       className="p-2 text-muted-foreground hover:text-primary transition-colors"
@@ -252,6 +345,16 @@ export default function Dashboard() {
             setShareDocument(null);
             alert('Document shared successfully!');
           }}
+        />
+      )}
+
+      {previewDocument && (
+        <PreviewModal
+          documentId={previewDocument.id}
+          documentName={previewDocument.name}
+          documentType={previewDocument.type}
+          onClose={() => setPreviewDocument(null)}
+          onUpdate={() => fetchDocuments()}
         />
       )}
     </div>

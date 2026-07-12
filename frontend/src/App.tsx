@@ -41,7 +41,9 @@ function App() {
   return (
     <BrowserRouter>
       {/* Mesh gradient background container behind everything */}
-      <div className="mesh-bg" />
+      <div className="mesh-bg">
+        <div className="mesh-blob"></div>
+      </div>
       
       <div className="min-h-screen font-sans antialiased selection:bg-primary/30 relative z-0 transition-colors duration-300">
         <Routes>

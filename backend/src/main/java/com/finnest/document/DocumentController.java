@@ -28,15 +28,27 @@ public class DocumentController {
                                                    @RequestParam("category") String category,
                                                    @RequestParam(value = "description", required = false) String description,
                                                    @RequestParam(value = "tags", required = false) String tags,
+                                                   @RequestParam(value = "associatedEntityType", required = false) String associatedEntityType,
+                                                   @RequestParam(value = "associatedEntityId", required = false) UUID associatedEntityId,
                                                    @AuthenticationPrincipal User user) {
         List<String> tagList = tags != null && !tags.isBlank() ? Arrays.asList(tags.split(",")) : List.of();
-        Document document = service.storeFile(file, category, description, tagList, user);
+        Document document = service.storeFile(file, category, description, tagList, associatedEntityType, associatedEntityId, user);
         return ResponseEntity.ok(document);
     }
 
     @GetMapping
-    public ResponseEntity<List<Document>> listDocuments() {
-        return ResponseEntity.ok(service.getAllDocuments());
+    public ResponseEntity<List<Document>> listDocuments(
+            @RequestParam(value = "associatedEntityType", required = false) String associatedEntityType,
+            @RequestParam(value = "associatedEntityId", required = false) UUID associatedEntityId) {
+        
+        List<Document> allDocs = service.getAllDocuments();
+        
+        if (associatedEntityType != null && associatedEntityId != null) {
+            allDocs = allDocs.stream()
+                    .filter(d -> associatedEntityType.equals(d.getAssociatedEntityType()) && associatedEntityId.equals(d.getAssociatedEntityId()))
+                    .toList();
+        }
+        return ResponseEntity.ok(allDocs);
     }
 
     @GetMapping("/{id}/download")

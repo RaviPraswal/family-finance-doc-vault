@@ -48,7 +48,7 @@ public class DocumentService {
         }
     }
 
-    public Document storeFile(MultipartFile file, String category, String description, List<String> tags, User user) {
+    public Document storeFile(MultipartFile file, String category, String description, List<String> tags, String associatedEntityType, UUID associatedEntityId, User user) {
         String originalFileName = file.getOriginalFilename() == null ? "unknown" : file.getOriginalFilename();
         String fileName = UUID.randomUUID().toString() + "_" + originalFileName.replaceAll("[^a-zA-Z0-9.-]", "_");
 
@@ -63,10 +63,12 @@ public class DocumentService {
             document.setCategory(category);
             document.setDescription(description);
             document.setTags(tags);
-            document.setFilePath(fileName);
+            document.setAssociatedEntityType(associatedEntityType);
+            document.setAssociatedEntityId(associatedEntityId);
             document.setUploadedBy(user.getId());
+            document.setFilePath(fileName);
             document.setTenantId(UUID.fromString(TenantContext.getCurrentTenant()));
-
+            
             Document savedDocument = repository.save(document);
 
             // Create initial version

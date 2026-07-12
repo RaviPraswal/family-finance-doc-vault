@@ -51,6 +51,12 @@ public class Document extends TenantBaseEntity {
     @jakarta.persistence.OneToMany(mappedBy = "document", cascade = jakarta.persistence.CascadeType.ALL, orphanRemoval = true)
     private List<DocumentVersion> versions = new java.util.ArrayList<>();
 
+    @Column(name = "associated_entity_type")
+    private String associatedEntityType;
+
+    @Column(name = "associated_entity_id")
+    private UUID associatedEntityId;
+
     public LocalDate getExpiryDate() {
         return expiryDate;
     }
@@ -106,6 +112,22 @@ public class Document extends TenantBaseEntity {
 
     public void setFilePath(String filePath) {
         this.filePath = filePath;
+    }
+
+    public String getAssociatedEntityType() {
+        return associatedEntityType;
+    }
+
+    public void setAssociatedEntityType(String associatedEntityType) {
+        this.associatedEntityType = associatedEntityType;
+    }
+
+    public UUID getAssociatedEntityId() {
+        return associatedEntityId;
+    }
+
+    public void setAssociatedEntityId(UUID associatedEntityId) {
+        this.associatedEntityId = associatedEntityId;
     }
 
     public UUID getUploadedBy() {

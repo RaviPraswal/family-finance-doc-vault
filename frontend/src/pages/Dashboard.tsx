@@ -145,8 +145,8 @@ export default function Dashboard() {
   });
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
+    <div className="h-full flex flex-col">
+      <header className="flex-none bg-card border-b border-border rounded-t-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-primary">FinNest Dashboard</h1>
           <div className="flex items-center gap-6">

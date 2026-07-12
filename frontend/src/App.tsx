@@ -1,5 +1,8 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
+import { useThemeStore } from './store/themeStore';
+import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -13,6 +16,7 @@ import Loans from './pages/Loans';
 import ChitFunds from './pages/ChitFunds';
 import PeerLending from './pages/PeerLending';
 import SideIncome from './pages/SideIncome';
+
 // Protected Route wrapper
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const token = useAuthStore((state) => state.token);
@@ -24,17 +28,29 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
 
 function App() {
   const token = useAuthStore((state) => state.token);
+  const theme = useThemeStore((state) => state.theme);
+
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-background font-sans text-foreground antialiased selection:bg-primary/30">
+      {/* Mesh gradient background container behind everything */}
+      <div className="mesh-bg" />
+      
+      <div className="min-h-screen font-sans antialiased selection:bg-primary/30 relative z-0 transition-colors duration-300">
         <Routes>
-          <Route 
-            path="/" 
-            element={token ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} 
-          />
+          {/* Root route goes to landing page now */}
+          <Route path="/" element={<Landing />} />
+          
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          
           <Route 
             path="/dashboard" 
             element={

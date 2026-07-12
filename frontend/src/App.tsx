@@ -16,6 +16,7 @@ import Loans from './pages/Loans';
 import ChitFunds from './pages/ChitFunds';
 import PeerLending from './pages/PeerLending';
 import SideIncome from './pages/SideIncome';
+import Ledger from './pages/Ledger';
 
 // Protected Route wrapper
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
@@ -61,9 +62,9 @@ function App() {
               </ProtectedRoute>
             } 
           >
-            {/* The index route will render the existing Document Vault */}
             <Route index element={<Dashboard />} />
             
+            <Route path="ledger" element={<Ledger />} />
             <Route path="portfolio" element={<PortfolioOverview />} />
             <Route path="bank-accounts" element={<BankAccounts />} />
             <Route path="deposits" element={<Deposits />} />

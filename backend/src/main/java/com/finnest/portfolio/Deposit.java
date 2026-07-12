@@ -19,6 +19,10 @@ public class Deposit extends TenantBaseEntity {
     private Double interestRate;
     private LocalDate startDate;
     private LocalDate maturityDate;
+    
+    // Specifically for RDs
+    private BigDecimal monthlyDepositAmount;
+    private BigDecimal totalDeposited;
 
     public String getType() {
         return type;
@@ -82,5 +86,21 @@ public class Deposit extends TenantBaseEntity {
 
     public void setMaturityDate(LocalDate maturityDate) {
         this.maturityDate = maturityDate;
+    }
+
+    public BigDecimal getMonthlyDepositAmount() {
+        return monthlyDepositAmount;
+    }
+
+    public void setMonthlyDepositAmount(BigDecimal monthlyDepositAmount) {
+        this.monthlyDepositAmount = monthlyDepositAmount;
+    }
+
+    public BigDecimal getTotalDeposited() {
+        return totalDeposited;
+    }
+
+    public void setTotalDeposited(BigDecimal totalDeposited) {
+        this.totalDeposited = totalDeposited;
     }
 }

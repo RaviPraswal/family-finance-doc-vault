@@ -17,6 +17,7 @@ public class Loan extends TenantBaseEntity {
     private BigDecimal outstandingAmount;
     private BigDecimal emiAmount;
     private Double interestRate;
+    private Integer remainingTenure; // In months
 
     public String getLenderName() {
         return lenderName;
@@ -72,5 +73,13 @@ public class Loan extends TenantBaseEntity {
 
     public void setInterestRate(Double interestRate) {
         this.interestRate = interestRate;
+    }
+
+    public Integer getRemainingTenure() {
+        return remainingTenure;
+    }
+
+    public void setRemainingTenure(Integer remainingTenure) {
+        this.remainingTenure = remainingTenure;
     }
 }

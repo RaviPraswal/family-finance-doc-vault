@@ -16,6 +16,7 @@ public class ChitFund extends TenantBaseEntity {
     private BigDecimal totalValue;
     private BigDecimal monthlyInstallment;
     private Integer durationMonths;
+    private Integer pendingInstallments;
     private LocalDate startDate;
 
     public String getOrganizerName() {
@@ -64,5 +65,13 @@ public class ChitFund extends TenantBaseEntity {
 
     public void setStartDate(LocalDate startDate) {
         this.startDate = startDate;
+    }
+
+    public Integer getPendingInstallments() {
+        return pendingInstallments;
+    }
+
+    public void setPendingInstallments(Integer pendingInstallments) {
+        this.pendingInstallments = pendingInstallments;
     }
 }

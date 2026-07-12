@@ -10,13 +10,15 @@ import {
   HardHat, 
   LogOut,
   Sun,
-  Moon
+  Moon,
+  Clock
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
 
 const navigation = [
   { name: 'Document Vault', href: '/dashboard', icon: FolderOpen },
+  { name: 'Ledger & AI Scheduler', href: '/dashboard/ledger', icon: Clock },
   { name: 'Portfolio Overview', href: '/dashboard/portfolio', icon: TrendingUp },
   { name: 'Bank Accounts', href: '/dashboard/bank-accounts', icon: Landmark },
   { name: 'Deposits (FD/RD)', href: '/dashboard/deposits', icon: Wallet },

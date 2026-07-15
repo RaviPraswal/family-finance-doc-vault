@@ -39,9 +39,16 @@ public class DocumentController {
     @GetMapping
     public ResponseEntity<List<Document>> listDocuments(
             @RequestParam(value = "associatedEntityType", required = false) String associatedEntityType,
-            @RequestParam(value = "associatedEntityId", required = false) UUID associatedEntityId) {
+            @RequestParam(value = "associatedEntityId", required = false) UUID associatedEntityId,
+            @AuthenticationPrincipal User user) {
         
         List<Document> allDocs = service.getAllDocuments();
+        
+        if ("MEMBER".equals(user.getRole())) {
+            allDocs = allDocs.stream()
+                    .filter(d -> user.getId().equals(d.getUserId()))
+                    .toList();
+        }
         
         if (associatedEntityType != null && associatedEntityId != null) {
             allDocs = allDocs.stream()
@@ -52,7 +59,8 @@ public class DocumentController {
     }
 
     @GetMapping("/{id}/download")
-    public ResponseEntity<Resource> downloadDocument(@PathVariable UUID id) {
+    public ResponseEntity<Resource> downloadDocument(@PathVariable UUID id, @AuthenticationPrincipal User user) {
+        checkDocAccess(id, user);
         Resource resource = service.loadFileAsResource(id);
 
         return ResponseEntity.ok()
@@ -62,13 +70,15 @@ public class DocumentController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDocument(@PathVariable UUID id) {
+    public ResponseEntity<Void> deleteDocument(@PathVariable UUID id, @AuthenticationPrincipal User user) {
+        checkDocAccess(id, user);
         service.deleteDocument(id);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id}/share")
-    public ResponseEntity<Void> shareDocument(@PathVariable UUID id, @RequestBody ShareRequest request) {
+    public ResponseEntity<Void> shareDocument(@PathVariable UUID id, @RequestBody ShareRequest request, @AuthenticationPrincipal User user) {
+        checkDocAccess(id, user);
         service.shareDocument(id, request.email());
         return ResponseEntity.ok().build();
     }
@@ -77,17 +87,20 @@ public class DocumentController {
     public ResponseEntity<Document> uploadNewVersion(@PathVariable UUID id,
                                                      @RequestParam("file") MultipartFile file,
                                                      @AuthenticationPrincipal User user) {
+        checkDocAccess(id, user);
         Document document = service.uploadNewVersion(id, file, user);
         return ResponseEntity.ok(document);
     }
 
     @GetMapping("/{id}/versions")
-    public ResponseEntity<List<DocumentVersion>> listVersions(@PathVariable UUID id) {
+    public ResponseEntity<List<DocumentVersion>> listVersions(@PathVariable UUID id, @AuthenticationPrincipal User user) {
+        checkDocAccess(id, user);
         return ResponseEntity.ok(service.getDocumentVersions(id));
     }
 
     @GetMapping("/{id}/versions/{versionId}/download")
-    public ResponseEntity<Resource> downloadVersion(@PathVariable UUID id, @PathVariable UUID versionId) {
+    public ResponseEntity<Resource> downloadVersion(@PathVariable UUID id, @PathVariable UUID versionId, @AuthenticationPrincipal User user) {
+        checkDocAccess(id, user);
         Resource resource = service.loadVersionAsResource(id, versionId);
 
         return ResponseEntity.ok()
@@ -97,15 +110,24 @@ public class DocumentController {
     }
 
     @DeleteMapping("/{id}/versions/{versionId}")
-    public ResponseEntity<Void> deleteVersion(@PathVariable UUID id, @PathVariable UUID versionId) {
+    public ResponseEntity<Void> deleteVersion(@PathVariable UUID id, @PathVariable UUID versionId, @AuthenticationPrincipal User user) {
+        checkDocAccess(id, user);
         service.deleteDocumentVersion(id, versionId);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id}/versions/{versionId}/share")
-    public ResponseEntity<Void> shareVersion(@PathVariable UUID id, @PathVariable UUID versionId, @RequestBody ShareRequest request) {
+    public ResponseEntity<Void> shareVersion(@PathVariable UUID id, @PathVariable UUID versionId, @RequestBody ShareRequest request, @AuthenticationPrincipal User user) {
+        checkDocAccess(id, user);
         service.shareDocumentVersion(id, versionId, request.email());
         return ResponseEntity.ok().build();
+    }
+
+    private void checkDocAccess(UUID docId, User user) {
+        Document doc = service.getDocument(docId);
+        if ("MEMBER".equals(user.getRole()) && !user.getId().equals(doc.getUserId())) {
+            throw new RuntimeException("Unauthorized");
+        }
     }
 
     @GetMapping("/{id}/thumbnail")

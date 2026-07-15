@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import { useThemeStore } from './store/themeStore';
@@ -20,9 +21,10 @@ import SideIncome from './pages/SideIncome';
 import Ledger from './pages/Ledger';
 import Expenses from './pages/Expenses';
 import Goals from './pages/Goals';
+import FamilyMembers from './pages/FamilyMembers';
 
 // Protected Route wrapper
-const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
+const ProtectedRoute = ({ children }: { children: ReactNode }) => {
   const token = useAuthStore((state) => state.token);
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -31,7 +33,6 @@ const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
 };
 
 function App() {
-  const token = useAuthStore((state) => state.token);
   const theme = useThemeStore((state) => state.theme);
 
   useEffect(() => {
@@ -80,6 +81,7 @@ function App() {
             <Route path="projects" element={<Projects />} />
             <Route path="expenses" element={<Expenses />} />
             <Route path="goals" element={<Goals />} />
+            <Route path="family" element={<FamilyMembers />} />
           </Route>
         </Routes>
       </div>

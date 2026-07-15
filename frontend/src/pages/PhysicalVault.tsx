@@ -47,15 +47,6 @@ const SHELF_1_HOLDERS = [
   { code: 'Holder D', name: 'Medical & Insurance', color: 'border-green-500 bg-green-500/5 text-green-600 dark:text-green-400', icon: '🟩', folders: ['Health Insurance', 'Medical Reports', 'Prescriptions', 'Blood Reports', 'Vaccination Records'] }
 ];
 
-const SHELF_2_HOLDERS = [
-  { code: 'Ravi', name: 'Ravi', icon: '👨', color: 'border-indigo-500 bg-indigo-500/5 text-indigo-600 dark:text-indigo-400', folders: ['Identity', 'Education', 'Employment', 'Banking', 'Medical', 'Insurance', 'Investments', 'Tax', 'Legal'] },
-  { code: 'Father', name: 'Father', icon: '👴', color: 'border-purple-500 bg-purple-500/5 text-purple-600 dark:text-purple-400', folders: ['Identity', 'Education', 'Employment', 'Banking', 'Medical', 'Insurance', 'Investments', 'Tax', 'Legal'] },
-  { code: 'Mother', name: 'Mother', icon: '👵', color: 'border-pink-500 bg-pink-500/5 text-pink-600 dark:text-pink-400', folders: ['Identity', 'Education', 'Employment', 'Banking', 'Medical', 'Insurance', 'Investments', 'Tax', 'Legal'] },
-  { code: 'Sister', name: 'Sister', icon: '👧', color: 'border-rose-500 bg-rose-500/5 text-rose-600 dark:text-rose-400', folders: ['Identity', 'Education', 'Employment', 'Banking', 'Medical', 'Insurance', 'Investments', 'Tax', 'Legal'] },
-  { code: 'Brother', name: 'Brother', icon: '👦', color: 'border-teal-500 bg-teal-500/5 text-teal-600 dark:text-teal-400', folders: ['Identity', 'Education', 'Employment', 'Banking', 'Medical', 'Insurance', 'Investments', 'Tax', 'Legal'] },
-  { code: 'Family Shared', name: 'Family Shared', icon: '👪', color: 'border-cyan-500 bg-cyan-500/5 text-cyan-600 dark:text-cyan-400', folders: ['Identity', 'Education', 'Employment', 'Banking', 'Medical', 'Insurance', 'Investments', 'Tax', 'Legal'] }
-];
-
 const SHELF_3_HOLDERS = [
   { code: 'Property', name: 'Property', icon: '🏠', color: 'border-amber-700 bg-amber-700/5 text-amber-700 dark:text-amber-400', folders: ['Sale Deed', 'Registry', 'Mutation', 'Property Tax', 'Builder Documents'] },
   { code: 'Investments', name: 'Investments', icon: '📈', color: 'border-emerald-600 bg-emerald-600/5 text-emerald-600 dark:text-emerald-400', folders: ['Mutual Funds', 'Stocks', 'PF', 'NPS', 'PPF', 'FD', 'RD', 'Bonds'] },
@@ -69,6 +60,7 @@ export default function PhysicalVault() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [stats, setStats] = useState<any>({});
   const [searchQuery, setSearchQuery] = useState('');
+  const [familyMembers, setFamilyMembers] = useState<any[]>([]);
   
   // Navigation states
   const [expandedShelf, setExpandedShelf] = useState<string | null>('Shelf 1');
@@ -83,6 +75,49 @@ export default function PhysicalVault() {
   const [borrowerName, setBorrowerName] = useState('');
   const [notes, setNotes] = useState('');
   const [tab, setTab] = useState<'almirah' | 'stats'>('almirah');
+
+  const getShelf2Holders = () => {
+    if (familyMembers.length === 0) {
+      return [
+        { code: 'Family Shared', name: 'Family Shared', icon: '👪', color: 'border-cyan-500 bg-cyan-500/5 text-cyan-600 dark:text-cyan-400', folders: ['Identity', 'Education', 'Employment', 'Banking', 'Medical', 'Insurance', 'Investments', 'Tax', 'Legal'] }
+      ];
+    }
+    const colors = [
+      'border-indigo-500 bg-indigo-500/5 text-indigo-600 dark:text-indigo-400',
+      'border-purple-500 bg-purple-500/5 text-purple-600 dark:text-purple-400',
+      'border-pink-500 bg-pink-500/5 text-pink-600 dark:text-pink-400',
+      'border-rose-500 bg-rose-500/5 text-rose-600 dark:text-rose-400',
+      'border-teal-500 bg-teal-500/5 text-teal-600 dark:text-teal-400',
+      'border-orange-500 bg-orange-500/5 text-orange-600 dark:text-orange-400'
+    ];
+    const icons = ['👨', '👩', '🧑', '👵', '👴', '👧', '👦'];
+    const list = familyMembers.map((member, index) => {
+      let icon = icons[index % icons.length];
+      const nameLower = member.name.toLowerCase();
+      if (nameLower.includes('father') || nameLower.includes('dad') || nameLower.includes('papa')) icon = '👴';
+      else if (nameLower.includes('mother') || nameLower.includes('mom') || nameLower.includes('mummy') || nameLower.includes('maa')) icon = '👵';
+      else if (nameLower.includes('sister')) icon = '👧';
+      else if (nameLower.includes('brother')) icon = '👦';
+
+      return {
+        code: member.name,
+        name: member.name,
+        icon: icon,
+        color: colors[index % colors.length],
+        folders: ['Identity', 'Education', 'Employment', 'Banking', 'Medical', 'Insurance', 'Investments', 'Tax', 'Legal']
+      };
+    });
+    list.push({
+      code: 'Family Shared',
+      name: 'Family Shared',
+      icon: '👪',
+      color: 'border-cyan-500 bg-cyan-500/5 text-cyan-600 dark:text-cyan-400',
+      folders: ['Identity', 'Education', 'Employment', 'Banking', 'Medical', 'Insurance', 'Investments', 'Tax', 'Legal']
+    });
+    return list;
+  };
+
+  const shelf2Holders = getShelf2Holders();
 
   const fetchDocuments = async () => {
     try {
@@ -102,9 +137,22 @@ export default function PhysicalVault() {
     }
   };
 
+  const fetchFamilyMembers = async () => {
+    try {
+      const data = await apiClient('/api/family-members');
+      setFamilyMembers(data);
+      if (data.length > 0) {
+        setBorrowerName(data[0].name);
+      }
+    } catch (err) {
+      console.error('Failed to fetch family members', err);
+    }
+  };
+
   useEffect(() => {
     fetchDocuments();
     fetchStats();
+    fetchFamilyMembers();
   }, []);
 
   const fetchLogs = async (docId: string) => {
@@ -435,7 +483,7 @@ export default function PhysicalVault() {
                           transition={{ duration: 0.2 }}
                           className="p-4 grid grid-cols-2 md:grid-cols-3 gap-3 bg-muted/10 border-t border-border/50"
                         >
-                          {SHELF_2_HOLDERS.map(holder => (
+                          {shelf2Holders.map(holder => (
                             <button
                               key={holder.code}
                               onClick={() => {
@@ -707,13 +755,25 @@ export default function PhysicalVault() {
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-muted-foreground mb-2">BORROWER NAME</label>
-                <input 
-                  type="text" 
-                  value={borrowerName} 
-                  onChange={(e) => setBorrowerName(e.target.value)} 
-                  placeholder="e.g. Father, Sister, Agent name"
-                  className="w-full p-3 bg-muted border border-border rounded-xl focus:ring-1 focus:ring-primary outline-none text-sm text-foreground"
-                />
+                {familyMembers.length > 0 ? (
+                  <select
+                    value={borrowerName}
+                    onChange={(e) => setBorrowerName(e.target.value)}
+                    className="w-full p-3 bg-muted border border-border rounded-xl focus:ring-1 focus:ring-primary outline-none text-sm text-foreground"
+                  >
+                    {familyMembers.map(m => (
+                      <option key={m.id} value={m.name}>{m.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input 
+                    type="text" 
+                    value={borrowerName} 
+                    onChange={(e) => setBorrowerName(e.target.value)} 
+                    placeholder="e.g. Father, Sister"
+                    className="w-full p-3 bg-muted border border-border rounded-xl focus:ring-1 focus:ring-primary outline-none text-sm text-foreground"
+                  />
+                )}
               </div>
               <div>
                 <label className="block text-xs font-bold text-muted-foreground mb-2">REASON / NOTES</label>

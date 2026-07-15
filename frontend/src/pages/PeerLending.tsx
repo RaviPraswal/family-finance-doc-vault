@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
-import { Plus, Users, Trash2, ArrowRightLeft } from 'lucide-react';
+import { Plus, Trash2, ArrowRightLeft } from 'lucide-react';
 
 interface PeerLending {
   id: string;

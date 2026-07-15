@@ -18,8 +18,14 @@ public class BankAccountController {
     }
 
     @GetMapping
-    public ResponseEntity<List<BankAccount>> getAll() {
-        return ResponseEntity.ok(repository.findAllByTenantIdOrderByCreatedAtDesc(UUID.fromString(TenantContext.getCurrentTenant())));
+    public ResponseEntity<List<BankAccount>> getAll(@org.springframework.security.core.annotation.AuthenticationPrincipal com.finnest.user.User user) {
+        List<BankAccount> list = repository.findAllByTenantIdOrderByCreatedAtDesc(UUID.fromString(TenantContext.getCurrentTenant()));
+        if ("MEMBER".equals(user.getRole())) {
+            list = list.stream()
+                    .filter(x -> user.getId().equals(x.getUserId()))
+                    .toList();
+        }
+        return ResponseEntity.ok(list);
     }
 
     @PostMapping
@@ -29,21 +35,28 @@ public class BankAccountController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<BankAccount> update(@PathVariable UUID id, @RequestBody BankAccount entity) {
+    public ResponseEntity<BankAccount> update(@PathVariable UUID id, @RequestBody BankAccount entity, @org.springframework.security.core.annotation.AuthenticationPrincipal com.finnest.user.User user) {
         BankAccount existing = repository.findById(id).orElseThrow();
         if (!existing.getTenantId().equals(UUID.fromString(TenantContext.getCurrentTenant()))) {
+            throw new RuntimeException("Unauthorized");
+        }
+        if ("MEMBER".equals(user.getRole()) && !user.getId().equals(existing.getUserId())) {
             throw new RuntimeException("Unauthorized");
         }
         entity.setId(id);
         entity.setTenantId(existing.getTenantId());
         entity.setCreatedAt(existing.getCreatedAt());
+        entity.setUserId(existing.getUserId());
         return ResponseEntity.ok(repository.save(entity));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+    public ResponseEntity<Void> delete(@PathVariable UUID id, @org.springframework.security.core.annotation.AuthenticationPrincipal com.finnest.user.User user) {
         BankAccount existing = repository.findById(id).orElseThrow();
         if (!existing.getTenantId().equals(UUID.fromString(TenantContext.getCurrentTenant()))) {
+            throw new RuntimeException("Unauthorized");
+        }
+        if ("MEMBER".equals(user.getRole()) && !user.getId().equals(existing.getUserId())) {
             throw new RuntimeException("Unauthorized");
         }
         repository.delete(existing);

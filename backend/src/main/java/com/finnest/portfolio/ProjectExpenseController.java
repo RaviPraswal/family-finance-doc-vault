@@ -20,18 +20,24 @@ public class ProjectExpenseController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ProjectExpense>> getAll(@PathVariable UUID projectId) {
+    public ResponseEntity<List<ProjectExpense>> getAll(@PathVariable UUID projectId, @org.springframework.security.core.annotation.AuthenticationPrincipal com.finnest.user.User user) {
         Project project = projectRepository.findById(projectId).orElseThrow();
         if (!project.getTenantId().equals(UUID.fromString(TenantContext.getCurrentTenant()))) {
+            throw new RuntimeException("Unauthorized");
+        }
+        if ("MEMBER".equals(user.getRole()) && !user.getId().equals(project.getUserId())) {
             throw new RuntimeException("Unauthorized");
         }
         return ResponseEntity.ok(repository.findAllByProjectIdOrderByDateDesc(projectId));
     }
 
     @PostMapping
-    public ResponseEntity<ProjectExpense> create(@PathVariable UUID projectId, @RequestBody ProjectExpense entity) {
+    public ResponseEntity<ProjectExpense> create(@PathVariable UUID projectId, @RequestBody ProjectExpense entity, @org.springframework.security.core.annotation.AuthenticationPrincipal com.finnest.user.User user) {
         Project project = projectRepository.findById(projectId).orElseThrow();
         if (!project.getTenantId().equals(UUID.fromString(TenantContext.getCurrentTenant()))) {
+            throw new RuntimeException("Unauthorized");
+        }
+        if ("MEMBER".equals(user.getRole()) && !user.getId().equals(project.getUserId())) {
             throw new RuntimeException("Unauthorized");
         }
         entity.setProject(project);
@@ -40,9 +46,12 @@ public class ProjectExpenseController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable UUID projectId, @PathVariable UUID id) {
+    public ResponseEntity<Void> delete(@PathVariable UUID projectId, @PathVariable UUID id, @org.springframework.security.core.annotation.AuthenticationPrincipal com.finnest.user.User user) {
         ProjectExpense existing = repository.findById(id).orElseThrow();
         if (!existing.getTenantId().equals(UUID.fromString(TenantContext.getCurrentTenant()))) {
+            throw new RuntimeException("Unauthorized");
+        }
+        if ("MEMBER".equals(user.getRole()) && !user.getId().equals(existing.getUserId())) {
             throw new RuntimeException("Unauthorized");
         }
         repository.delete(existing);

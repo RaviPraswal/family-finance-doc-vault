@@ -32,11 +32,13 @@ const navigation = [
   { name: 'Projects & Expenses', href: '/dashboard/projects', icon: HardHat },
   { name: 'Daily Expenses', href: '/dashboard/expenses', icon: Wallet },
   { name: 'Goals', href: '/dashboard/goals', icon: TrendingUp },
+  { name: 'Family Members', href: '/dashboard/family', icon: Users },
 ];
 
 export default function DashboardLayout() {
   const location = useLocation();
   const logout = useAuthStore((state) => state.logout);
+  const currentUser = useAuthStore((state) => state.user);
   const { theme, toggleTheme } = useThemeStore();
 
   return (
@@ -77,6 +79,21 @@ export default function DashboardLayout() {
         </nav>
         
         <div className="p-4 border-t border-border/50 space-y-2 shrink-0">
+          {currentUser && (
+            <div className="flex items-center gap-3 p-3 bg-muted/30 border border-border/40 rounded-xl mb-3">
+              <div className="h-9 w-9 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center justify-center font-black uppercase text-xs shrink-0">
+                {currentUser.name.charAt(0)}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-foreground truncate leading-snug">{currentUser.name}</p>
+                <p className="text-[10px] text-muted-foreground truncate leading-none mt-0.5">{currentUser.email}</p>
+                <p className="text-[9px] uppercase font-black text-primary tracking-wider mt-1.5">
+                  {currentUser.role === 'OWNER' ? '👑 Admin' : '👤 Member'}
+                </p>
+              </div>
+            </div>
+          )}
+
           <button
             onClick={toggleTheme}
             className="flex items-center w-full px-3 py-2 text-sm font-medium text-foreground rounded-xl hover:bg-muted/50 transition-colors"
@@ -102,8 +119,20 @@ export default function DashboardLayout() {
       <div className="flex-1 flex flex-col overflow-hidden relative z-10">
         {/* Mobile Header */}
         <div className="md:hidden h-16 border-b border-border/50 glass-panel flex items-center justify-between px-4 z-20 m-4 rounded-xl">
-          <h1 className="text-xl font-bold text-foreground">FinNest</h1>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold text-foreground">FinNest</h1>
+            {currentUser && (
+              <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full font-bold">
+                {currentUser.role === 'OWNER' ? '👑 Admin' : '👤 Member'}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {currentUser && (
+              <span className="text-xs font-semibold text-muted-foreground">
+                Hi, {currentUser.name.split(' ')[0]}
+              </span>
+            )}
             <button onClick={toggleTheme} className="p-2 text-foreground">
                {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>

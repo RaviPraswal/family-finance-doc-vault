@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAuthStore } from '../store/authStore';
+
 import { X, Send, Loader2 } from 'lucide-react';
 import { apiClient } from '../api/client';
 

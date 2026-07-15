@@ -18,6 +18,12 @@ public class Tenant extends BaseEntity {
     @Column(nullable = false)
     private String plan = "FREE";
 
+    @Column(columnDefinition = "text")
+    private String address;
+
+    @Column
+    private String phone;
+
     public String getName() {
         return name;
     }
@@ -40,5 +46,21 @@ public class Tenant extends BaseEntity {
 
     public void setPlan(String plan) {
         this.plan = plan;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 }

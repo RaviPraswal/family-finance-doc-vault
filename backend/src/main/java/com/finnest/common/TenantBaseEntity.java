@@ -15,6 +15,9 @@ public abstract class TenantBaseEntity extends BaseEntity implements TenantAware
     @Column(name = "tenant_id", nullable = false, updatable = false)
     private UUID tenantId;
 
+    @Column(name = "user_id")
+    private UUID userId;
+
     @Override
     public UUID getTenantId() {
         return tenantId;
@@ -23,5 +26,13 @@ public abstract class TenantBaseEntity extends BaseEntity implements TenantAware
     @Override
     public void setTenantId(UUID tenantId) {
         this.tenantId = tenantId;
+    }
+
+    public UUID getUserId() {
+        return userId;
+    }
+
+    public void setUserId(UUID userId) {
+        this.userId = userId;
     }
 }

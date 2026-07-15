@@ -51,25 +51,54 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.findByEmail(request.email()).isPresent()) {
-            throw new RuntimeException("Email already registered");
+        if (request.members() == null || request.members().isEmpty()) {
+            throw new RuntimeException("Family must have at least one member");
         }
 
+        // Check if any member email is already registered
+        for (MemberRegisterRequest member : request.members()) {
+            if (userRepository.findByEmail(member.email()).isPresent()) {
+                throw new RuntimeException("Email already registered: " + member.email());
+            }
+        }
+
+        // 1. Create and save the Tenant
         Tenant tenant = new Tenant();
         tenant.setName(request.familyName());
+        tenant.setAddress(request.address());
+        tenant.setPhone(request.phone());
         tenant = tenantRepository.save(tenant);
 
-        User user = new User();
-        user.setName(request.name());
-        user.setEmail(request.email());
-        user.setPassword(passwordEncoder.encode(request.password()));
-        user.setTenantId(tenant.getId());
-        user.setRole("OWNER");
-        user = userRepository.save(user);
+        User firstAdmin = null;
 
-        // Seed data for the newly registered tenant
+        // 2. Loop through and save all members
+        for (MemberRegisterRequest member : request.members()) {
+            User user = new User();
+            user.setName(member.name());
+            user.setEmail(member.email());
+            user.setPhone(member.phone());
+            user.setPassword(passwordEncoder.encode(member.password()));
+            user.setTenantId(tenant.getId());
+            user.setRole(member.isAdmin() ? "OWNER" : "MEMBER");
+            
+            User savedUser = userRepository.save(user);
+            
+            if (member.isAdmin() && firstAdmin == null) {
+                firstAdmin = savedUser;
+            }
+        }
+
+        // If no user was explicitly marked as admin, fallback to the first user
+        if (firstAdmin == null) {
+            firstAdmin = userRepository.findByEmail(request.members().get(0).email())
+                .orElseThrow(() -> new RuntimeException("Could not save members"));
+            firstAdmin.setRole("OWNER");
+            firstAdmin = userRepository.save(firstAdmin);
+        }
+
+        // Seed data for the newly registered tenant using the first admin
         com.finnest.config.DataInitializer.seedDataForTenant(
-            user,
+            firstAdmin,
             goalRepo,
             projectRepo,
             expenseRepo,
@@ -78,7 +107,7 @@ public class AuthService {
             peerLendingRepo
         );
 
-        String jwtToken = jwtService.generateToken(user);
+        String jwtToken = jwtService.generateToken(firstAdmin);
         return new AuthResponse(jwtToken);
     }
 
@@ -96,6 +125,20 @@ public class AuthService {
     }
 }
 
-record RegisterRequest(String name, String email, String password, String familyName) {}
+record RegisterRequest(
+    String familyName, 
+    String address, 
+    String phone, 
+    java.util.List<MemberRegisterRequest> members
+) {}
+
+record MemberRegisterRequest(
+    String name, 
+    String email, 
+    String password, 
+    String phone, 
+    boolean isAdmin
+) {}
+
 record LoginRequest(String email, String password) {}
 record AuthResponse(String token) {}

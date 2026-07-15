@@ -28,7 +28,7 @@ spring:
       base-url: https://generativelanguage.googleapis.com/v1beta/openai/
       chat:
         options:
-          model: gemini-3.5-flash
+          model: gemini-3-flash-preview
 
   # Mail Configuration
   mail:

@@ -14,6 +14,15 @@ public class Project extends TenantBaseEntity {
     private String name;
     private String status; // IN_PROGRESS, COMPLETED
     private BigDecimal budget;
+    private String priority = "MEDIUM"; // HIGH, MEDIUM, LOW
+
+    public String getPriority() {
+        return priority;
+    }
+
+    public void setPriority(String priority) {
+        this.priority = priority;
+    }
     private LocalDate startDate;
     private LocalDate endDate;
 

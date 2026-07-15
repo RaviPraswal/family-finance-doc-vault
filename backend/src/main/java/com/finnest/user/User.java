@@ -1,19 +1,27 @@
 package com.finnest.user;
 
-import com.finnest.common.TenantBaseEntity;
+import com.finnest.common.BaseEntity;
+import com.finnest.tenant.TenantAware;
+import com.finnest.tenant.TenantListener;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import jakarta.persistence.EntityListeners;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.UUID;
 
 @Entity
 @Table(name = "users")
-public class User extends TenantBaseEntity implements UserDetails {
+@EntityListeners(TenantListener.class)
+public class User extends BaseEntity implements TenantAware, UserDetails {
+
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
 
     @Column(nullable = false)
     private String name;
@@ -101,5 +109,15 @@ public class User extends TenantBaseEntity implements UserDetails {
 
     public void setPhone(String phone) {
         this.phone = phone;
+    }
+
+    @Override
+    public UUID getTenantId() {
+        return tenantId;
+    }
+
+    @Override
+    public void setTenantId(UUID tenantId) {
+        this.tenantId = tenantId;
     }
 }

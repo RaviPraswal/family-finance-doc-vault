@@ -6,6 +6,7 @@ import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import PhysicalVault from './pages/PhysicalVault';
 import DashboardLayout from './components/DashboardLayout';
 import Projects from './pages/Projects';
 import PortfolioOverview from './pages/PortfolioOverview';
@@ -66,6 +67,7 @@ function App() {
           >
             <Route index element={<Dashboard />} />
             
+            <Route path="physical-vault" element={<PhysicalVault />} />
             <Route path="ledger" element={<Ledger />} />
             <Route path="portfolio" element={<PortfolioOverview />} />
             <Route path="bank-accounts" element={<BankAccounts />} />

@@ -117,5 +117,10 @@ public class DocumentController {
                 .body(resource);
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<Document> getDocument(@PathVariable UUID id) {
+        return ResponseEntity.ok(service.getDocument(id));
+    }
+ 
     public record ShareRequest(String email) {}
 }

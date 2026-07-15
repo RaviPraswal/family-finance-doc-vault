@@ -51,6 +51,10 @@ public class Document extends TenantBaseEntity {
     @jakarta.persistence.OneToMany(mappedBy = "document", cascade = jakarta.persistence.CascadeType.ALL, orphanRemoval = true)
     private List<DocumentVersion> versions = new java.util.ArrayList<>();
 
+    @jakarta.persistence.OneToOne(mappedBy = "document", cascade = jakarta.persistence.CascadeType.ALL, orphanRemoval = true)
+    private PhysicalLocation physicalLocation;
+
+
     @Column(name = "associated_entity_type")
     private String associatedEntityType;
 
@@ -158,7 +162,14 @@ public class Document extends TenantBaseEntity {
         return versions;
     }
 
-    public void setVersions(List<DocumentVersion> versions) {
-        this.versions = versions;
+    public PhysicalLocation getPhysicalLocation() {
+        return physicalLocation;
+    }
+
+    public void setPhysicalLocation(PhysicalLocation physicalLocation) {
+        this.physicalLocation = physicalLocation;
+        if (physicalLocation != null) {
+            physicalLocation.setDocument(this);
+        }
     }
 }

@@ -288,4 +288,14 @@ public class DocumentService {
         String body = "Hello,\n\nA specific version (v" + version.getVersionNumber() + ") of the document titled '" + document.getName() + "' has been securely shared with you from Finnest Family Finance Vault.\n\nPlease find it attached.";
         emailService.sendDocumentEmail(targetEmail, subject, body, filePath, document.getName());
     }
+
+    public Document getDocument(UUID documentId) {
+        Document document = repository.findById(documentId)
+                .orElseThrow(() -> new RuntimeException("Document not found"));
+
+        if (!document.getTenantId().equals(UUID.fromString(TenantContext.getCurrentTenant()))) {
+            throw new RuntimeException("Unauthorized");
+        }
+        return document;
+    }
 }

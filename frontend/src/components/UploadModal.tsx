@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
-import { X, UploadCloud, Loader2, Sparkles, CheckCircle, HelpCircle } from 'lucide-react';
+import { X, UploadCloud, Loader2, Sparkles, HelpCircle } from 'lucide-react';
+import { apiClient } from '../api/client';
 
 interface UploadModalProps {
   onClose: () => void;
@@ -8,31 +9,6 @@ interface UploadModalProps {
 }
 
 type Step = 'UPLOAD' | 'ANALYZING' | 'ASK_PHYSICAL' | 'CHOOSE_LOCATION';
-
-const SHELVES: Record<string, Array<{ code: string, name: string, folders: string[] }>> = {
-  'Shelf 1': [
-    { code: 'Holder A', name: 'Identity Documents', folders: ['Aadhaar', 'PAN', 'Passport', 'Driving Licence', 'Voter ID', 'Birth Certificate', 'Marriage Certificate'] },
-    { code: 'Holder B', name: 'Banking Documents', folders: ['SBI', 'HDFC', 'ICICI', 'Axis', 'Passbooks', 'Cheque Books', 'Debit Cards', 'FD', 'RD'] },
-    { code: 'Holder C', name: 'Vehicle Documents', folders: ['Car', 'Bike', 'RC', 'Insurance', 'PUC', 'FASTag', 'Service Records'] },
-    { code: 'Holder D', name: 'Medical & Insurance', folders: ['Health Insurance', 'Medical Reports', 'Prescriptions', 'Blood Reports', 'Vaccination Records'] }
-  ],
-  'Shelf 2': [
-    { code: 'Ravi', name: 'Ravi', folders: ['Identity', 'Education', 'Employment', 'Banking', 'Medical', 'Insurance', 'Investments', 'Tax', 'Legal'] },
-    { code: 'Father', name: 'Father', folders: ['Identity', 'Education', 'Employment', 'Banking', 'Medical', 'Insurance', 'Investments', 'Tax', 'Legal'] },
-    { code: 'Mother', name: 'Mother', folders: ['Identity', 'Education', 'Employment', 'Banking', 'Medical', 'Insurance', 'Investments', 'Tax', 'Legal'] },
-    { code: 'Sister', name: 'Sister', folders: ['Identity', 'Education', 'Employment', 'Banking', 'Medical', 'Insurance', 'Investments', 'Tax', 'Legal'] },
-    { code: 'Brother', name: 'Brother', folders: ['Identity', 'Education', 'Employment', 'Banking', 'Medical', 'Insurance', 'Investments', 'Tax', 'Legal'] },
-    { code: 'Family Shared', name: 'Family Shared', folders: ['Identity', 'Education', 'Employment', 'Banking', 'Medical', 'Insurance', 'Investments', 'Tax', 'Legal'] }
-  ],
-  'Shelf 3': [
-    { code: 'Property', name: 'Property', folders: ['Sale Deed', 'Registry', 'Mutation', 'Property Tax', 'Builder Documents'] },
-    { code: 'Investments', name: 'Investments', folders: ['Mutual Funds', 'Stocks', 'PF', 'NPS', 'PPF', 'FD', 'RD', 'Bonds'] },
-    { code: 'Gold', name: 'Gold', folders: ['Bills', 'Valuations', 'Storage Logs'] },
-    { code: 'Loans', name: 'Loans', folders: ['Home Loan', 'Personal Loan', 'Vehicle Loan', 'Payment Schedule', 'Statements'] },
-    { code: 'Tax', name: 'Tax', folders: ['Tax Returns', 'Deductions', 'Receipts'] },
-    { code: 'Archive', name: 'Archive', folders: ['Old Policies', 'Closed Accounts', 'Expired Documents', 'Warranty Papers', 'Old Medical Records'] }
-  ]
-};
 
 export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
   const [step, setStep] = useState<Step>('UPLOAD');
@@ -52,16 +28,62 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
   const [selectedHolder, setSelectedHolder] = useState('Holder A');
   const [selectedFolder, setSelectedFolder] = useState('');
 
+  const [shelves, setShelves] = useState<Record<string, Array<{ code: string, name: string, folders: string[] }>>>({
+    'Shelf 1': [
+      { code: 'Holder A', name: 'Identity Documents', folders: ['Aadhaar', 'PAN', 'Passport', 'Driving Licence', 'Voter ID', 'Birth Certificate', 'Marriage Certificate'] },
+      { code: 'Holder B', name: 'Banking Documents', folders: ['SBI', 'HDFC', 'ICICI', 'Axis', 'Passbooks', 'Cheque Books', 'Debit Cards', 'FD', 'RD'] },
+      { code: 'Holder C', name: 'Vehicle Documents', folders: ['Car', 'Bike', 'RC', 'Insurance', 'PUC', 'FASTag', 'Service Records'] },
+      { code: 'Holder D', name: 'Medical & Insurance', folders: ['Health Insurance', 'Medical Reports', 'Prescriptions', 'Blood Reports', 'Vaccination Records'] }
+    ],
+    'Shelf 2': [
+      { code: 'Family Shared', name: 'Family Shared', folders: ['Identity', 'Education', 'Employment', 'Banking', 'Medical', 'Insurance', 'Investments', 'Tax', 'Legal'] }
+    ],
+    'Shelf 3': [
+      { code: 'Property', name: 'Property', folders: ['Sale Deed', 'Registry', 'Mutation', 'Property Tax', 'Builder Documents'] },
+      { code: 'Investments', name: 'Investments', folders: ['Mutual Funds', 'Stocks', 'PF', 'NPS', 'PPF', 'FD', 'RD', 'Bonds'] },
+      { code: 'Gold', name: 'Gold', folders: ['Bills', 'Valuations', 'Storage Logs'] },
+      { code: 'Loans', name: 'Loans', folders: ['Home Loan', 'Personal Loan', 'Vehicle Loan', 'Payment Schedule', 'Statements'] },
+      { code: 'Tax', name: 'Tax', folders: ['Tax Returns', 'Deductions', 'Receipts'] },
+      { code: 'Archive', name: 'Archive', folders: ['Old Policies', 'Closed Accounts', 'Expired Documents', 'Warranty Papers', 'Old Medical Records'] }
+    ]
+  });
+
+  // Fetch family members for Shelf 2
+  useEffect(() => {
+    const fetchFamilyMembers = async () => {
+      try {
+        const members = await apiClient('/api/family-members');
+        const shelf2 = members.map((m: any) => ({
+          code: m.name,
+          name: m.name,
+          folders: ['Identity', 'Education', 'Employment', 'Banking', 'Medical', 'Insurance', 'Investments', 'Tax', 'Legal']
+        }));
+        shelf2.push({
+          code: 'Family Shared',
+          name: 'Family Shared',
+          folders: ['Identity', 'Education', 'Employment', 'Banking', 'Medical', 'Insurance', 'Investments', 'Tax', 'Legal']
+        });
+        setShelves(prev => ({
+          ...prev,
+          'Shelf 2': shelf2
+        }));
+      } catch (err) {
+        console.error('Failed to fetch family members for shelves', err);
+      }
+    };
+    fetchFamilyMembers();
+  }, []);
+
   // Update default folder list when holder selection changes
   useEffect(() => {
-    const shelfHolders = SHELVES[selectedShelf] || [];
+    const shelfHolders = shelves[selectedShelf] || [];
     const holder = shelfHolders.find(h => h.code === selectedHolder);
     if (holder && holder.folders.length > 0) {
       setSelectedFolder(holder.folders[0]);
     } else {
       setSelectedFolder('');
     }
-  }, [selectedShelf, selectedHolder]);
+  }, [selectedShelf, selectedHolder, shelves]);
 
   const startPolling = (doc: any) => {
     let attempts = 0;
@@ -80,12 +102,12 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
               setAiSuggestion(updatedDoc.extractedData.physicalSuggestion);
               // Auto-fill form from suggestion
               const sugg = updatedDoc.extractedData.physicalSuggestion;
-              if (sugg.shelf && SHELVES[sugg.shelf]) {
+              if (sugg.shelf && shelves[sugg.shelf]) {
                 setSelectedShelf(sugg.shelf);
-                const holderExists = SHELVES[sugg.shelf].some(h => h.code === sugg.holder);
+                const holderExists = shelves[sugg.shelf].some((h: any) => h.code === sugg.holder);
                 if (holderExists) {
                   setSelectedHolder(sugg.holder);
-                  const hObj = SHELVES[sugg.shelf].find(h => h.code === sugg.holder);
+                  const hObj = shelves[sugg.shelf].find((h: any) => h.code === sugg.holder);
                   if (hObj && hObj.folders.includes(sugg.folder)) {
                     setSelectedFolder(sugg.folder);
                   }
@@ -196,9 +218,9 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
 
   const applyAiSuggestion = () => {
     if (!aiSuggestion) return;
-    if (aiSuggestion.shelf && SHELVES[aiSuggestion.shelf]) {
+    if (aiSuggestion.shelf && shelves[aiSuggestion.shelf]) {
       setSelectedShelf(aiSuggestion.shelf);
-      const holderObj = SHELVES[aiSuggestion.shelf].find(h => h.code === aiSuggestion.holder);
+      const holderObj = shelves[aiSuggestion.shelf].find((h: any) => h.code === aiSuggestion.holder);
       if (holderObj) {
         setSelectedHolder(aiSuggestion.holder);
         if (holderObj.folders.includes(aiSuggestion.folder)) {
@@ -372,13 +394,13 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
               <div>
                 <label className="block text-xs font-bold text-muted-foreground mb-1 uppercase">Select Shelf</label>
                 <div className="grid grid-cols-3 gap-2">
-                  {Object.keys(SHELVES).map(shelf => (
+                  {Object.keys(shelves).map(shelf => (
                     <button
                       key={shelf}
                       type="button"
                       onClick={() => {
                         setSelectedShelf(shelf);
-                        const firstHolder = SHELVES[shelf][0];
+                        const firstHolder = shelves[shelf][0];
                         setSelectedHolder(firstHolder.code);
                       }}
                       className={`py-2 px-3 border text-xs font-semibold rounded-lg transition-all ${selectedShelf === shelf ? 'border-primary bg-primary/5 text-primary' : 'border-border text-muted-foreground'}`}
@@ -397,7 +419,7 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
                   onChange={(e) => setSelectedHolder(e.target.value)}
                   className="w-full p-2.5 rounded-lg bg-muted text-foreground border border-input outline-none text-xs"
                 >
-                  {(SHELVES[selectedShelf] || []).map(h => (
+                  {(shelves[selectedShelf] || []).map(h => (
                     <option key={h.code} value={h.code}>{h.name}</option>
                   ))}
                 </select>
@@ -411,7 +433,7 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
                   onChange={(e) => setSelectedFolder(e.target.value)}
                   className="w-full p-2.5 rounded-lg bg-muted text-foreground border border-input outline-none text-xs"
                 >
-                  {((SHELVES[selectedShelf] || []).find(h => h.code === selectedHolder)?.folders || []).map(f => (
+                  {((shelves[selectedShelf] || []).find(h => h.code === selectedHolder)?.folders || []).map(f => (
                     <option key={f} value={f}>{f}</option>
                   ))}
                 </select>

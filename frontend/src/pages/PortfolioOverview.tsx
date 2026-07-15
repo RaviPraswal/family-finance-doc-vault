@@ -4,7 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from 'recharts';
 import { apiClient } from '../api/client';
-import { Landmark, TrendingUp, CreditCard, Wallet } from 'lucide-react';
+import { Landmark, TrendingUp, CreditCard } from 'lucide-react';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -131,11 +131,11 @@ export default function PortfolioOverview() {
                     paddingAngle={5}
                     dataKey="value"
                   >
-                    {assetAllocationData.map((entry, index) => (
+                    {assetAllocationData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value: number) => `₹${value.toLocaleString()}`} />
+                  <Tooltip formatter={(value: any) => `₹${Number(value).toLocaleString()}`} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>
@@ -154,9 +154,9 @@ export default function PortfolioOverview() {
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} />
                 <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `₹${value / 1000}k`} />
-                <Tooltip formatter={(value: number) => `₹${value.toLocaleString()}`} cursor={{fill: '#F3F4F6'}} />
+                <Tooltip formatter={(value: any) => `₹${Number(value).toLocaleString()}`} cursor={{fill: '#F3F4F6'}} />
                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                  {liabilitiesData.map((entry, index) => (
+                  {liabilitiesData.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={index === 0 ? '#10B981' : '#EF4444'} />
                   ))}
                 </Bar>

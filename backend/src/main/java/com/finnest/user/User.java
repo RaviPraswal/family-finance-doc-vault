@@ -22,10 +22,15 @@ public class User extends TenantBaseEntity implements UserDetails {
     private String email;
 
     @Column(name = "password_hash")
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private String password;
 
     @Column(nullable = false)
     private String role = "OWNER";
+
+    @Column
+    private String phone;
+
 
     public String getName() {
         return name;
@@ -88,5 +93,13 @@ public class User extends TenantBaseEntity implements UserDetails {
     @Override
     public boolean isEnabled() {
         return true;
+    }
+
+    public String getPhone() {
+        return phone;
+    }
+
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
-import { Plus, Landmark, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Landmark, Trash2 } from 'lucide-react';
 
 interface BankAccount {
   id: string;

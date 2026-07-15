@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
-import { Plus, Building, CheckCircle, Clock } from 'lucide-react';
+import { Plus, Building } from 'lucide-react';
 
 interface Project {
   id: string;

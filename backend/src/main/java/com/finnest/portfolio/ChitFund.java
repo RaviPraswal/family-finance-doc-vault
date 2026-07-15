@@ -19,6 +19,38 @@ public class ChitFund extends TenantBaseEntity {
     private Integer pendingInstallments;
     private LocalDate startDate;
 
+    private Boolean isAllotted = false;
+    private BigDecimal allottedAmount;
+
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    @jakarta.persistence.ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
+    @jakarta.persistence.JoinColumn(name = "linked_bank_account_id")
+    private com.finnest.portfolio.BankAccount linkedAccount;
+
+    public Boolean getIsAllotted() {
+        return isAllotted;
+    }
+
+    public void setIsAllotted(Boolean isAllotted) {
+        this.isAllotted = isAllotted;
+    }
+
+    public BigDecimal getAllottedAmount() {
+        return allottedAmount;
+    }
+
+    public void setAllottedAmount(BigDecimal allottedAmount) {
+        this.allottedAmount = allottedAmount;
+    }
+
+    public com.finnest.portfolio.BankAccount getLinkedAccount() {
+        return linkedAccount;
+    }
+
+    public void setLinkedAccount(com.finnest.portfolio.BankAccount linkedAccount) {
+        this.linkedAccount = linkedAccount;
+    }
+
     public String getOrganizerName() {
         return organizerName;
     }

@@ -15,6 +15,8 @@ public class BankAccount extends TenantBaseEntity {
     private String accountNumber;
     private String accountType; // Savings, Current, Salary
     private BigDecimal currentBalance;
+    private String name;
+    private String iban;
 
     public String getBankName() {
         return bankName;
@@ -22,6 +24,22 @@ public class BankAccount extends TenantBaseEntity {
 
     public void setBankName(String bankName) {
         this.bankName = bankName;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getIban() {
+        return iban;
+    }
+
+    public void setIban(String iban) {
+        this.iban = iban;
     }
 
     public String getAccountHolderName() {

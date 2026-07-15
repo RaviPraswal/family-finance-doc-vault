@@ -17,6 +17,8 @@ import ChitFunds from './pages/ChitFunds';
 import PeerLending from './pages/PeerLending';
 import SideIncome from './pages/SideIncome';
 import Ledger from './pages/Ledger';
+import Expenses from './pages/Expenses';
+import Goals from './pages/Goals';
 
 // Protected Route wrapper
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
@@ -74,6 +76,8 @@ function App() {
             <Route path="peer-lending" element={<PeerLending />} />
             <Route path="income" element={<SideIncome />} />
             <Route path="projects" element={<Projects />} />
+            <Route path="expenses" element={<Expenses />} />
+            <Route path="goals" element={<Goals />} />
           </Route>
         </Routes>
       </div>

@@ -28,6 +28,8 @@ const navigation = [
   { name: 'Udhaar (Peer Lending)', href: '/dashboard/peer-lending', icon: Users },
   { name: 'Side Income', href: '/dashboard/income', icon: Wallet },
   { name: 'Projects & Expenses', href: '/dashboard/projects', icon: HardHat },
+  { name: 'Daily Expenses', href: '/dashboard/expenses', icon: Wallet },
+  { name: 'Goals', href: '/dashboard/goals', icon: TrendingUp },
 ];
 
 export default function DashboardLayout() {

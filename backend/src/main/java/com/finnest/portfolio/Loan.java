@@ -19,6 +19,19 @@ public class Loan extends TenantBaseEntity {
     private Double interestRate;
     private Integer remainingTenure; // In months
 
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    @jakarta.persistence.ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
+    @jakarta.persistence.JoinColumn(name = "linked_bank_account_id")
+    private com.finnest.portfolio.BankAccount linkedAccount;
+
+    public com.finnest.portfolio.BankAccount getLinkedAccount() {
+        return linkedAccount;
+    }
+
+    public void setLinkedAccount(com.finnest.portfolio.BankAccount linkedAccount) {
+        this.linkedAccount = linkedAccount;
+    }
+
     public String getLenderName() {
         return lenderName;
     }

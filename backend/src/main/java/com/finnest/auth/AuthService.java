@@ -18,17 +18,35 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final com.finnest.goal.GoalRepository goalRepo;
+    private final com.finnest.portfolio.ProjectRepository projectRepo;
+    private final com.finnest.expense.ExpenseRepository expenseRepo;
+    private final com.finnest.portfolio.BankAccountRepository bankAccountRepo;
+    private final com.finnest.portfolio.ChitFundRepository chitFundRepo;
+    private final com.finnest.portfolio.PeerLendingRepository peerLendingRepo;
 
     public AuthService(UserRepository userRepository,
                        TenantRepository tenantRepository,
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
-                       AuthenticationManager authenticationManager) {
+                       AuthenticationManager authenticationManager,
+                       com.finnest.goal.GoalRepository goalRepo,
+                       com.finnest.portfolio.ProjectRepository projectRepo,
+                       com.finnest.expense.ExpenseRepository expenseRepo,
+                       com.finnest.portfolio.BankAccountRepository bankAccountRepo,
+                       com.finnest.portfolio.ChitFundRepository chitFundRepo,
+                       com.finnest.portfolio.PeerLendingRepository peerLendingRepo) {
         this.userRepository = userRepository;
         this.tenantRepository = tenantRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
+        this.goalRepo = goalRepo;
+        this.projectRepo = projectRepo;
+        this.expenseRepo = expenseRepo;
+        this.bankAccountRepo = bankAccountRepo;
+        this.chitFundRepo = chitFundRepo;
+        this.peerLendingRepo = peerLendingRepo;
     }
 
     @Transactional
@@ -47,7 +65,18 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(request.password()));
         user.setTenantId(tenant.getId());
         user.setRole("OWNER");
-        userRepository.save(user);
+        user = userRepository.save(user);
+
+        // Seed data for the newly registered tenant
+        com.finnest.config.DataInitializer.seedDataForTenant(
+            user,
+            goalRepo,
+            projectRepo,
+            expenseRepo,
+            bankAccountRepo,
+            chitFundRepo,
+            peerLendingRepo
+        );
 
         String jwtToken = jwtService.generateToken(user);
         return new AuthResponse(jwtToken);

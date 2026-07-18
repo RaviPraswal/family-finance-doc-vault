@@ -12,9 +12,11 @@ import java.util.UUID;
 public class ExpenseController {
 
     private final ExpenseRepository repository;
+    private final com.finnest.portfolio.BankAccountRepository bankAccountRepository;
 
-    public ExpenseController(ExpenseRepository repository) {
+    public ExpenseController(ExpenseRepository repository, com.finnest.portfolio.BankAccountRepository bankAccountRepository) {
         this.repository = repository;
+        this.bankAccountRepository = bankAccountRepository;
     }
 
     @GetMapping
@@ -43,12 +45,33 @@ public class ExpenseController {
     }
 
     @PostMapping
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<Expense> create(@RequestBody Expense entity) {
         entity.setTenantId(UUID.fromString(TenantContext.getCurrentTenant()));
+
+        // Adjust balance of linked bank account
+        if (entity.getLinkedAccount() != null && entity.getLinkedAccount().getId() != null) {
+            com.finnest.portfolio.BankAccount account = bankAccountRepository.findById(entity.getLinkedAccount().getId()).orElse(null);
+            if (account != null) {
+                java.math.BigDecimal currentBalance = account.getCurrentBalance();
+                if (currentBalance == null) {
+                    currentBalance = java.math.BigDecimal.ZERO;
+                }
+                if ("CREDIT".equalsIgnoreCase(entity.getType())) {
+                    account.setCurrentBalance(currentBalance.add(entity.getAmount()));
+                } else { // DEBIT
+                    account.setCurrentBalance(currentBalance.subtract(entity.getAmount()));
+                }
+                bankAccountRepository.save(account);
+                entity.setLinkedAccount(account);
+            }
+        }
+
         return ResponseEntity.ok(repository.save(entity));
     }
 
     @PutMapping("/{id}")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<Expense> update(@PathVariable UUID id, @RequestBody Expense entity, @org.springframework.security.core.annotation.AuthenticationPrincipal com.finnest.user.User user) {
         Expense existing = repository.findById(id).orElseThrow();
         if (!existing.getTenantId().equals(UUID.fromString(TenantContext.getCurrentTenant()))) {
@@ -57,6 +80,44 @@ public class ExpenseController {
         if ("MEMBER".equals(user.getRole()) && !user.getId().equals(existing.getUserId())) {
             throw new RuntimeException("Unauthorized");
         }
+
+        // 1. Reverse old transaction effect
+        if (existing.getLinkedAccount() != null) {
+            com.finnest.portfolio.BankAccount account = bankAccountRepository.findById(existing.getLinkedAccount().getId()).orElse(null);
+            if (account != null) {
+                java.math.BigDecimal currentBalance = account.getCurrentBalance();
+                if (currentBalance == null) {
+                    currentBalance = java.math.BigDecimal.ZERO;
+                }
+                if ("CREDIT".equalsIgnoreCase(existing.getType())) {
+                    account.setCurrentBalance(currentBalance.subtract(existing.getAmount()));
+                } else { // DEBIT
+                    account.setCurrentBalance(currentBalance.add(existing.getAmount()));
+                }
+                bankAccountRepository.save(account);
+            }
+        }
+
+        // 2. Apply new transaction effect
+        if (entity.getLinkedAccount() != null && entity.getLinkedAccount().getId() != null) {
+            com.finnest.portfolio.BankAccount account = bankAccountRepository.findById(entity.getLinkedAccount().getId()).orElse(null);
+            if (account != null) {
+                java.math.BigDecimal currentBalance = account.getCurrentBalance();
+                if (currentBalance == null) {
+                    currentBalance = java.math.BigDecimal.ZERO;
+                }
+                if ("CREDIT".equalsIgnoreCase(entity.getType())) {
+                    account.setCurrentBalance(currentBalance.add(entity.getAmount()));
+                } else { // DEBIT
+                    account.setCurrentBalance(currentBalance.subtract(entity.getAmount()));
+                }
+                bankAccountRepository.save(account);
+                entity.setLinkedAccount(account);
+            }
+        } else {
+            entity.setLinkedAccount(null);
+        }
+
         entity.setId(id);
         entity.setTenantId(existing.getTenantId());
         entity.setCreatedAt(existing.getCreatedAt());
@@ -65,6 +126,7 @@ public class ExpenseController {
     }
 
     @DeleteMapping("/{id}")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<Void> delete(@PathVariable UUID id, @org.springframework.security.core.annotation.AuthenticationPrincipal com.finnest.user.User user) {
         Expense existing = repository.findById(id).orElseThrow();
         if (!existing.getTenantId().equals(UUID.fromString(TenantContext.getCurrentTenant()))) {
@@ -73,6 +135,24 @@ public class ExpenseController {
         if ("MEMBER".equals(user.getRole()) && !user.getId().equals(existing.getUserId())) {
             throw new RuntimeException("Unauthorized");
         }
+
+        // Reverse old transaction effect
+        if (existing.getLinkedAccount() != null) {
+            com.finnest.portfolio.BankAccount account = bankAccountRepository.findById(existing.getLinkedAccount().getId()).orElse(null);
+            if (account != null) {
+                java.math.BigDecimal currentBalance = account.getCurrentBalance();
+                if (currentBalance == null) {
+                    currentBalance = java.math.BigDecimal.ZERO;
+                }
+                if ("CREDIT".equalsIgnoreCase(existing.getType())) {
+                    account.setCurrentBalance(currentBalance.subtract(existing.getAmount()));
+                } else { // DEBIT
+                    account.setCurrentBalance(currentBalance.add(existing.getAmount()));
+                }
+                bankAccountRepository.save(account);
+            }
+        }
+
         repository.delete(existing);
         return ResponseEntity.ok().build();
     }

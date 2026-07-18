@@ -30,6 +30,8 @@ export default function Expenses() {
   const [description, setDescription] = useState('');
   const [type, setType] = useState('DEBIT');
   const [linkedAccountId, setLinkedAccountId] = useState('');
+  const [filterBankId, setFilterBankId] = useState('');
+  const [filterType, setFilterType] = useState('');
 
   const fetchExpenses = async () => {
     try {
@@ -248,58 +250,112 @@ export default function Expenses() {
 
         <div className="lg:col-span-2">
           <div className="glass-panel p-6 rounded-2xl border border-border/50 h-full flex flex-col">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Recent Transactions</h3>
+            <div className="flex flex-wrap gap-4 mb-6 items-center justify-between border-b border-border/30 pb-4">
+              <h3 className="text-lg font-semibold text-foreground">Recent Transactions</h3>
+              <div className="flex flex-wrap gap-3">
+                {/* Bank Filter */}
+                <div>
+                  <select
+                    value={filterBankId}
+                    onChange={(e) => setFilterBankId(e.target.value)}
+                    className="px-3 py-1.5 bg-background/50 border border-border rounded-xl text-xs text-foreground focus:ring-2 focus:ring-primary/20 outline-none"
+                  >
+                    <option value="">All Banks</option>
+                    <option value="unlinked">Unlinked / Cash</option>
+                    {bankAccounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {/* Type Filter */}
+                <div>
+                  <select
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                    className="px-3 py-1.5 bg-background/50 border border-border rounded-xl text-xs text-foreground focus:ring-2 focus:ring-primary/20 outline-none"
+                  >
+                    <option value="">All Types</option>
+                    <option value="DEBIT">Debit Only</option>
+                    <option value="CREDIT">Credit Only</option>
+                  </select>
+                </div>
+              </div>
+            </div>
             
             <div className="flex-1 overflow-auto custom-scrollbar">
               {loading ? (
                 <div className="flex items-center justify-center h-full text-muted-foreground">Loading...</div>
-              ) : expenses.length === 0 ? (
+              ) : expenses.filter(e => {
+                const matchesBank = filterBankId === '' 
+                  ? true 
+                  : filterBankId === 'unlinked' 
+                    ? !e.linkedAccount 
+                    : e.linkedAccount?.id === filterBankId;
+                const matchesType = filterType === '' 
+                  ? true 
+                  : e.type === filterType;
+                return matchesBank && matchesType;
+              }).length === 0 ? (
                 <div className="flex items-center justify-center h-full text-muted-foreground text-center">
                   <div>
                     <Wallet className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No transactions logged yet.</p>
-                    <p className="text-sm mt-1">Add your daily transactions here EOD to track your spending and income.</p>
+                    <p>No transactions found.</p>
+                    <p className="text-sm mt-1">Try adjusting your filters or log a new transaction.</p>
                   </div>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {expenses.map((expense) => {
-                    const isCredit = expense.type === 'CREDIT';
-                    return (
-                      <div key={expense.id} className="flex items-center justify-between p-4 bg-background/50 border border-border/50 rounded-xl hover:border-primary/30 transition-colors">
-                        <div className="flex items-start gap-4">
-                          <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${isCredit ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                            {isCredit ? <ArrowUpRight className="h-5 w-5" /> : <ArrowDownLeft className="h-5 w-5" />}
+                  {expenses
+                    .filter(e => {
+                      const matchesBank = filterBankId === '' 
+                        ? true 
+                        : filterBankId === 'unlinked' 
+                          ? !e.linkedAccount 
+                          : e.linkedAccount?.id === filterBankId;
+                      const matchesType = filterType === '' 
+                        ? true 
+                        : e.type === filterType;
+                      return matchesBank && matchesType;
+                    })
+                    .map((expense) => {
+                      const isCredit = expense.type === 'CREDIT';
+                      return (
+                        <div key={expense.id} className="flex items-center justify-between p-4 bg-background/50 border border-border/50 rounded-xl hover:border-primary/30 transition-colors">
+                          <div className="flex items-start gap-4">
+                            <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${isCredit ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                              {isCredit ? <ArrowUpRight className="h-5 w-5" /> : <ArrowDownLeft className="h-5 w-5" />}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium text-foreground">{expense.category}</p>
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${isCredit ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                                  {isCredit ? 'Credit' : 'Debit'}
+                                </span>
+                              </div>
+                              <p className="text-sm text-muted-foreground">{expense.description || 'No description'}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-xs text-muted-foreground">{expense.expenseDate}</span>
+                                {expense.linkedAccount && (
+                                  <>
+                                    <span className="text-xs text-muted-foreground">•</span>
+                                    <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+                                      {expense.linkedAccount.name}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium text-foreground">{expense.category}</p>
-                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${isCredit ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
-                                {isCredit ? 'Credit' : 'Debit'}
-                              </span>
-                            </div>
-                            <p className="text-sm text-muted-foreground">{expense.description || 'No description'}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-xs text-muted-foreground">{expense.expenseDate}</span>
-                              {expense.linkedAccount && (
-                                <>
-                                  <span className="text-xs text-muted-foreground">•</span>
-                                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
-                                    {expense.linkedAccount.name}
-                                  </span>
-                                </>
-                              )}
-                            </div>
+                          <div className="text-right">
+                            <p className={`font-bold ${isCredit ? 'text-green-500' : 'text-foreground'}`}>
+                              {isCredit ? '+' : '-'}₹{expense.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className={`font-bold ${isCredit ? 'text-green-500' : 'text-foreground'}`}>
-                            {isCredit ? '+' : '-'}₹{expense.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                 </div>
               )}
             </div>

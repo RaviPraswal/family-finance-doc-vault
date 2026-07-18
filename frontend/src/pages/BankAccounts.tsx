@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import { apiClient } from '../api/client';
 import { Plus, Landmark, Trash2 } from 'lucide-react';
 
@@ -14,6 +14,8 @@ interface BankAccount {
 
 export default function BankAccounts() {
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
+  const [expandedAccountId, setExpandedAccountId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState<Partial<BankAccount>>({
     bankName: '',
@@ -26,12 +28,22 @@ export default function BankAccounts() {
 
   useEffect(() => {
     fetchAccounts();
+    fetchExpenses();
   }, []);
 
   const fetchAccounts = async () => {
     try {
       const data = await apiClient('/api/bankaccounts');
       setAccounts(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchExpenses = async () => {
+    try {
+      const data = await apiClient('/api/expenses');
+      setExpenses(data);
     } catch (err) {
       console.error(err);
     }
@@ -88,32 +100,70 @@ export default function BankAccounts() {
           </thead>
           <tbody className="bg-card divide-y divide-gray-200">
             {accounts.map((acc) => (
-              <tr key={acc.id} className="hover:bg-background transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <Landmark className="h-5 w-5 text-muted-foreground mr-3" />
-                    <div className="text-sm font-medium text-foreground">{acc.bankName}</div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-foreground">{acc.accountHolderName}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-foreground">XXXX-{acc.accountNumber ? acc.accountNumber.slice(-4) : 'N/A'}</div>
-                  <div className="text-xs text-muted-foreground">{acc.accountType || 'N/A'}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap font-medium text-foreground">
-                  ₹{(acc.openingBalance ?? 0).toLocaleString()}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap font-medium text-foreground">
-                  ₹{(acc.currentBalance ?? 0).toLocaleString()}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button onClick={() => handleDelete(acc.id)} className="text-red-600 hover:text-red-900 ml-4">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </td>
-              </tr>
+              <Fragment key={acc.id}>
+                <tr 
+                  onClick={() => setExpandedAccountId(expandedAccountId === acc.id ? null : acc.id)}
+                  className="hover:bg-background/80 transition-colors cursor-pointer"
+                >
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <Landmark className="h-5 w-5 text-muted-foreground mr-3" />
+                      <div className="text-sm font-medium text-foreground">{acc.bankName}</div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-foreground">{acc.accountHolderName}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-foreground">XXXX-{acc.accountNumber ? acc.accountNumber.slice(-4) : 'N/A'}</div>
+                    <div className="text-xs text-muted-foreground">{acc.accountType || 'N/A'}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap font-medium text-foreground">
+                    ₹{(acc.openingBalance ?? 0).toLocaleString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap font-medium text-foreground">
+                    ₹{(acc.currentBalance ?? 0).toLocaleString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleDelete(acc.id); }} 
+                      className="text-red-600 hover:text-red-900 ml-4"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+                {expandedAccountId === acc.id && (
+                  <tr>
+                    <td colSpan={6} className="bg-background/40 px-6 py-4 border-b border-border">
+                      <div className="max-w-3xl mx-auto">
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Statement / Recent Transactions</h4>
+                        <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                          {expenses.filter(e => e.linkedAccount?.id === acc.id).length === 0 ? (
+                            <p className="text-xs text-muted-foreground py-2 text-center">No transactions logged against this bank account.</p>
+                          ) : (
+                            expenses.filter(e => e.linkedAccount?.id === acc.id).map((exp) => {
+                              const isCredit = exp.type === 'CREDIT';
+                              return (
+                                <div key={exp.id} className="flex justify-between text-xs items-center py-1.5 border-b border-border/50 last:border-0">
+                                  <div>
+                                    <span className="font-semibold text-foreground mr-2">{exp.category}</span>
+                                    <span className="text-[10px] text-muted-foreground">{exp.expenseDate}</span>
+                                    <p className="text-[10px] text-muted-foreground italic mt-0.5">{exp.description || 'No description'}</p>
+                                  </div>
+                                  <span className={`font-bold ${isCredit ? 'text-green-600' : 'text-red-600'}`}>
+                                    {isCredit ? '+' : '-'}₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                  </span>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
             {accounts.length === 0 && (
               <tr>

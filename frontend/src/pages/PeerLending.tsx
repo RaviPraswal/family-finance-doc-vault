@@ -15,6 +15,7 @@ interface PeerLending {
 
 export default function PeerLending() {
   const [lendings, setLendings] = useState<PeerLending[]>([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState<Partial<PeerLending>>({
     type: 'GIVEN',
@@ -28,12 +29,22 @@ export default function PeerLending() {
 
   useEffect(() => {
     fetchLendings();
+    fetchExpenses();
   }, []);
 
   const fetchLendings = async () => {
     try {
       const data = await apiClient('/api/peerlendings');
       setLendings(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchExpenses = async () => {
+    try {
+      const data = await apiClient('/api/expenses');
+      setExpenses(data);
     } catch (err) {
       console.error(err);
     }
@@ -136,6 +147,30 @@ export default function PeerLending() {
                   <span className="font-medium">{new Date(lending.expectedReturnDate).toLocaleDateString()}</span>
                 </div>
               </div>
+
+              {expenses.filter(e => e.linkedPeerLending?.id === lending.id).length > 0 && (
+                <div className="mt-4 pt-4 border-t border-border">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Transaction History</h4>
+                  <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                    {expenses.filter(e => e.linkedPeerLending?.id === lending.id).map((exp) => {
+                      const isGiven = lending.type === 'GIVEN';
+                      // For GIVEN, CREDIT is they paid us back. For TAKEN, DEBIT is we paid them back.
+                      const isRepayment = isGiven ? exp.type === 'CREDIT' : exp.type === 'DEBIT';
+                      return (
+                        <div key={exp.id} className="flex justify-between text-xs items-center py-1 border-b border-border last:border-0">
+                          <div>
+                            <span className="font-medium text-foreground">{exp.category}</span>
+                            <span className="text-[10px] text-muted-foreground block">{exp.expenseDate}</span>
+                          </div>
+                          <span className={`font-semibold ${isRepayment ? 'text-green-500' : 'text-foreground'}`}>
+                            {isRepayment ? '+' : '-'}₹{(exp.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )
         })}

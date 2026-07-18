@@ -9,4 +9,5 @@ import java.util.UUID;
 @Repository
 public interface ProjectExpenseRepository extends JpaRepository<ProjectExpense, UUID> {
     List<ProjectExpense> findAllByProjectIdOrderByDateDesc(UUID projectId);
+    void deleteAllByExpenseId(UUID expenseId);
 }

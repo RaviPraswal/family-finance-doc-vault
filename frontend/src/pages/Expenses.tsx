@@ -6,6 +6,52 @@ interface BankAccount {
   id: string;
   name: string;
   bankName: string;
+  accountType?: string;
+}
+
+interface Loan {
+  id: string;
+  lenderName: string;
+  principalAmount: number;
+  outstandingAmount: number;
+}
+
+interface ChitFund {
+  id: string;
+  organizerName: string;
+  monthlyInstallment: number;
+}
+
+interface PeerLending {
+  id: string;
+  personName: string;
+  amount: number;
+  type: string;
+}
+
+interface Investment {
+  id: string;
+  name: string;
+  investedAmount: number;
+}
+
+interface Deposit {
+  id: string;
+  institution: string;
+  principalAmount: number;
+  type: string;
+}
+
+interface Project {
+  id: string;
+  name: string;
+  budget: number;
+}
+
+interface IncomeSource {
+  id: string;
+  sourceName: string;
+  amount: number;
 }
 
 interface Expense {
@@ -15,13 +61,28 @@ interface Expense {
   expenseDate: string;
   description: string;
   type: string;
+  madeAgainst: string;
   linkedAccount?: BankAccount;
+  linkedLoan?: Loan;
+  linkedChitFund?: ChitFund;
+  linkedPeerLending?: PeerLending;
+  linkedInvestment?: Investment;
+  linkedDeposit?: Deposit;
+  linkedProject?: Project;
+  linkedIncomeSource?: IncomeSource;
 }
 
 export default function Expenses() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [loans, setLoans] = useState<Loan[]>([]);
+  const [chitFunds, setChitFunds] = useState<ChitFund[]>([]);
+  const [peerLendings, setPeerLendings] = useState<PeerLending[]>([]);
+  const [investments, setInvestments] = useState<Investment[]>([]);
+  const [deposits, setDeposits] = useState<Deposit[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [amount, setAmount] = useState('');
@@ -29,7 +90,15 @@ export default function Expenses() {
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split('T')[0]);
   const [description, setDescription] = useState('');
   const [type, setType] = useState('DEBIT');
+  const [madeAgainst, setMadeAgainst] = useState('MANUAL_ENTRY');
   const [linkedAccountId, setLinkedAccountId] = useState('');
+  const [linkedLoanId, setLinkedLoanId] = useState('');
+  const [linkedChitFundId, setLinkedChitFundId] = useState('');
+  const [linkedPeerLendingId, setLinkedPeerLendingId] = useState('');
+  const [linkedInvestmentId, setLinkedInvestmentId] = useState('');
+  const [linkedDepositId, setLinkedDepositId] = useState('');
+  const [linkedProjectId, setLinkedProjectId] = useState('');
+  const [linkedIncomeSourceId, setLinkedIncomeSourceId] = useState('');
   const [filterBankId, setFilterBankId] = useState('');
   const [filterType, setFilterType] = useState('');
 
@@ -60,8 +129,82 @@ export default function Expenses() {
     }
   };
 
+  const fetchLoans = async () => {
+    try {
+      const data = await apiClient('/api/loans');
+      setLoans(data);
+    } catch (error) {
+      console.error('Failed to fetch loans', error);
+    }
+  };
+
+  const fetchChitFunds = async () => {
+    try {
+      const data = await apiClient('/api/chitfunds');
+      setChitFunds(data);
+    } catch (error) {
+      console.error('Failed to fetch chit funds', error);
+    }
+  };
+
+  const fetchPeerLendings = async () => {
+    try {
+      const data = await apiClient('/api/peerlendings');
+      setPeerLendings(data);
+    } catch (error) {
+      console.error('Failed to fetch peer lendings', error);
+    }
+  };
+
+  const fetchInvestments = async () => {
+    try {
+      const data = await apiClient('/api/investments');
+      setInvestments(data);
+    } catch (error) {
+      console.error('Failed to fetch investments', error);
+    }
+  };
+
+  const fetchDeposits = async () => {
+    try {
+      const data = await apiClient('/api/deposits');
+      setDeposits(data);
+    } catch (error) {
+      console.error('Failed to fetch deposits', error);
+    }
+  };
+
+  const fetchProjects = async () => {
+    try {
+      const data = await apiClient('/api/projects');
+      setProjects(data);
+    } catch (error) {
+      console.error('Failed to fetch projects', error);
+    }
+  };
+
+  const fetchIncomeSources = async () => {
+    try {
+      const data = await apiClient('/api/incomesources');
+      setIncomeSources(data);
+    } catch (error) {
+      console.error('Failed to fetch income sources', error);
+    }
+  };
+
   useEffect(() => {
-    Promise.all([fetchExpenses(), fetchCategories(), fetchBankAccounts()]).finally(() => setLoading(false));
+    Promise.all([
+      fetchExpenses(),
+      fetchCategories(),
+      fetchBankAccounts(),
+      fetchLoans(),
+      fetchChitFunds(),
+      fetchPeerLendings(),
+      fetchInvestments(),
+      fetchDeposits(),
+      fetchProjects(),
+      fetchIncomeSources()
+    ]).finally(() => setLoading(false));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -75,14 +218,30 @@ export default function Expenses() {
           expenseDate,
           description,
           type,
-          linkedAccount: linkedAccountId ? { id: linkedAccountId } : null
+          madeAgainst,
+          linkedAccount: linkedAccountId ? { id: linkedAccountId } : null,
+          linkedLoan: madeAgainst === 'LOAN_EMI' && linkedLoanId ? { id: linkedLoanId } : null,
+          linkedChitFund: madeAgainst === 'CHIT_INSTALLMENT' && linkedChitFundId ? { id: linkedChitFundId } : null,
+          linkedPeerLending: madeAgainst === 'PEER_LENDING' && linkedPeerLendingId ? { id: linkedPeerLendingId } : null,
+          linkedInvestment: madeAgainst === 'SIP_INVESTMENT' && linkedInvestmentId ? { id: linkedInvestmentId } : null,
+          linkedDeposit: madeAgainst === 'RECURRING_DEPOSIT' && linkedDepositId ? { id: linkedDepositId } : null,
+          linkedProject: madeAgainst === 'PROJECT' && linkedProjectId ? { id: linkedProjectId } : null,
+          linkedIncomeSource: madeAgainst === 'INCOME_SOURCE' && linkedIncomeSourceId ? { id: linkedIncomeSourceId } : null
         })
       });
       setAmount('');
       setCategory('');
       setDescription('');
       setLinkedAccountId('');
+      setLinkedLoanId('');
+      setLinkedChitFundId('');
+      setLinkedPeerLendingId('');
+      setLinkedInvestmentId('');
+      setLinkedDepositId('');
+      setLinkedProjectId('');
+      setLinkedIncomeSourceId('');
       setType('DEBIT');
+      setMadeAgainst('MANUAL_ENTRY');
       fetchExpenses();
       fetchCategories();
     } catch (error) {
@@ -164,6 +323,177 @@ export default function Expenses() {
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Made Against</label>
+                <select
+                  value={madeAgainst}
+                  onChange={(e) => setMadeAgainst(e.target.value)}
+                  className="w-full px-3 py-2 bg-background/50 border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                >
+                  <option value="MANUAL_ENTRY">Manual Entry / Others</option>
+                  <option value="PEER_LENDING">Peer Lending (Udhaar)</option>
+                  <option value="LOAN_EMI">Loan EMI</option>
+                  <option value="CHIT_INSTALLMENT">Chit Fund Installment</option>
+                  <option value="RECURRING_DEPOSIT">FD / RD Deposit</option>
+                  <option value="SIP_INVESTMENT">SIP Investment (Mutual Fund)</option>
+                  <option value="CREDIT_CARD">Credit Card Payment</option>
+                  <option value="PROJECT">Project Expense</option>
+                  <option value="INCOME_SOURCE">Side Income / Income Source</option>
+                </select>
+              </div>
+
+              {madeAgainst === 'PEER_LENDING' && (
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">Select Peer Lending Record</label>
+                  <select
+                    value={linkedPeerLendingId}
+                    onChange={(e) => setLinkedPeerLendingId(e.target.value)}
+                    className="w-full px-3 py-2 bg-background/50 border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                    required
+                  >
+                    <option value="">-- Select --</option>
+                    {peerLendings.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.type === 'TAKEN' ? 'Lent From (Borrowed)' : 'Lent To'}: {p.personName} (₹{p.amount.toLocaleString()})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {madeAgainst === 'LOAN_EMI' && (
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">Select Loan</label>
+                  <select
+                    value={linkedLoanId}
+                    onChange={(e) => setLinkedLoanId(e.target.value)}
+                    className="w-full px-3 py-2 bg-background/50 border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                    required
+                  >
+                    <option value="">-- Select --</option>
+                    {loans.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.lenderName} (Principal: ₹{l.principalAmount.toLocaleString()})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {madeAgainst === 'CHIT_INSTALLMENT' && (
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">Select Chit Fund</label>
+                  <select
+                    value={linkedChitFundId}
+                    onChange={(e) => setLinkedChitFundId(e.target.value)}
+                    className="w-full px-3 py-2 bg-background/50 border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                    required
+                  >
+                    <option value="">-- Select --</option>
+                    {chitFunds.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.organizerName} (Inst: ₹{c.monthlyInstallment.toLocaleString()})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {madeAgainst === 'RECURRING_DEPOSIT' && (
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">Select Deposit</label>
+                  <select
+                    value={linkedDepositId}
+                    onChange={(e) => setLinkedDepositId(e.target.value)}
+                    className="w-full px-3 py-2 bg-background/50 border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                    required
+                  >
+                    <option value="">-- Select --</option>
+                    {deposits.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.institution} - {d.type} (₹{d.principalAmount.toLocaleString()})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {madeAgainst === 'SIP_INVESTMENT' && (
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">Select Investment</label>
+                  <select
+                    value={linkedInvestmentId}
+                    onChange={(e) => setLinkedInvestmentId(e.target.value)}
+                    className="w-full px-3 py-2 bg-background/50 border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                    required
+                  >
+                    <option value="">-- Select --</option>
+                    {investments.map((i) => (
+                      <option key={i.id} value={i.id}>
+                        {i.name} (Invested: ₹{i.investedAmount.toLocaleString()})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {madeAgainst === 'CREDIT_CARD' && (
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">Select Credit Card</label>
+                  <select
+                    value={linkedAccountId}
+                    onChange={(e) => setLinkedAccountId(e.target.value)}
+                    className="w-full px-3 py-2 bg-background/50 border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                    required
+                  >
+                    <option value="">-- Select Card --</option>
+                    {bankAccounts.filter(a => a.accountType?.toLowerCase().includes('card') || a.name.toLowerCase().includes('card')).map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name} ({a.bankName})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {madeAgainst === 'PROJECT' && (
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">Select Project</label>
+                  <select
+                    value={linkedProjectId}
+                    onChange={(e) => setLinkedProjectId(e.target.value)}
+                    className="w-full px-3 py-2 bg-background/50 border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                    required
+                  >
+                    <option value="">-- Select Project --</option>
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} (Budget: ₹{p.budget.toLocaleString()})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {madeAgainst === 'INCOME_SOURCE' && (
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">Select Side Income / Income Source</label>
+                  <select
+                    value={linkedIncomeSourceId}
+                    onChange={(e) => setLinkedIncomeSourceId(e.target.value)}
+                    className="w-full px-3 py-2 bg-background/50 border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                    required
+                  >
+                    <option value="">-- Select Income Source --</option>
+                    {incomeSources.map((i) => (
+                      <option key={i.id} value={i.id}>
+                        {i.sourceName} (Amount: ₹{i.amount.toLocaleString()})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div>
                 <label className="block text-sm font-medium text-foreground mb-1">Category</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -179,7 +509,13 @@ export default function Expenses() {
                     placeholder="Groceries, Rent, Utilities..."
                   />
                   <datalist id="category-suggestions">
-                    {categories.map((c, i) => (
+                    {Array.from(new Set([
+                      ...categories,
+                      'Salary', 'Side Income', 'Groceries', 'Rent', 'Utilities', 
+                      'Fuel / Petrol', 'Travel / Toll', 'Taxes / ITR', 'Loan EMI', 
+                      'Chit Fund Installment', 'Peer Lending (Udhaar)', 'Investment', 
+                      'Insurance', 'Medical', 'Food / Dining', 'Electronics', 'Others'
+                    ])).map((c, i) => (
                       <option key={i} value={c} />
                     ))}
                   </datalist>
@@ -333,6 +669,24 @@ export default function Expenses() {
                                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${isCredit ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
                                   {isCredit ? 'Credit' : 'Debit'}
                                 </span>
+                                {expense.madeAgainst && expense.madeAgainst !== 'MANUAL_ENTRY' && (
+                                  <span className="text-[10px] bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded-full font-bold uppercase">
+                                    {expense.madeAgainst === 'PEER_LENDING' && expense.linkedPeerLending ? `Udhaar: ${expense.linkedPeerLending.personName}` :
+                                     expense.madeAgainst === 'LOAN_EMI' && expense.linkedLoan ? `Loan: ${expense.linkedLoan.lenderName}` :
+                                     expense.madeAgainst === 'CHIT_INSTALLMENT' && expense.linkedChitFund ? `Chit: ${expense.linkedChitFund.organizerName}` :
+                                     expense.madeAgainst === 'RECURRING_DEPOSIT' && expense.linkedDeposit ? `Deposit: ${expense.linkedDeposit.institution}` :
+                                     expense.madeAgainst === 'SIP_INVESTMENT' && expense.linkedInvestment ? `SIP: ${expense.linkedInvestment.name}` :
+                                     expense.madeAgainst === 'PROJECT' && expense.linkedProject ? `Project: ${expense.linkedProject.name}` :
+                                     expense.madeAgainst === 'INCOME_SOURCE' && expense.linkedIncomeSource ? `Income: ${expense.linkedIncomeSource.sourceName}` :
+                                     expense.madeAgainst === 'PEER_LENDING' ? 'Peer Lending' :
+                                     expense.madeAgainst === 'LOAN_EMI' ? 'Loan EMI' :
+                                     expense.madeAgainst === 'CHIT_INSTALLMENT' ? 'Chit Fund' :
+                                     expense.madeAgainst === 'RECURRING_DEPOSIT' ? 'RD Deposit' :
+                                     expense.madeAgainst === 'SIP_INVESTMENT' ? 'SIP' :
+                                     expense.madeAgainst === 'PROJECT' ? 'Project' :
+                                     expense.madeAgainst === 'INCOME_SOURCE' ? 'Income Source' : expense.madeAgainst}
+                                  </span>
+                                )}
                               </div>
                               <p className="text-sm text-muted-foreground">{expense.description || 'No description'}</p>
                               <div className="flex items-center gap-2 mt-1">
@@ -340,8 +694,13 @@ export default function Expenses() {
                                 {expense.linkedAccount && (
                                   <>
                                     <span className="text-xs text-muted-foreground">•</span>
-                                    <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
-                                      {expense.linkedAccount.name}
+                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                      (expense.linkedAccount.accountType?.toLowerCase().includes('card') || expense.linkedAccount.name?.toLowerCase().includes('card'))
+                                        ? 'bg-purple-500/10 text-purple-500 border border-purple-500/20'
+                                        : 'bg-primary/10 text-primary'
+                                    }`}>
+                                      {(expense.linkedAccount.accountType?.toLowerCase().includes('card') || expense.linkedAccount.name?.toLowerCase().includes('card')) ? '💳 ' : '🏦 '}
+                                      {expense.linkedAccount.name || 'Bank Account'}
                                     </span>
                                   </>
                                 )}

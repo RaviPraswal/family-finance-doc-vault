@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Wallet, FileText, Calendar, Tag } from 'lucide-react';
+import { Plus, Wallet, FileText, Calendar, Tag, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import { apiClient } from '../api/client';
+
+interface BankAccount {
+  id: string;
+  name: string;
+  bankName: string;
+}
 
 interface Expense {
   id: string;
@@ -8,17 +14,22 @@ interface Expense {
   category: string;
   expenseDate: string;
   description: string;
+  type: string;
+  linkedAccount?: BankAccount;
 }
 
 export default function Expenses() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split('T')[0]);
   const [description, setDescription] = useState('');
+  const [type, setType] = useState('DEBIT');
+  const [linkedAccountId, setLinkedAccountId] = useState('');
 
   const fetchExpenses = async () => {
     try {
@@ -38,8 +49,17 @@ export default function Expenses() {
     }
   };
 
+  const fetchBankAccounts = async () => {
+    try {
+      const data = await apiClient('/api/bankaccounts');
+      setBankAccounts(data);
+    } catch (error) {
+      console.error('Failed to fetch bank accounts', error);
+    }
+  };
+
   useEffect(() => {
-    Promise.all([fetchExpenses(), fetchCategories()]).finally(() => setLoading(false));
+    Promise.all([fetchExpenses(), fetchCategories(), fetchBankAccounts()]).finally(() => setLoading(false));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -51,35 +71,62 @@ export default function Expenses() {
           amount: parseFloat(amount),
           category,
           expenseDate,
-          description
+          description,
+          type,
+          linkedAccount: linkedAccountId ? { id: linkedAccountId } : null
         })
       });
       setAmount('');
       setCategory('');
       setDescription('');
+      setLinkedAccountId('');
+      setType('DEBIT');
       fetchExpenses();
       fetchCategories();
     } catch (error) {
-      console.error('Failed to add expense', error);
+      console.error('Failed to add transaction', error);
     }
   };
 
-  const totalThisMonth = expenses
-    .filter(e => new Date(e.expenseDate).getMonth() === new Date().getMonth() && new Date(e.expenseDate).getFullYear() === new Date().getFullYear())
+  const currentMonthTransactions = expenses.filter(e => {
+    const d = new Date(e.expenseDate);
+    return d.getMonth() === new Date().getMonth() && d.getFullYear() === new Date().getFullYear();
+  });
+
+  const totalDebitsThisMonth = currentMonthTransactions
+    .filter(e => e.type !== 'CREDIT')
     .reduce((sum, e) => sum + e.amount, 0);
+
+  const totalCreditsThisMonth = currentMonthTransactions
+    .filter(e => e.type === 'CREDIT')
+    .reduce((sum, e) => sum + e.amount, 0);
+
+  const netCashflow = totalCreditsThisMonth - totalDebitsThisMonth;
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-foreground">Daily Expenses</h2>
-        <p className="text-muted-foreground">Log and track your daily spending (EOD entries)</p>
+        <h2 className="text-2xl font-bold text-foreground">Daily Transactions</h2>
+        <p className="text-muted-foreground">Log and track your daily spending and income (EOD debit & credit entries)</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-6">
           <div className="glass-panel p-6 rounded-2xl border border-border/50">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Add Expense</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-4">Add Transaction</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Transaction Type</label>
+                <select
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                  className="w-full px-3 py-2 bg-background/50 border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                >
+                  <option value="DEBIT">Debit (Outflow / Expense)</option>
+                  <option value="CREDIT">Credit (Inflow / Income)</option>
+                </select>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">Amount (₹)</label>
                 <div className="relative">
@@ -96,6 +143,22 @@ export default function Expenses() {
                     placeholder="0.00"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Linked Bank Account</label>
+                <select
+                  value={linkedAccountId}
+                  onChange={(e) => setLinkedAccountId(e.target.value)}
+                  className="w-full px-3 py-2 bg-background/50 border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+                >
+                  <option value="">-- None --</option>
+                  {bankAccounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name} ({account.bankName})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -158,20 +221,34 @@ export default function Expenses() {
                 className="w-full py-2.5 bg-primary text-primary-foreground font-medium rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
               >
                 <Plus className="h-4 w-4" />
-                Add Expense
+                Add Transaction
               </button>
             </form>
           </div>
           
-          <div className="glass-panel p-6 rounded-2xl border border-border/50 bg-gradient-to-br from-red-500/10 to-transparent">
-            <h3 className="text-sm font-medium text-muted-foreground mb-1">Total This Month</h3>
-            <p className="text-3xl font-bold text-foreground">₹{totalThisMonth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          <div className="space-y-4">
+            <div className="glass-panel p-6 rounded-2xl border border-border/50 bg-gradient-to-br from-green-500/10 to-transparent">
+              <h3 className="text-sm font-medium text-muted-foreground mb-1">Inflow (Credits) This Month</h3>
+              <p className="text-2xl font-bold text-foreground">₹{totalCreditsThisMonth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </div>
+            
+            <div className="glass-panel p-6 rounded-2xl border border-border/50 bg-gradient-to-br from-red-500/10 to-transparent">
+              <h3 className="text-sm font-medium text-muted-foreground mb-1">Outflow (Debits) This Month</h3>
+              <p className="text-2xl font-bold text-foreground">₹{totalDebitsThisMonth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </div>
+
+            <div className={`glass-panel p-6 rounded-2xl border border-border/50 bg-gradient-to-br ${netCashflow >= 0 ? 'from-green-500/10' : 'from-red-500/10'} to-transparent`}>
+              <h3 className="text-sm font-medium text-muted-foreground mb-1">Net Cashflow This Month</h3>
+              <p className={`text-2xl font-bold ${netCashflow >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {netCashflow >= 0 ? '+' : ''}₹{netCashflow.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
           </div>
         </div>
 
         <div className="lg:col-span-2">
           <div className="glass-panel p-6 rounded-2xl border border-border/50 h-full flex flex-col">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Recent Expenses</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-4">Recent Transactions</h3>
             
             <div className="flex-1 overflow-auto custom-scrollbar">
               {loading ? (
@@ -180,29 +257,49 @@ export default function Expenses() {
                 <div className="flex items-center justify-center h-full text-muted-foreground text-center">
                   <div>
                     <Wallet className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                    <p>No expenses logged yet.</p>
-                    <p className="text-sm mt-1">Add your daily expenses here EOD to track your spending.</p>
+                    <p>No transactions logged yet.</p>
+                    <p className="text-sm mt-1">Add your daily transactions here EOD to track your spending and income.</p>
                   </div>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {expenses.map((expense) => (
-                    <div key={expense.id} className="flex items-center justify-between p-4 bg-background/50 border border-border/50 rounded-xl hover:border-primary/30 transition-colors">
-                      <div className="flex items-start gap-4">
-                        <div className="h-10 w-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center shrink-0">
-                          <Wallet className="h-5 w-5" />
+                  {expenses.map((expense) => {
+                    const isCredit = expense.type === 'CREDIT';
+                    return (
+                      <div key={expense.id} className="flex items-center justify-between p-4 bg-background/50 border border-border/50 rounded-xl hover:border-primary/30 transition-colors">
+                        <div className="flex items-start gap-4">
+                          <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${isCredit ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                            {isCredit ? <ArrowUpRight className="h-5 w-5" /> : <ArrowDownLeft className="h-5 w-5" />}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-foreground">{expense.category}</p>
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${isCredit ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                                {isCredit ? 'Credit' : 'Debit'}
+                              </span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">{expense.description || 'No description'}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs text-muted-foreground">{expense.expenseDate}</span>
+                              {expense.linkedAccount && (
+                                <>
+                                  <span className="text-xs text-muted-foreground">•</span>
+                                  <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+                                    {expense.linkedAccount.name}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium text-foreground">{expense.category}</p>
-                          <p className="text-sm text-muted-foreground">{expense.description || 'No description'}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{expense.expenseDate}</p>
+                        <div className="text-right">
+                          <p className={`font-bold ${isCredit ? 'text-green-500' : 'text-foreground'}`}>
+                            {isCredit ? '+' : '-'}₹{expense.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold text-foreground">₹{expense.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

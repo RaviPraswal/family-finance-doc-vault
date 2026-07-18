@@ -23,6 +23,9 @@ public class Expense extends TenantBaseEntity {
     @Column(length = 500)
     private String description;
 
+    @Column(length = 20)
+    private String type = "DEBIT";
+
     @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "linked_bank_account_id")
@@ -66,5 +69,13 @@ public class Expense extends TenantBaseEntity {
 
     public void setLinkedAccount(BankAccount linkedAccount) {
         this.linkedAccount = linkedAccount;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
     }
 }

@@ -15,6 +15,7 @@ public class BankAccount extends TenantBaseEntity {
     private String accountNumber;
     private String accountType; // Savings, Current, Salary
     private BigDecimal currentBalance;
+    private BigDecimal openingBalance;
     private String name;
     private String iban;
 
@@ -72,5 +73,13 @@ public class BankAccount extends TenantBaseEntity {
 
     public void setCurrentBalance(BigDecimal currentBalance) {
         this.currentBalance = currentBalance;
+    }
+
+    public BigDecimal getOpeningBalance() {
+        return openingBalance;
+    }
+
+    public void setOpeningBalance(BigDecimal openingBalance) {
+        this.openingBalance = openingBalance;
     }
 }

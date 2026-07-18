@@ -9,6 +9,7 @@ interface BankAccount {
   accountNumber: string;
   accountType: string;
   currentBalance: number;
+  openingBalance: number;
 }
 
 export default function BankAccounts() {
@@ -19,7 +20,8 @@ export default function BankAccounts() {
     accountHolderName: '',
     accountNumber: '',
     accountType: 'Savings',
-    currentBalance: 0
+    currentBalance: 0,
+    openingBalance: 0
   });
 
   useEffect(() => {
@@ -43,7 +45,7 @@ export default function BankAccounts() {
         body: JSON.stringify(formData)
       });
       setIsModalOpen(false);
-      setFormData({ bankName: '', accountHolderName: '', accountNumber: '', accountType: 'Savings', currentBalance: 0 });
+      setFormData({ bankName: '', accountHolderName: '', accountNumber: '', accountType: 'Savings', currentBalance: 0, openingBalance: 0 });
       fetchAccounts();
     } catch (err) {
       console.error(err);
@@ -79,7 +81,8 @@ export default function BankAccounts() {
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Bank Name</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Account Holder</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Account No. / Type</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Balance</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Opening Balance</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Current Balance</th>
               <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
@@ -100,6 +103,9 @@ export default function BankAccounts() {
                   <div className="text-xs text-muted-foreground">{acc.accountType || 'N/A'}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap font-medium text-foreground">
+                  ₹{(acc.openingBalance ?? 0).toLocaleString()}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap font-medium text-foreground">
                   ₹{(acc.currentBalance ?? 0).toLocaleString()}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -111,7 +117,7 @@ export default function BankAccounts() {
             ))}
             {accounts.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
+                <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
                   No bank accounts found. Add one to start tracking your liquid cash.
                 </td>
               </tr>
@@ -144,6 +150,10 @@ export default function BankAccounts() {
                   <option value="Current">Current</option>
                   <option value="Salary">Salary</option>
                 </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Opening Balance (₹)</label>
+                <input required type="number" value={formData.openingBalance} onChange={e => setFormData({ ...formData, openingBalance: parseFloat(e.target.value) })} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Current Balance (₹)</label>

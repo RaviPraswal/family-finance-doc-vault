@@ -96,11 +96,11 @@ export default function BankAccounts() {
                   <div className="text-sm text-foreground">{acc.accountHolderName}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-foreground">XXXX-{acc.accountNumber.slice(-4)}</div>
-                  <div className="text-xs text-muted-foreground">{acc.accountType}</div>
+                  <div className="text-sm text-foreground">XXXX-{acc.accountNumber ? acc.accountNumber.slice(-4) : 'N/A'}</div>
+                  <div className="text-xs text-muted-foreground">{acc.accountType || 'N/A'}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap font-medium text-foreground">
-                  ₹{acc.currentBalance.toLocaleString()}
+                  ₹{(acc.currentBalance ?? 0).toLocaleString()}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <button onClick={() => handleDelete(acc.id)} className="text-red-600 hover:text-red-900 ml-4">
@@ -127,19 +127,19 @@ export default function BankAccounts() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Bank Name</label>
-                <input required value={formData.bankName} onChange={e => setFormData({...formData, bankName: e.target.value})} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" placeholder="HDFC, SBI, etc." />
+                <input required value={formData.bankName} onChange={e => setFormData({ ...formData, bankName: e.target.value })} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" placeholder="HDFC, SBI, etc." />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Account Holder Name</label>
-                <input required value={formData.accountHolderName} onChange={e => setFormData({...formData, accountHolderName: e.target.value})} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" />
+                <input required value={formData.accountHolderName} onChange={e => setFormData({ ...formData, accountHolderName: e.target.value })} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Account Number</label>
-                <input required value={formData.accountNumber} onChange={e => setFormData({...formData, accountNumber: e.target.value})} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" />
+                <input required value={formData.accountNumber} onChange={e => setFormData({ ...formData, accountNumber: e.target.value })} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Account Type</label>
-                <select value={formData.accountType} onChange={e => setFormData({...formData, accountType: e.target.value})} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all">
+                <select value={formData.accountType} onChange={e => setFormData({ ...formData, accountType: e.target.value })} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all">
                   <option value="Savings">Savings</option>
                   <option value="Current">Current</option>
                   <option value="Salary">Salary</option>
@@ -147,7 +147,7 @@ export default function BankAccounts() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Current Balance (₹)</label>
-                <input required type="number" value={formData.currentBalance} onChange={e => setFormData({...formData, currentBalance: parseFloat(e.target.value)})} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" />
+                <input required type="number" value={formData.currentBalance} onChange={e => setFormData({ ...formData, currentBalance: parseFloat(e.target.value) })} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" />
               </div>
               <div className="flex justify-end gap-2 mt-6">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded">Cancel</button>

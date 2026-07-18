@@ -96,16 +96,7 @@ public class AuthService {
             firstAdmin = userRepository.save(firstAdmin);
         }
 
-        // Seed data for the newly registered tenant using the first admin
-        com.finnest.config.DataInitializer.seedDataForTenant(
-            firstAdmin,
-            goalRepo,
-            projectRepo,
-            expenseRepo,
-            bankAccountRepo,
-            chitFundRepo,
-            peerLendingRepo
-        );
+
 
         String jwtToken = jwtService.generateToken(firstAdmin);
         return new AuthResponse(jwtToken);

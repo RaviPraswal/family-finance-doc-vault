@@ -26,10 +26,48 @@ public class Expense extends TenantBaseEntity {
     @Column(length = 20)
     private String type = "DEBIT";
 
+    @Column(length = 50)
+    private String madeAgainst = "MANUAL_ENTRY";
+
     @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "linked_bank_account_id")
     private BankAccount linkedAccount;
+
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "linked_loan_id")
+    private com.finnest.portfolio.Loan linkedLoan;
+
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "linked_chit_fund_id")
+    private com.finnest.portfolio.ChitFund linkedChitFund;
+
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "linked_peer_lending_id")
+    private com.finnest.portfolio.PeerLending linkedPeerLending;
+
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "linked_investment_id")
+    private com.finnest.portfolio.Investment linkedInvestment;
+
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "linked_deposit_id")
+    private com.finnest.portfolio.Deposit linkedDeposit;
+
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "linked_project_id")
+    private com.finnest.portfolio.Project linkedProject;
+
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "linked_income_source_id")
+    private com.finnest.portfolio.IncomeSource linkedIncomeSource;
 
     public BigDecimal getAmount() {
         return amount;
@@ -77,5 +115,69 @@ public class Expense extends TenantBaseEntity {
 
     public void setType(String type) {
         this.type = type;
+    }
+
+    public String getMadeAgainst() {
+        return madeAgainst;
+    }
+
+    public void setMadeAgainst(String madeAgainst) {
+        this.madeAgainst = madeAgainst;
+    }
+
+    public com.finnest.portfolio.Loan getLinkedLoan() {
+        return linkedLoan;
+    }
+
+    public void setLinkedLoan(com.finnest.portfolio.Loan linkedLoan) {
+        this.linkedLoan = linkedLoan;
+    }
+
+    public com.finnest.portfolio.ChitFund getLinkedChitFund() {
+        return linkedChitFund;
+    }
+
+    public void setLinkedChitFund(com.finnest.portfolio.ChitFund linkedChitFund) {
+        this.linkedChitFund = linkedChitFund;
+    }
+
+    public com.finnest.portfolio.PeerLending getLinkedPeerLending() {
+        return linkedPeerLending;
+    }
+
+    public void setLinkedPeerLending(com.finnest.portfolio.PeerLending linkedPeerLending) {
+        this.linkedPeerLending = linkedPeerLending;
+    }
+
+    public com.finnest.portfolio.Investment getLinkedInvestment() {
+        return linkedInvestment;
+    }
+
+    public void setLinkedInvestment(com.finnest.portfolio.Investment linkedInvestment) {
+        this.linkedInvestment = linkedInvestment;
+    }
+
+    public com.finnest.portfolio.Deposit getLinkedDeposit() {
+        return linkedDeposit;
+    }
+
+    public void setLinkedDeposit(com.finnest.portfolio.Deposit linkedDeposit) {
+        this.linkedDeposit = linkedDeposit;
+    }
+
+    public com.finnest.portfolio.Project getLinkedProject() {
+        return linkedProject;
+    }
+
+    public void setLinkedProject(com.finnest.portfolio.Project linkedProject) {
+        this.linkedProject = linkedProject;
+    }
+
+    public com.finnest.portfolio.IncomeSource getLinkedIncomeSource() {
+        return linkedIncomeSource;
+    }
+
+    public void setLinkedIncomeSource(com.finnest.portfolio.IncomeSource linkedIncomeSource) {
+        this.linkedIncomeSource = linkedIncomeSource;
     }
 }

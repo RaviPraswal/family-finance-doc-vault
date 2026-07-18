@@ -18,6 +18,10 @@ public class ProjectExpense extends TenantBaseEntity {
     private String description;
     private String category;
 
+    @ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
+    @jakarta.persistence.JoinColumn(name = "expense_id")
+    private com.finnest.expense.Expense expense;
+
     public Project getProject() {
         return project;
     }
@@ -47,5 +51,11 @@ public class ProjectExpense extends TenantBaseEntity {
     }
     public void setCategory(String category) {
         this.category = category;
+    }
+    public com.finnest.expense.Expense getExpense() {
+        return expense;
+    }
+    public void setExpense(com.finnest.expense.Expense expense) {
+        this.expense = expense;
     }
 }

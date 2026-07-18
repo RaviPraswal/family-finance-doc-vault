@@ -13,23 +13,33 @@ interface IncomeSource {
 
 export default function SideIncome() {
   const [incomes, setIncomes] = useState<IncomeSource[]>([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState<Partial<IncomeSource>>({
     sourceName: '',
     ownerName: '',
     amount: 0,
-    frequency: 'Monthly',
-    dateReceived: ''
+    frequency: 'Monthly'
   });
 
   useEffect(() => {
     fetchIncomes();
+    fetchExpenses();
   }, []);
 
   const fetchIncomes = async () => {
     try {
       const data = await apiClient('/api/incomesources');
       setIncomes(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchExpenses = async () => {
+    try {
+      const data = await apiClient('/api/expenses');
+      setExpenses(data);
     } catch (err) {
       console.error(err);
     }
@@ -43,7 +53,7 @@ export default function SideIncome() {
         body: JSON.stringify(formData)
       });
       setIsModalOpen(false);
-      setFormData({ sourceName: '', ownerName: '', amount: 0, frequency: 'Monthly', dateReceived: '' });
+      setFormData({ sourceName: '', ownerName: '', amount: 0, frequency: 'Monthly' });
       fetchIncomes();
     } catch (err) {
       console.error(err);
@@ -98,9 +108,31 @@ export default function SideIncome() {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Last Received:</span>
-                <span className="font-medium">{new Date(inc.dateReceived).toLocaleDateString()}</span>
+                <span className="font-medium">{inc.dateReceived ? new Date(inc.dateReceived).toLocaleDateString() : 'No transactions yet'}</span>
               </div>
             </div>
+
+            {expenses.filter(e => e.linkedIncomeSource?.id === inc.id).length > 0 && (
+              <div className="mt-4 pt-4 border-t border-border">
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Inflow History</h4>
+                <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                  {expenses.filter(e => e.linkedIncomeSource?.id === inc.id).map((exp) => {
+                    const isCredit = exp.type === 'CREDIT';
+                    return (
+                      <div key={exp.id} className="flex justify-between text-xs items-center py-1 border-b border-border last:border-0">
+                        <div>
+                          <span className="font-medium text-foreground">{exp.category}</span>
+                          <span className="text-[10px] text-muted-foreground block">{exp.expenseDate}</span>
+                        </div>
+                        <span className={`font-semibold ${isCredit ? 'text-green-500' : 'text-red-500'}`}>
+                          {isCredit ? '+' : '-'}₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         ))}
         {incomes.length === 0 && (
@@ -133,10 +165,6 @@ export default function SideIncome() {
                     <option value="Yearly">Yearly</option>
                   </select>
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Date Received</label>
-                <input required type="date" value={formData.dateReceived} onChange={e => setFormData({...formData, dateReceived: e.target.value})} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" />
               </div>
               <div className="flex justify-end gap-2 mt-6">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded">Cancel</button>

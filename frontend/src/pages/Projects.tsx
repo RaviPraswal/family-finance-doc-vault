@@ -14,17 +14,29 @@ interface Project {
 
 export default function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
+  const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', budget: '', status: 'IN_PROGRESS', startDate: '', priority: 'MEDIUM' });
 
   useEffect(() => {
     fetchProjects();
+    fetchExpenses();
   }, []);
 
   const fetchProjects = async () => {
     try {
       const data = await apiClient('/api/projects');
       setProjects(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchExpenses = async () => {
+    try {
+      const data = await apiClient('/api/expenses');
+      setExpenses(data);
     } catch (err) {
       console.error(err);
     }
@@ -86,9 +98,33 @@ export default function Projects() {
               <p>Budget: <span className="font-medium text-foreground">₹{project.budget.toLocaleString()}</span></p>
               <p>Start Date: {new Date(project.startDate).toLocaleDateString()}</p>
             </div>
-            <button className="w-full py-2 text-sm text-primary font-medium border border-primary/20 rounded-md hover:bg-primary/10 transition-colors">
-              View Expenses & Documents
+            <button 
+              onClick={() => setExpandedProjectId(expandedProjectId === project.id ? null : project.id)}
+              className="w-full py-2 text-sm text-primary font-medium border border-primary/20 rounded-md hover:bg-primary/10 transition-colors"
+            >
+              {expandedProjectId === project.id ? 'Hide Expenses' : 'View Expenses & History'}
             </button>
+
+            {expandedProjectId === project.id && (
+              <div className="mt-4 pt-4 border-t border-border">
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Project Expense Log</h4>
+                <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                  {expenses.filter(e => e.linkedProject?.id === project.id).length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-2 text-center">No expenses logged for this project yet.</p>
+                  ) : (
+                    expenses.filter(e => e.linkedProject?.id === project.id).map((exp) => (
+                      <div key={exp.id} className="flex justify-between text-xs items-center py-1 border-b border-border last:border-0">
+                        <div>
+                          <span className="font-medium text-foreground">{exp.category}</span>
+                          <span className="text-[10px] text-muted-foreground block">{exp.expenseDate}</span>
+                        </div>
+                        <span className="font-semibold text-red-600">-₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         ))}
         {projects.length === 0 && (

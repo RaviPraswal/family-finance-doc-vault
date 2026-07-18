@@ -25,6 +25,7 @@ interface BankAccount {
 export default function ChitFunds() {
   const [chitFunds, setChitFunds] = useState<ChitFund[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState<Partial<ChitFund & { linkedAccountId: string }>>({
     organizerName: '',
@@ -42,6 +43,7 @@ export default function ChitFunds() {
   useEffect(() => {
     fetchChitFunds();
     fetchBankAccounts();
+    fetchExpenses();
   }, []);
 
   const fetchChitFunds = async () => {
@@ -57,6 +59,15 @@ export default function ChitFunds() {
     try {
       const data = await apiClient('/api/bankaccounts');
       setBankAccounts(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchExpenses = async () => {
+    try {
+      const data = await apiClient('/api/expenses');
+      setExpenses(data);
     } catch (err) {
       console.error(err);
     }
@@ -171,6 +182,28 @@ export default function ChitFunds() {
                   </div>
                 )}
               </div>
+
+              {expenses.filter(e => e.linkedChitFund?.id === cf.id).length > 0 && (
+                <div className="mt-4 pt-4 border-t border-border">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Payment History</h4>
+                  <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                    {expenses.filter(e => e.linkedChitFund?.id === cf.id).map((exp) => {
+                      const isContribution = exp.type === 'DEBIT'; // Paying installment
+                      return (
+                        <div key={exp.id} className="flex justify-between text-xs items-center py-1 border-b border-border last:border-0">
+                          <div>
+                            <span className="font-medium text-foreground">{exp.category}</span>
+                            <span className="text-[10px] text-muted-foreground block">{exp.expenseDate}</span>
+                          </div>
+                          <span className={`font-semibold ${isContribution ? 'text-green-500' : 'text-red-500'}`}>
+                            {isContribution ? '+' : '-'}₹{(exp.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}

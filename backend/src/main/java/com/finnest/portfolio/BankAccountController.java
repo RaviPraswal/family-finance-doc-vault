@@ -12,9 +12,38 @@ import java.util.UUID;
 public class BankAccountController {
 
     private final BankAccountRepository repository;
+    private final com.finnest.expense.ExpenseRepository expenseRepository;
 
-    public BankAccountController(BankAccountRepository repository) {
+    public BankAccountController(BankAccountRepository repository, 
+                                 com.finnest.expense.ExpenseRepository expenseRepository) {
         this.repository = repository;
+        this.expenseRepository = expenseRepository;
+    }
+
+    private void calculateAndSetCurrentBalance(BankAccount account) {
+        java.math.BigDecimal openingBalance = account.getOpeningBalance();
+        if (openingBalance == null) {
+            openingBalance = java.math.BigDecimal.ZERO;
+        }
+
+        java.math.BigDecimal currentBalance = openingBalance;
+
+        // Fetch all expenses linked to this bank account
+        List<com.finnest.expense.Expense> expenses = expenseRepository.findAllByLinkedAccountId(account.getId());
+
+        for (com.finnest.expense.Expense expense : expenses) {
+            java.math.BigDecimal amount = expense.getAmount();
+            if (amount == null) {
+                continue;
+            }
+            if ("CREDIT".equalsIgnoreCase(expense.getType())) {
+                currentBalance = currentBalance.add(amount);
+            } else {
+                currentBalance = currentBalance.subtract(amount);
+            }
+        }
+
+        account.setCurrentBalance(currentBalance);
     }
 
     @GetMapping
@@ -25,13 +54,18 @@ public class BankAccountController {
                     .filter(x -> user.getId().equals(x.getUserId()))
                     .toList();
         }
+        for (BankAccount account : list) {
+            calculateAndSetCurrentBalance(account);
+        }
         return ResponseEntity.ok(list);
     }
 
     @PostMapping
     public ResponseEntity<BankAccount> create(@RequestBody BankAccount entity) {
         entity.setTenantId(UUID.fromString(TenantContext.getCurrentTenant()));
-        return ResponseEntity.ok(repository.save(entity));
+        BankAccount saved = repository.save(entity);
+        calculateAndSetCurrentBalance(saved);
+        return ResponseEntity.ok(saved);
     }
 
     @PutMapping("/{id}")
@@ -47,7 +81,9 @@ public class BankAccountController {
         entity.setTenantId(existing.getTenantId());
         entity.setCreatedAt(existing.getCreatedAt());
         entity.setUserId(existing.getUserId());
-        return ResponseEntity.ok(repository.save(entity));
+        BankAccount saved = repository.save(entity);
+        calculateAndSetCurrentBalance(saved);
+        return ResponseEntity.ok(saved);
     }
 
     @DeleteMapping("/{id}")
@@ -63,3 +99,4 @@ public class BankAccountController {
         return ResponseEntity.ok().build();
     }
 }
+

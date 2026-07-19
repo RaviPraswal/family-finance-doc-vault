@@ -15,6 +15,7 @@ import { SessionExpiryModal } from './components/SessionExpiryModal';
 import Projects from './pages/Projects';
 import PortfolioOverview from './pages/PortfolioOverview';
 import BankAccounts from './pages/BankAccounts';
+import CreditCards from './pages/CreditCards';
 import Deposits from './pages/Deposits';
 import Investments from './pages/Investments';
 import Loans from './pages/Loans';
@@ -78,6 +79,7 @@ function App() {
             <Route path="ledger" element={<Ledger />} />
             <Route path="portfolio" element={<PortfolioOverview />} />
             <Route path="bank-accounts" element={<BankAccounts />} />
+            <Route path="credit-cards" element={<CreditCards />} />
             <Route path="deposits" element={<Deposits />} />
             <Route path="investments" element={<Investments />} />
             <Route path="loans" element={<Loans />} />

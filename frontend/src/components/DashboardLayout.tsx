@@ -23,6 +23,7 @@ const navigation = [
 
   { name: 'Portfolio Overview', href: '/dashboard/portfolio', icon: TrendingUp },
   { name: 'Bank Accounts', href: '/dashboard/bank-accounts', icon: Landmark },
+  { name: 'Credit Cards', href: '/dashboard/credit-cards', icon: CreditCard },
   { name: 'Deposits (FD/RD)', href: '/dashboard/deposits', icon: Wallet },
   { name: 'Investments', href: '/dashboard/investments', icon: Briefcase },
   { name: 'Loans & EMI', href: '/dashboard/loans', icon: CreditCard },

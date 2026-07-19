@@ -20,6 +20,9 @@ export default function BankAccounts() {
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [expandedAccountId, setExpandedAccountId] = useState<string | null>(null);
+  const [transactionTypeFilter, setTransactionTypeFilter] = useState<'ALL' | 'DEBIT' | 'CREDIT'>('ALL');
+  const [txnPage, setTxnPage] = useState(1);
+  const [txnItemsPerPage, setTxnItemsPerPage] = useState(10);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState<Partial<BankAccount>>({
     bankName: '',
@@ -34,6 +37,15 @@ export default function BankAccounts() {
     fetchAccounts();
     fetchExpenses();
   }, []);
+
+  useEffect(() => {
+    setTransactionTypeFilter('ALL');
+  }, [expandedAccountId]);
+
+  useEffect(() => {
+    setTxnPage(1);
+  }, [expandedAccountId, transactionTypeFilter]);
+
 
   const fetchAccounts = async () => {
     try {
@@ -105,6 +117,18 @@ export default function BankAccounts() {
   }, [accounts, expandedAccountId]);
 
   const selectedAccount = accounts.find(a => a.id === expandedAccountId) || accounts[0];
+
+  const selectedAccountTransactions = selectedAccount ? expenses.filter((e) => e.linkedAccount?.id === selectedAccount.id) : [];
+  const totalDebits = selectedAccountTransactions.filter(e => e.type === 'DEBIT').reduce((sum, e) => sum + e.amount, 0);
+  const totalCredits = selectedAccountTransactions.filter(e => e.type === 'CREDIT').reduce((sum, e) => sum + e.amount, 0);
+  const filteredTransactions = selectedAccountTransactions.filter(e => {
+    if (transactionTypeFilter === 'ALL') return true;
+    return e.type === transactionTypeFilter;
+  });
+
+  const txnStartIndex = (txnPage - 1) * txnItemsPerPage;
+  const paginatedTransactions = filteredTransactions.slice(txnStartIndex, txnStartIndex + txnItemsPerPage);
+  const totalTxnPages = Math.ceil(filteredTransactions.length / txnItemsPerPage);
 
   // Pagination calculations
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -192,6 +216,18 @@ export default function BankAccounts() {
                       <span className="text-muted-foreground">Current Balance:</span>
                       <span className="text-lg font-bold text-primary">₹{(acc.currentBalance ?? 0).toLocaleString()}</span>
                     </div>
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-border/50 flex gap-2">
+                    <button 
+                      onClick={() => {
+                        setExpandedAccountId(acc.id);
+                        setViewMode('detailed');
+                      }}
+                      className="w-full text-center py-2 bg-primary/10 text-primary hover:bg-primary/20 text-xs font-semibold rounded-lg transition-all"
+                    >
+                      View Statement / Ledgers
+                    </button>
                   </div>
                 </div>
               </div>
@@ -321,9 +357,18 @@ export default function BankAccounts() {
                     <td className="px-6 py-4 whitespace-nowrap font-bold text-foreground text-sm">
                       ₹{(acc.currentBalance ?? 0).toLocaleString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button onClick={() => handleDelete(acc.id)} className="text-red-600 hover:text-red-900">
-                        <Trash2 className="h-4 w-4" />
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex items-center justify-end gap-3">
+                      <button 
+                        onClick={() => {
+                          setExpandedAccountId(acc.id);
+                          setViewMode('detailed');
+                        }}
+                        className="text-primary hover:text-primary/80 font-semibold"
+                      >
+                        Statement
+                      </button>
+                      <button onClick={() => handleDelete(acc.id)} className="text-muted-foreground hover:text-red-500 p-1">
+                        <Trash2 className="h-4.5 w-4.5" />
                       </button>
                     </td>
                   </tr>
@@ -462,48 +507,174 @@ export default function BankAccounts() {
 
           <div className="lg:col-span-8 bg-card border border-border rounded-xl p-6 flex flex-col h-[calc(100vh-10rem)] overflow-hidden">
             {selectedAccount ? (
-              <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-                <div className="border-b border-border/50 pb-4 mb-4">
-                  <div className="flex justify-between items-start">
+              <div className="flex flex-col flex-1 min-h-0 overflow-hidden text-sm">
+                <div className="border-b border-border/50 pb-3 mb-3">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
                     <div>
-                      <h3 className="font-bold text-lg text-foreground">{selectedAccount.bankName}</h3>
-                      <p className="text-xs text-muted-foreground">Holder: {selectedAccount.accountHolderName} | Number: {selectedAccount.accountNumber}</p>
+                      <h3 className="font-bold text-base text-foreground leading-tight">{selectedAccount.bankName}</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">Holder: {selectedAccount.accountHolderName} | Number: {selectedAccount.accountNumber}</p>
                     </div>
-                    <div className="text-right">
-                      <span className="text-xs text-muted-foreground block">Current Balance</span>
-                      <span className="text-2xl font-bold text-primary">₹{(selectedAccount.currentBalance ?? 0).toLocaleString()}</span>
+                    <div className="flex items-center gap-6 text-right">
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground block font-bold leading-tight">Opening Balance</span>
+                        <span className="text-sm font-semibold text-foreground">₹{(selectedAccount.openingBalance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground block font-bold leading-tight">Current Balance</span>
+                        <span className="text-base font-bold text-primary">₹{(selectedAccount.currentBalance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <div className="flex-1 overflow-y-auto pr-1">
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Full Transaction History</h4>
-                  <div className="space-y-2">
-                    {expenses.filter((e) => e.linkedAccount?.id === selectedAccount.id).length === 0 ? (
-                      <p className="text-sm text-muted-foreground py-12 text-center">No transactions logged against this bank account.</p>
-                    ) : (
-                      expenses
-                        .filter((e) => e.linkedAccount?.id === selectedAccount.id)
-                        .map((exp) => {
-                          const isCredit = exp.type === 'CREDIT';
-                          return (
-                            <div
-                              key={exp.id}
-                              className="flex justify-between items-center p-3 rounded-lg border border-border/30 bg-background/50 hover:bg-background/85 transition-colors"
-                            >
-                              <div>
-                                <div className="font-semibold text-sm text-foreground">{exp.category}</div>
-                                <div className="text-xs text-muted-foreground">{exp.expenseDate}</div>
-                                {exp.description && <p className="text-xs text-muted-foreground italic mt-1">{exp.description}</p>}
-                              </div>
-                              <span className={`font-bold text-sm ${isCredit ? 'text-green-500' : 'text-red-500'}`}>
-                                {isCredit ? '+' : '-'}₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                              </span>
-                            </div>
-                          );
-                        })
+
+                {/* Summary Cards */}
+                <div className="grid grid-cols-2 gap-3 mb-3 shrink-0">
+                  <div className="p-2.5 bg-green-500/5 border border-green-500/10 rounded-xl flex justify-between items-center">
+                    <div>
+                      <span className="text-[9px] uppercase tracking-wider text-muted-foreground block font-bold mb-0.5">Total Credits (Inflow)</span>
+                      <span className="text-sm font-bold text-green-600">
+                        +₹{totalCredits.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="text-[9px] bg-green-500/10 text-green-600 font-bold px-1.5 py-0.5 rounded-full">
+                      {selectedAccountTransactions.filter(e => e.type === 'CREDIT').length} txn
+                    </div>
+                  </div>
+                  <div className="p-2.5 bg-red-500/5 border border-red-500/10 rounded-xl flex justify-between items-center">
+                    <div>
+                      <span className="text-[9px] uppercase tracking-wider text-muted-foreground block font-bold mb-0.5">Total Debits (Outflow)</span>
+                      <span className="text-sm font-bold text-red-500">
+                        -₹{totalDebits.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="text-[9px] bg-red-500/10 text-red-500 font-bold px-1.5 py-0.5 rounded-full">
+                      {selectedAccountTransactions.filter(e => e.type === 'DEBIT').length} txn
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tab Filters */}
+                <div className="flex items-center justify-between border-b border-border/50 pb-2 mb-2 shrink-0">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Statement Ledger</h4>
+                  <div className="flex gap-1 bg-muted p-0.5 rounded-lg border border-border">
+                    <button
+                      onClick={() => setTransactionTypeFilter('ALL')}
+                      className={`px-2.5 py-1 text-[11px] rounded-md transition-all font-medium ${
+                        transactionTypeFilter === 'ALL'
+                          ? 'bg-background text-foreground shadow-xs'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      All
+                    </button>
+                    <button
+                      onClick={() => setTransactionTypeFilter('CREDIT')}
+                      className={`px-2.5 py-1 text-[11px] rounded-md transition-all font-medium ${
+                        transactionTypeFilter === 'CREDIT'
+                          ? 'bg-background text-green-600 shadow-xs'
+                          : 'text-muted-foreground hover:text-green-600'
+                      }`}
+                    >
+                      Credits
+                    </button>
+                    <button
+                      onClick={() => setTransactionTypeFilter('DEBIT')}
+                      className={`px-2.5 py-1 text-[11px] rounded-md transition-all font-medium ${
+                        transactionTypeFilter === 'DEBIT'
+                          ? 'bg-background text-red-500 shadow-xs'
+                          : 'text-muted-foreground hover:text-red-500'
+                      }`}
+                    >
+                      Debits
+                    </button>
+                  </div>
+                </div>
+
+                {/* Compact Transaction History List */}
+                <div className="flex-1 overflow-y-auto pr-1 space-y-1.5 min-h-0 custom-scrollbar">
+                  {paginatedTransactions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-8 text-center">
+                      {selectedAccountTransactions.length === 0 
+                        ? 'No transactions logged against this bank account.' 
+                        : 'No transactions match the selected filter.'}
+                    </p>
+                  ) : (
+                    paginatedTransactions.map((exp) => {
+                      const isCredit = exp.type === 'CREDIT';
+                      return (
+                        <div
+                          key={exp.id}
+                          className="flex justify-between items-center py-2 px-3 rounded-lg border border-border/30 bg-background/50 hover:bg-background/80 transition-colors gap-4"
+                        >
+                          <div className="min-w-0">
+                            <div className="font-semibold text-xs text-foreground truncate">{exp.category}</div>
+                            <div className="text-[10px] text-muted-foreground mt-0.5">{exp.expenseDate}</div>
+                            {exp.description && <p className="text-[10px] text-muted-foreground italic truncate mt-0.5">{exp.description}</p>}
+                          </div>
+                          <span className={`font-bold text-xs shrink-0 ${isCredit ? 'text-green-500' : 'text-red-500'}`}>
+                            {isCredit ? '+' : '-'}₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Ledger Pagination Controls */}
+                {filteredTransactions.length > 0 && (
+                  <div className="border-t border-border/50 pt-2 mt-2 flex flex-col sm:flex-row items-center justify-between gap-2 shrink-0">
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <span>
+                        Showing <span className="font-semibold text-foreground">{txnStartIndex + 1}</span> to{' '}
+                        <span className="font-semibold text-foreground">{Math.min(txnStartIndex + txnItemsPerPage, filteredTransactions.length)}</span> of{' '}
+                        <span className="font-semibold text-foreground">{filteredTransactions.length}</span> txns
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span>Show</span>
+                        <select
+                          value={txnItemsPerPage}
+                          onChange={(e) => {
+                            setTxnItemsPerPage(Number(e.target.value));
+                            setTxnPage(1);
+                          }}
+                          className="px-2 py-0.5 rounded bg-card border border-border text-foreground text-[11px] outline-none cursor-pointer focus:ring-1 focus:ring-primary"
+                        >
+                          <option value={5}>5 entries</option>
+                          <option value={10}>10 entries</option>
+                          <option value={20}>20 entries</option>
+                          <option value={50}>50 entries</option>
+                        </select>
+                      </div>
+                    </div>
+                    {totalTxnPages > 1 && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => setTxnPage(prev => Math.max(prev - 1, 1))}
+                          disabled={txnPage === 1}
+                          className="p-1 rounded border border-border bg-card hover:bg-muted text-muted-foreground disabled:opacity-40"
+                          title="Previous Page"
+                        >
+                          <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                        <span className="text-xs text-muted-foreground px-2">
+                          Page <span className="font-semibold text-foreground">{txnPage}</span> of {totalTxnPages}
+                        </span>
+                        <button
+                          onClick={() => setTxnPage(prev => Math.min(prev + 1, totalTxnPages))}
+                          disabled={txnPage === totalTxnPages}
+                          className="p-1 rounded border border-border bg-card hover:bg-muted text-muted-foreground disabled:opacity-40"
+                          title="Next Page"
+                        >
+                          <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </div>
                     )}
                   </div>
-                </div>
+                )}
               </div>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
@@ -538,6 +709,7 @@ export default function BankAccounts() {
                   <option value="Savings">Savings</option>
                   <option value="Current">Current</option>
                   <option value="Salary">Salary</option>
+                  <option value="Credit Card">Credit Card</option>
                 </select>
               </div>
               <div>

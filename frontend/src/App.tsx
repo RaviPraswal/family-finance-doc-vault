@@ -11,6 +11,7 @@ import PhysicalVault from './pages/PhysicalVault';
 import DashboardLayout from './components/DashboardLayout';
 import { ToastContainer } from './components/ToastContainer';
 import { ConfirmDialog } from './components/ConfirmDialog';
+import { SessionExpiryModal } from './components/SessionExpiryModal';
 import Projects from './pages/Projects';
 import PortfolioOverview from './pages/PortfolioOverview';
 import BankAccounts from './pages/BankAccounts';
@@ -49,6 +50,7 @@ function App() {
     <BrowserRouter>
       <ToastContainer />
       <ConfirmDialog />
+      <SessionExpiryModal />
       {/* Mesh gradient background container behind everything */}
       <div className="mesh-bg">
         <div className="mesh-blob"></div>

@@ -114,6 +114,18 @@ public class AuthService {
         String jwtToken = jwtService.generateToken(user);
         return new AuthResponse(jwtToken);
     }
+
+    /**
+     * Issues a fresh JWT token for an already-authenticated user.
+     * Called by the frontend when the user clicks "Extend Session" before expiry.
+     * Spring Security has already validated the current token before this is reached.
+     */
+    public AuthResponse refresh(org.springframework.security.core.userdetails.UserDetails userDetails) {
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        String newToken = jwtService.generateToken(user);
+        return new AuthResponse(newToken);
+    }
 }
 
 record RegisterRequest(

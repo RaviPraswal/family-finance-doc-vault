@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { Calendar, CheckCircle, Clock, FileText, Upload, Loader2 } from 'lucide-react';
 import { apiClient } from '../api/client';
+import { useToastStore } from '../store/toastStore';
 
 export default function Ledger() {
+  const toast = useToastStore();
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -35,7 +37,7 @@ export default function Ledger() {
       fetchPayments();
     } catch (error) {
       console.error('Failed to process payment:', error);
-      alert('Failed to process payment. Please ensure you have sufficient balance.');
+      toast.error('Payment failed', 'Could not process payment. Please ensure you have sufficient balance.');
     } finally {
       setProcessingId(null);
     }
@@ -59,7 +61,7 @@ export default function Ledger() {
       setParsedSchedule(data);
     } catch (error) {
       console.error('Failed to parse schedule:', error);
-      alert('Failed to parse schedule document. The AI service might be unavailable.');
+      toast.error('Parse failed', 'Could not parse schedule document. The AI service might be unavailable.');
     } finally {
       setIsParsing(false);
       if (fileInputRef.current) {
@@ -140,9 +142,9 @@ export default function Ledger() {
                         
                         setParsedSchedule(null);
                         fetchPayments();
-                        alert('Schedule successfully saved!');
+                        toast.success('Schedule saved', 'Your payment schedule has been saved successfully.');
                       } catch (err: any) {
-                        alert('Failed to save schedule: ' + err.message);
+                        toast.error('Save failed', 'Failed to save schedule: ' + err.message);
                       }
                     }}
                     className="mt-4 w-full py-2 bg-primary text-primary-foreground font-medium rounded-lg text-sm hover:opacity-90 transition-opacity"

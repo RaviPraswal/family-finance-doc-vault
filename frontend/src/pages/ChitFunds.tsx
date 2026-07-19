@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
+import { useToastStore } from '../store/toastStore';
+import { useConfirmStore } from '../store/confirmStore';
 import { Plus, Users, Trash2, CheckCircle2 } from 'lucide-react';
 
 interface ChitFund {
@@ -23,6 +25,8 @@ interface BankAccount {
 }
 
 export default function ChitFunds() {
+  const toast = useToastStore();
+  const confirm = useConfirmStore();
   const [chitFunds, setChitFunds] = useState<ChitFund[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
@@ -87,20 +91,29 @@ export default function ChitFunds() {
       });
       setIsModalOpen(false);
       setFormData({ organizerName: '', memberName: '', totalValue: 0, monthlyInstallment: 0, durationMonths: 12, pendingInstallments: 12, startDate: '', isAllotted: false, allottedAmount: null, linkedAccountId: '' });
+      toast.success('Chit fund saved', 'Your chit fund record has been added successfully.');
       fetchChitFunds();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toast.error('Failed to save chit fund', err.message || 'Could not save chit fund. Please try again.');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this chit fund?')) return;
-    try {
-      await apiClient(`/api/chitfunds/${id}`, { method: 'DELETE' });
-      fetchChitFunds();
-    } catch (err) {
-      console.error(err);
-    }
+    confirm.show({
+      title: 'Delete Chit Fund',
+      message: 'Are you sure you want to delete this chit fund? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await apiClient(`/api/chitfunds/${id}`, { method: 'DELETE' });
+          toast.success('Chit fund deleted', 'The chit fund record has been removed.');
+          fetchChitFunds();
+        } catch (err: any) {
+          toast.error('Cannot delete chit fund', err.message || 'Failed to delete chit fund.');
+        }
+      },
+    });
   };
 
   return (

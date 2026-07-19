@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
+import { useToastStore } from '../store/toastStore';
+import { useConfirmStore } from '../store/confirmStore';
 import { Plus, Trash2, ArrowRightLeft } from 'lucide-react';
 
 interface PeerLending {
@@ -14,6 +16,8 @@ interface PeerLending {
 }
 
 export default function PeerLending() {
+  const toast = useToastStore();
+  const confirm = useConfirmStore();
   const [lendings, setLendings] = useState<PeerLending[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -59,9 +63,10 @@ export default function PeerLending() {
       });
       setIsModalOpen(false);
       setFormData({ type: 'GIVEN', personName: '', ownerName: '', amount: 0, date: '', expectedReturnDate: '', settled: false });
+      toast.success('Record saved', 'Udhaar record has been added successfully.');
       fetchLendings();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toast.error('Failed to save record', err.message || 'Could not save. Please try again.');
     }
   };
 
@@ -71,20 +76,32 @@ export default function PeerLending() {
         method: 'PUT',
         body: JSON.stringify({ ...lending, settled: !lending.settled })
       });
+      toast.success(
+        `Marked as ${!lending.settled ? 'Settled' : 'Pending'}`,
+        `${lending.personName}'s record updated successfully.`
+      );
       fetchLendings();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toast.error('Failed to update status', err.message || 'Could not update record.');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this record?")) return;
-    try {
-      await apiClient(`/api/peerlendings/${id}`, { method: 'DELETE' });
-      fetchLendings();
-    } catch (err) {
-      console.error(err);
-    }
+    confirm.show({
+      title: 'Delete Record',
+      message: 'Are you sure you want to delete this udhaar record? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await apiClient(`/api/peerlendings/${id}`, { method: 'DELETE' });
+          toast.success('Record deleted', 'The udhaar record has been removed.');
+          fetchLendings();
+        } catch (err: any) {
+          toast.error('Cannot delete record', err.message || 'Failed to delete record.');
+        }
+      },
+    });
   };
 
   return (

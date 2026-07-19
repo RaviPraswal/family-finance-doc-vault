@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
+import { useToastStore } from '../store/toastStore';
+import { useConfirmStore } from '../store/confirmStore';
 import { Plus, CreditCard, Trash2 } from 'lucide-react';
 
 interface Loan {
@@ -14,6 +16,8 @@ interface Loan {
 }
 
 export default function Loans() {
+  const toast = useToastStore();
+  const confirm = useConfirmStore();
   const [loans, setLoans] = useState<Loan[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -59,20 +63,29 @@ export default function Loans() {
       });
       setIsModalOpen(false);
       setFormData({ lenderName: '', loanType: 'Home Loan', borrowerName: '', principalAmount: 0, outstandingAmount: 0, emiAmount: 0, interestRate: 0 });
+      toast.success('Loan saved', 'Loan record has been added successfully.');
       fetchLoans();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toast.error('Failed to save loan', err.message || 'Could not save loan. Please try again.');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this loan?")) return;
-    try {
-      await apiClient(`/api/loans/${id}`, { method: 'DELETE' });
-      fetchLoans();
-    } catch (err) {
-      console.error(err);
-    }
+    confirm.show({
+      title: 'Delete Loan',
+      message: 'Are you sure you want to delete this loan record? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await apiClient(`/api/loans/${id}`, { method: 'DELETE' });
+          toast.success('Loan deleted', 'The loan record has been removed.');
+          fetchLoans();
+        } catch (err: any) {
+          toast.error('Cannot delete loan', err.message || 'Failed to delete loan.');
+        }
+      },
+    });
   };
 
   return (

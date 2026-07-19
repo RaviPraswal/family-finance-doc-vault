@@ -22,11 +22,18 @@ export const apiClient = async (endpoint: string, options: RequestInit = {}) => 
   });
 
   if (!response.ok) {
+    const errorBody = await response.text();
+    // Only logout on actual authentication/authorization failures
     if (response.status === 401 || response.status === 403) {
       useAuthStore.getState().logout();
+      throw new Error('Session expired. Please log in again.');
     }
-    const errorBody = await response.text();
-    throw new Error(errorBody || 'Network response was not ok');
+    // For 4xx client errors (e.g. FK constraint violations), surface the backend message
+    if (response.status >= 400 && response.status < 500) {
+      throw new Error(errorBody || `Request failed (${response.status})`);
+    }
+    // For 5xx server errors
+    throw new Error(errorBody || `Server error (${response.status}). Please try again.`);
   }
 
   // If it's a file download, we might want to return the blob directly, 

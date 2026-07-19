@@ -6,6 +6,8 @@ import UploadModal from '../components/UploadModal';
 import ShareModal from '../components/ShareModal';
 import PreviewModal from '../components/PreviewModal';
 import { LogOut, Upload, FileText, Trash2, Download, Bell, AlertTriangle, Share2, Search, Eye } from 'lucide-react';
+import { useToastStore } from '../store/toastStore';
+import { useConfirmStore } from '../store/confirmStore';
 
 interface Document {
   id: string;
@@ -28,6 +30,8 @@ interface Notification {
 }
 
 export default function Dashboard() {
+  const toast = useToastStore();
+  const confirm = useConfirmStore();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -91,13 +95,21 @@ export default function Dashboard() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this document?')) return;
-    try {
-      await apiClient(`/api/documents/${id}`, { method: 'DELETE' });
-      fetchDocuments();
-    } catch (err) {
-      console.error('Failed to delete document', err);
-    }
+    confirm.show({
+      title: 'Delete Document',
+      message: 'Are you sure you want to delete this document? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await apiClient(`/api/documents/${id}`, { method: 'DELETE' });
+          toast.success('Document deleted', 'The document has been permanently removed.');
+          fetchDocuments();
+        } catch (err: any) {
+          toast.error('Cannot delete document', err.message || 'Failed to delete document.');
+        }
+      },
+    });
   };
 
   const markAsRead = async (id: string) => {
@@ -343,7 +355,7 @@ export default function Dashboard() {
           onClose={() => setShareDocument(null)}
           onSuccess={() => {
             setShareDocument(null);
-            alert('Document shared successfully!');
+            toast.success('Document shared', 'The document has been shared successfully.');
           }}
         />
       )}

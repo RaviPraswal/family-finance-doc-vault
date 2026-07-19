@@ -1,5 +1,7 @@
 import { useEffect, useState, Fragment } from 'react';
 import { apiClient } from '../api/client';
+import { useToastStore } from '../store/toastStore';
+import { useConfirmStore } from '../store/confirmStore';
 import { Plus, Landmark, Trash2 } from 'lucide-react';
 
 interface BankAccount {
@@ -13,6 +15,8 @@ interface BankAccount {
 }
 
 export default function BankAccounts() {
+  const toast = useToastStore();
+  const confirm = useConfirmStore();
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [expandedAccountId, setExpandedAccountId] = useState<string | null>(null);
@@ -58,20 +62,29 @@ export default function BankAccounts() {
       });
       setIsModalOpen(false);
       setFormData({ bankName: '', accountHolderName: '', accountNumber: '', accountType: 'Savings', currentBalance: 0, openingBalance: 0 });
+      toast.success('Bank account saved', 'Your bank account has been added successfully.');
       fetchAccounts();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toast.error('Failed to save', err.message || 'Could not save bank account. Please try again.');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this bank account?")) return;
-    try {
-      await apiClient(`/api/bankaccounts/${id}`, { method: 'DELETE' });
-      fetchAccounts();
-    } catch (err) {
-      console.error(err);
-    }
+    confirm.show({
+      title: 'Delete Bank Account',
+      message: 'Are you sure you want to delete this bank account? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await apiClient(`/api/bankaccounts/${id}`, { method: 'DELETE' });
+          toast.success('Bank account deleted', 'The account has been removed.');
+          fetchAccounts();
+        } catch (err: any) {
+          toast.error('Cannot delete account', err.message || 'Failed to delete bank account.');
+        }
+      },
+    });
   };
 
   return (

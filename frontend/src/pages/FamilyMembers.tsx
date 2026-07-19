@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { apiClient } from '../api/client';
+import { useToastStore } from '../store/toastStore';
+import { useConfirmStore } from '../store/confirmStore';
 import { Users, UserPlus, Shield, User, Mail, Phone, Trash2, Home, MapPin, Sparkles, X } from 'lucide-react';
 
 interface FamilyMember {
@@ -18,6 +20,8 @@ interface FamilyProfile {
 }
 
 export default function FamilyMembers() {
+  const toast = useToastStore();
+  const confirm = useConfirmStore();
   const currentUser = useAuthStore((state) => state.user);
   const isAdmin = currentUser?.role === 'OWNER';
 
@@ -87,29 +91,39 @@ export default function FamilyMembers() {
 
   const toggleRole = async (member: FamilyMember) => {
     const newRole = member.role === 'OWNER' ? 'MEMBER' : 'OWNER';
-    if (!window.confirm(`Are you sure you want to change ${member.name}'s role to ${newRole}?`)) return;
-
-    try {
-      await apiClient(`/api/family-members/${member.id}/role?role=${newRole}`, {
-        method: 'PUT'
-      });
-      fetchMembers();
-    } catch (err) {
-      console.error('Failed to change role', err);
-    }
+    confirm.show({
+      title: 'Change Role',
+      message: `Are you sure you want to change ${member.name}'s role to ${newRole}?`,
+      confirmLabel: 'Change Role',
+      danger: false,
+      onConfirm: async () => {
+        try {
+          await apiClient(`/api/family-members/${member.id}/role?role=${newRole}`, { method: 'PUT' });
+          toast.success('Role updated', `${member.name}'s role changed to ${newRole}.`);
+          fetchMembers();
+        } catch (err: any) {
+          toast.error('Failed to change role', err.message || 'Could not update role.');
+        }
+      },
+    });
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!window.confirm(`Are you sure you want to remove ${name} from the family?`)) return;
-
-    try {
-      await apiClient(`/api/family-members/${id}`, {
-        method: 'DELETE'
-      });
-      fetchMembers();
-    } catch (err) {
-      console.error('Failed to delete member', err);
-    }
+  const handleDelete = async (id: string, memberName: string) => {
+    confirm.show({
+      title: 'Remove Family Member',
+      message: `Are you sure you want to remove ${memberName} from the family? This action cannot be undone.`,
+      confirmLabel: 'Remove',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await apiClient(`/api/family-members/${id}`, { method: 'DELETE' });
+          toast.success('Member removed', `${memberName} has been removed from the family.`);
+          fetchMembers();
+        } catch (err: any) {
+          toast.error('Cannot remove member', err.message || 'Failed to remove family member.');
+        }
+      },
+    });
   };
 
   return (

@@ -15,4 +15,11 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
 
     @Query("SELECT DISTINCT e.category FROM Expense e WHERE e.tenantId = :tenantId")
     List<String> findDistinctCategoriesByTenantId(@Param("tenantId") UUID tenantId);
+
+    @Query("SELECT e FROM Expense e WHERE e.linkedAccount.id = :bankAccountId")
+    List<Expense> findAllByLinkedAccountId(@Param("bankAccountId") UUID bankAccountId);
+
+    @Query("SELECT e FROM Expense e WHERE e.linkedCreditCard.id = :creditCardId")
+    List<Expense> findAllByLinkedCreditCardId(@Param("creditCardId") UUID creditCardId);
 }
+

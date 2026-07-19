@@ -137,7 +137,12 @@ export default function ChitFunds() {
       updatedSchedule[rowIndex] = { ...updatedSchedule[rowIndex], status: newStatus };
       
       const isAllotted = updatedSchedule.some(r => r.status === 'Allotted');
-      const allottedAmount = updatedSchedule.find(r => r.status === 'Allotted')?.chitAmountAllocated || null;
+      const winningRow = updatedSchedule.find(r => r.status === 'Allotted');
+      const commission = selectedChitFund.totalValue * 0.05;
+      const gstOnCommission = commission * 0.18;
+      const allottedAmount = winningRow
+        ? winningRow.chitAmountAllocated - gstOnCommission
+        : null;
       const pendingInstallments = updatedSchedule.filter(r => r.status === 'Open / Pending').length;
       
       const payload = {
@@ -232,7 +237,12 @@ export default function ChitFunds() {
     e.preventDefault();
     try {
       const isAllotted = scheduleRows.some(r => r.status === 'Allotted');
-      const allottedAmount = scheduleRows.find(r => r.status === 'Allotted')?.chitAmountAllocated || null;
+      const winningRow = scheduleRows.find(r => r.status === 'Allotted');
+      const commission = formData.totalValue * 0.05;
+      const gstOnCommission = commission * 0.18;
+      const allottedAmount = winningRow
+        ? winningRow.chitAmountAllocated - gstOnCommission
+        : null;
       const pendingInstallments = scheduleRows.filter(r => r.status === 'Open / Pending').length;
 
       const payload: any = {

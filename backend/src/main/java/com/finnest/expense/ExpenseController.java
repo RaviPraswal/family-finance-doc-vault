@@ -21,6 +21,7 @@ public class ExpenseController {
     private final com.finnest.portfolio.ProjectRepository projectRepository;
     private final com.finnest.portfolio.ProjectExpenseRepository projectExpenseRepository;
     private final com.finnest.portfolio.IncomeSourceRepository incomeSourceRepository;
+    private final com.finnest.portfolio.CreditCardRepository creditCardRepository;
 
     public ExpenseController(ExpenseRepository repository,
                              com.finnest.portfolio.BankAccountRepository bankAccountRepository,
@@ -31,7 +32,8 @@ public class ExpenseController {
                              com.finnest.portfolio.DepositRepository depositRepository,
                              com.finnest.portfolio.ProjectRepository projectRepository,
                              com.finnest.portfolio.ProjectExpenseRepository projectExpenseRepository,
-                             com.finnest.portfolio.IncomeSourceRepository incomeSourceRepository) {
+                             com.finnest.portfolio.IncomeSourceRepository incomeSourceRepository,
+                             com.finnest.portfolio.CreditCardRepository creditCardRepository) {
         this.repository = repository;
         this.bankAccountRepository = bankAccountRepository;
         this.loanRepository = loanRepository;
@@ -42,6 +44,7 @@ public class ExpenseController {
         this.projectRepository = projectRepository;
         this.projectExpenseRepository = projectExpenseRepository;
         this.incomeSourceRepository = incomeSourceRepository;
+        this.creditCardRepository = creditCardRepository;
     }
 
     @GetMapping
@@ -340,6 +343,14 @@ public class ExpenseController {
                 }
                 incomeSourceRepository.save(income);
                 expense.setLinkedIncomeSource(income);
+            }
+        }
+
+        // Adjust Credit Card
+        if (expense.getLinkedCreditCard() != null && expense.getLinkedCreditCard().getId() != null) {
+            com.finnest.portfolio.CreditCard card = creditCardRepository.findById(expense.getLinkedCreditCard().getId()).orElse(null);
+            if (card != null) {
+                expense.setLinkedCreditCard(card);
             }
         }
     }

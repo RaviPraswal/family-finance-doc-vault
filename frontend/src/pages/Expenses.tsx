@@ -85,6 +85,7 @@ export default function Expenses() {
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
+  const [creditCards, setCreditCards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [amount, setAmount] = useState('');
@@ -101,6 +102,7 @@ export default function Expenses() {
   const [linkedDepositId, setLinkedDepositId] = useState('');
   const [linkedProjectId, setLinkedProjectId] = useState('');
   const [linkedIncomeSourceId, setLinkedIncomeSourceId] = useState('');
+  const [linkedCreditCardId, setLinkedCreditCardId] = useState('');
   const [filterBankId, setFilterBankId] = useState('');
   const [filterType, setFilterType] = useState('');
 
@@ -194,6 +196,15 @@ export default function Expenses() {
     }
   };
 
+  const fetchCreditCards = async () => {
+    try {
+      const data = await apiClient('/api/creditcards');
+      setCreditCards(data);
+    } catch (error) {
+      console.error('Failed to fetch credit cards', error);
+    }
+  };
+
   useEffect(() => {
     Promise.all([
       fetchExpenses(),
@@ -205,7 +216,8 @@ export default function Expenses() {
       fetchInvestments(),
       fetchDeposits(),
       fetchProjects(),
-      fetchIncomeSources()
+      fetchIncomeSources(),
+      fetchCreditCards()
     ]).finally(() => setLoading(false));
   }, []);
 
@@ -228,7 +240,8 @@ export default function Expenses() {
           linkedInvestment: madeAgainst === 'SIP_INVESTMENT' && linkedInvestmentId ? { id: linkedInvestmentId } : null,
           linkedDeposit: madeAgainst === 'RECURRING_DEPOSIT' && linkedDepositId ? { id: linkedDepositId } : null,
           linkedProject: madeAgainst === 'PROJECT' && linkedProjectId ? { id: linkedProjectId } : null,
-          linkedIncomeSource: madeAgainst === 'INCOME_SOURCE' && linkedIncomeSourceId ? { id: linkedIncomeSourceId } : null
+          linkedIncomeSource: madeAgainst === 'INCOME_SOURCE' && linkedIncomeSourceId ? { id: linkedIncomeSourceId } : null,
+          linkedCreditCard: madeAgainst === 'CREDIT_CARD' && linkedCreditCardId ? { id: linkedCreditCardId } : null
         })
       });
       setAmount('');
@@ -242,6 +255,7 @@ export default function Expenses() {
       setLinkedDepositId('');
       setLinkedProjectId('');
       setLinkedIncomeSourceId('');
+      setLinkedCreditCardId('');
       setType('DEBIT');
       setMadeAgainst('MANUAL_ENTRY');
       toast.success('Transaction added', 'Your transaction has been recorded successfully.');
@@ -443,15 +457,15 @@ export default function Expenses() {
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1">Select Credit Card</label>
                   <select
-                    value={linkedAccountId}
-                    onChange={(e) => setLinkedAccountId(e.target.value)}
+                    value={linkedCreditCardId}
+                    onChange={(e) => setLinkedCreditCardId(e.target.value)}
                     className="w-full px-3 py-2 bg-background/50 border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
                     required
                   >
                     <option value="">-- Select Card --</option>
-                    {bankAccounts.filter(a => a.accountType?.toLowerCase().includes('card') || a.name.toLowerCase().includes('card')).map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name} ({a.bankName})
+                    {creditCards.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.cardName} ({c.bankName})
                       </option>
                     ))}
                   </select>
@@ -695,18 +709,21 @@ export default function Expenses() {
                               <div className="flex items-center gap-2 mt-1">
                                 <span className="text-xs text-muted-foreground">{expense.expenseDate}</span>
                                 {expense.linkedAccount && (
-                                  <>
-                                    <span className="text-xs text-muted-foreground">•</span>
-                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                      (expense.linkedAccount.accountType?.toLowerCase().includes('card') || expense.linkedAccount.name?.toLowerCase().includes('card'))
-                                        ? 'bg-purple-500/10 text-purple-500 border border-purple-500/20'
-                                        : 'bg-primary/10 text-primary'
-                                    }`}>
-                                      {(expense.linkedAccount.accountType?.toLowerCase().includes('card') || expense.linkedAccount.name?.toLowerCase().includes('card')) ? '💳 ' : '🏦 '}
-                                      {expense.linkedAccount.name || 'Bank Account'}
-                                    </span>
-                                  </>
-                                )}
+                                   <>
+                                     <span className="text-xs text-muted-foreground">•</span>
+                                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium bg-primary/10 text-primary`}>
+                                       🏦 {expense.linkedAccount.name || expense.linkedAccount.bankName || 'Bank Account'}
+                                     </span>
+                                   </>
+                                 )}
+                                 {expense.linkedCreditCard && (
+                                   <>
+                                     <span className="text-xs text-muted-foreground">•</span>
+                                     <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-purple-500/10 text-purple-500 border border-purple-500/20">
+                                       💳 {expense.linkedCreditCard.cardName || 'Credit Card'}
+                                     </span>
+                                   </>
+                                 )}
                               </div>
                             </div>
                           </div>

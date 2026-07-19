@@ -69,6 +69,11 @@ public class Expense extends TenantBaseEntity {
     @JoinColumn(name = "linked_income_source_id")
     private com.finnest.portfolio.IncomeSource linkedIncomeSource;
 
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "linked_credit_card_id")
+    private com.finnest.portfolio.CreditCard linkedCreditCard;
+
     public BigDecimal getAmount() {
         return amount;
     }
@@ -179,5 +184,13 @@ public class Expense extends TenantBaseEntity {
 
     public void setLinkedIncomeSource(com.finnest.portfolio.IncomeSource linkedIncomeSource) {
         this.linkedIncomeSource = linkedIncomeSource;
+    }
+
+    public com.finnest.portfolio.CreditCard getLinkedCreditCard() {
+        return linkedCreditCard;
+    }
+
+    public void setLinkedCreditCard(com.finnest.portfolio.CreditCard linkedCreditCard) {
+        this.linkedCreditCard = linkedCreditCard;
     }
 }

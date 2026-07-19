@@ -22,10 +22,21 @@ public class ChitFund extends TenantBaseEntity {
     private Boolean isAllotted = false;
     private BigDecimal allottedAmount;
 
+    @jakarta.persistence.Column(columnDefinition = "TEXT")
+    private String paymentSchedule;
+
     @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     @jakarta.persistence.ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
     @jakarta.persistence.JoinColumn(name = "linked_bank_account_id")
     private com.finnest.portfolio.BankAccount linkedAccount;
+
+    public String getPaymentSchedule() {
+        return paymentSchedule;
+    }
+
+    public void setPaymentSchedule(String paymentSchedule) {
+        this.paymentSchedule = paymentSchedule;
+    }
 
     public Boolean getIsAllotted() {
         return isAllotted;

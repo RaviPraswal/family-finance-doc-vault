@@ -15,7 +15,8 @@ interface ChitFund {
   startDate: string;
   isAllotted: boolean;
   allottedAmount: number | null;
-  linkedAccount: { id: string; name: string } | null;
+  linkedAccount: { id: string; name?: string } | null;
+  paymentSchedule?: string;
 }
 
 interface BankAccount {
@@ -34,15 +35,165 @@ export default function ChitFunds() {
   const [formData, setFormData] = useState<Partial<ChitFund & { linkedAccountId: string }>>({
     organizerName: '',
     memberName: '',
-    totalValue: 0,
-    monthlyInstallment: 0,
+    totalValue: 100000,
+    monthlyInstallment: 8333,
     durationMonths: 12,
     pendingInstallments: 12,
-    startDate: '',
+    startDate: new Date().toISOString().split('T')[0],
     isAllotted: false,
     allottedAmount: null,
     linkedAccountId: '',
   });
+
+  interface ScheduleRow {
+    srNo: number;
+    monthCycle: string;
+    calendarMonth: string;
+    calendarYear: number;
+    actualAmount: number;
+    chitAmountAllocated: number;
+    status: 'Paid & Closed' | 'Allotted' | 'Open / Pending';
+  }
+
+  const [scheduleRows, setScheduleRows] = useState<ScheduleRow[]>([]);
+  const [activeTab, setActiveTab] = useState<'schedule' | 'transactions'>('schedule');
+  const [localSchedule, setLocalSchedule] = useState<ScheduleRow[]>([]);
+
+  const generateDefaultSchedule = (duration: number, totalValue: number, startDateStr: string): ScheduleRow[] => {
+    if (!duration || !totalValue || !startDateStr) return [];
+    const rows: ScheduleRow[] = [];
+    const start = new Date(startDateStr);
+    let currentMonth = start.getMonth();
+    let currentYear = start.getFullYear();
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    const commission = totalValue * 0.05;
+    const baseInstallment = totalValue / duration;
+    
+    for (let i = 1; i <= duration; i++) {
+      let allocated = 0;
+      if (i > 1) {
+        if (duration === 20) {
+          if (i >= 2 && i <= 10) {
+            allocated = Math.round(totalValue * (0.70 + (i - 2) * (4000 / 300000)));
+          } else if (i >= 11 && i <= 19) {
+            allocated = Math.round(totalValue * (0.8066666666666666 + (i - 10) * (4250 / 300000)));
+          } else if (i === 20) {
+            allocated = Math.round(totalValue * 0.95);
+          }
+        } else {
+          const fraction = duration > 2 ? (i - 2) / (duration - 2) : 0;
+          allocated = Math.round(totalValue * (0.70 + fraction * 0.25));
+        }
+      }
+      
+      let actual = baseInstallment;
+      if (i > 1) {
+        const discount = totalValue - allocated;
+        const memberDividendPool = discount - commission;
+        const dividendPerMember = memberDividendPool / duration;
+        actual = baseInstallment - dividendPerMember;
+      }
+      
+      rows.push({
+        srNo: i,
+        monthCycle: `Month ${i}`,
+        calendarMonth: months[currentMonth],
+        calendarYear: currentYear,
+        actualAmount: Math.round(actual),
+        chitAmountAllocated: allocated,
+        status: 'Open / Pending'
+      });
+      
+      currentMonth++;
+      if (currentMonth > 11) {
+        currentMonth = 0;
+        currentYear++;
+      }
+    }
+    return rows;
+  };
+
+  const handleMetaChange = (field: string, value: any) => {
+    const updatedForm = { ...formData, [field]: value };
+    setFormData(updatedForm);
+    
+    const duration = updatedForm.durationMonths || 12;
+    const totalVal = updatedForm.totalValue || 0;
+    const startD = updatedForm.startDate || new Date().toISOString().split('T')[0];
+    
+    if (field === 'durationMonths' || field === 'totalValue' || field === 'startDate') {
+      setScheduleRows(generateDefaultSchedule(duration, totalVal, startD));
+    }
+  };
+
+  const handleStatusChange = async (rowIndex: number, newStatus: 'Paid & Closed' | 'Allotted' | 'Open / Pending') => {
+    try {
+      const currentSchedule = selectedChitFund.paymentSchedule
+        ? (JSON.parse(selectedChitFund.paymentSchedule) as ScheduleRow[])
+        : generateDefaultSchedule(selectedChitFund.durationMonths || 20, selectedChitFund.totalValue || 300000, selectedChitFund.startDate || new Date().toISOString().split('T')[0]);
+      
+      const updatedSchedule = [...currentSchedule];
+      updatedSchedule[rowIndex] = { ...updatedSchedule[rowIndex], status: newStatus };
+      
+      const isAllotted = updatedSchedule.some(r => r.status === 'Allotted');
+      const allottedAmount = updatedSchedule.find(r => r.status === 'Allotted')?.chitAmountAllocated || null;
+      const pendingInstallments = updatedSchedule.filter(r => r.status === 'Open / Pending').length;
+      
+      const payload = {
+        ...selectedChitFund,
+        paymentSchedule: JSON.stringify(updatedSchedule),
+        isAllotted,
+        allottedAmount,
+        pendingInstallments,
+      };
+      if (selectedChitFund.linkedAccount) {
+        payload.linkedAccount = { id: selectedChitFund.linkedAccount.id };
+      }
+      
+      await apiClient(`/api/chitfunds/${selectedChitFund.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      });
+      
+      toast.success('Status updated', `Installment status changed to ${newStatus}.`);
+      fetchChitFunds();
+    } catch (err: any) {
+      toast.error('Failed to update status', err.message || 'Could not update status.');
+    }
+  };
+
+
+  const openAddModal = () => {
+    const today = new Date().toISOString().split('T')[0];
+    setFormData({
+      organizerName: '',
+      memberName: '',
+      totalValue: 300000,
+      monthlyInstallment: 15000,
+      durationMonths: 20,
+      pendingInstallments: 20,
+      startDate: today,
+      isAllotted: false,
+      allottedAmount: null,
+      linkedAccountId: '',
+    });
+    setScheduleRows(generateDefaultSchedule(20, 300000, today));
+    setIsModalOpen(true);
+  };
+
+  const updateScheduleField = (index: number, field: keyof ScheduleRow, value: any) => {
+    const updated = [...scheduleRows];
+    updated[index] = { ...updated[index], [field]: value };
+    setScheduleRows(updated);
+  };
+
+  const rebuildSchedule = () => {
+    const duration = formData.durationMonths || 20;
+    const totalVal = formData.totalValue || 0;
+    const startD = formData.startDate || new Date().toISOString().split('T')[0];
+    setScheduleRows(generateDefaultSchedule(duration, totalVal, startD));
+  };
 
   useEffect(() => {
     fetchChitFunds();
@@ -80,7 +231,17 @@ export default function ChitFunds() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const payload: any = { ...formData };
+      const isAllotted = scheduleRows.some(r => r.status === 'Allotted');
+      const allottedAmount = scheduleRows.find(r => r.status === 'Allotted')?.chitAmountAllocated || null;
+      const pendingInstallments = scheduleRows.filter(r => r.status === 'Open / Pending').length;
+
+      const payload: any = {
+        ...formData,
+        isAllotted,
+        allottedAmount,
+        pendingInstallments,
+        paymentSchedule: JSON.stringify(scheduleRows),
+      };
       if (formData.linkedAccountId) {
         payload.linkedAccount = { id: formData.linkedAccountId };
       }
@@ -90,7 +251,8 @@ export default function ChitFunds() {
         body: JSON.stringify(payload),
       });
       setIsModalOpen(false);
-      setFormData({ organizerName: '', memberName: '', totalValue: 0, monthlyInstallment: 0, durationMonths: 12, pendingInstallments: 12, startDate: '', isAllotted: false, allottedAmount: null, linkedAccountId: '' });
+      setFormData({ organizerName: '', memberName: '', totalValue: 100000, monthlyInstallment: 8333, durationMonths: 12, pendingInstallments: 12, startDate: new Date().toISOString().split('T')[0], isAllotted: false, allottedAmount: null, linkedAccountId: '' });
+      setScheduleRows([]);
       toast.success('Chit fund saved', 'Your chit fund record has been added successfully.');
       fetchChitFunds();
     } catch (err: any) {
@@ -136,6 +298,17 @@ export default function ChitFunds() {
 
   const selectedChitFund = chitFunds.find(cf => cf.id === selectedChitFundId) || chitFunds[0];
 
+  useEffect(() => {
+    if (selectedChitFund) {
+      const schedule = selectedChitFund.paymentSchedule
+        ? (JSON.parse(selectedChitFund.paymentSchedule) as ScheduleRow[])
+        : generateDefaultSchedule(selectedChitFund.durationMonths || 20, selectedChitFund.totalValue || 300000, selectedChitFund.startDate || new Date().toISOString().split('T')[0]);
+      setLocalSchedule(schedule);
+    } else {
+      setLocalSchedule([]);
+    }
+  }, [selectedChitFund, chitFunds]);
+
   // Pagination calculations
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedChitFunds = chitFunds.slice(startIndex, startIndex + itemsPerPage);
@@ -175,8 +348,8 @@ export default function ChitFunds() {
           </div>
 
           <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90"
+            onClick={openAddModal}
+            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 font-semibold text-sm"
           >
             <Plus className="h-4 w-4" /> Add Chit Fund
           </button>
@@ -195,8 +368,30 @@ export default function ChitFunds() {
               const paid = (cf.durationMonths ?? 0) - (cf.pendingInstallments ?? 0);
               const progress = cf.durationMonths ? Math.min(100, (paid / cf.durationMonths) * 100) : 0;
 
+              const schedule = cf.paymentSchedule
+                ? (JSON.parse(cf.paymentSchedule) as ScheduleRow[])
+                : generateDefaultSchedule(cf.durationMonths || 20, cf.totalValue || 300000, cf.startDate || new Date().toISOString().split('T')[0]);
+
+              const upcomingRow = schedule.find(row => row.status === 'Open / Pending');
+              const upcomingText = upcomingRow
+                ? `₹${upcomingRow.actualAmount.toLocaleString()} (${upcomingRow.calendarMonth} ${upcomingRow.calendarYear})`
+                : 'None';
+
+              const paidRows = schedule.filter(row => row.status === 'Paid & Closed' || row.status === 'Allotted');
+              const lastPaidRow = paidRows.length > 0 ? paidRows[paidRows.length - 1] : null;
+              const lastPaidText = lastPaidRow
+                ? `₹${lastPaidRow.actualAmount.toLocaleString()} (${lastPaidRow.calendarMonth} ${lastPaidRow.calendarYear})`
+                : 'N/A';
+
+              const totalDeposited = schedule.reduce((sum, row) => {
+                if (row.status === 'Paid & Closed' || row.status === 'Allotted') {
+                  return sum + row.actualAmount;
+                }
+                return sum;
+              }, 0);
+
               return (
-                <div key={cf.id} className="bg-card p-6 rounded-lg shadow-sm border border-border flex flex-col justify-between hover:shadow-md transition-shadow">
+                <div key={cf.id} className="bg-card p-6 rounded-lg shadow-sm border border-border flex flex-col hover:shadow-md transition-shadow">
                   <div>
                     <div className="flex justify-between items-start mb-4">
                       <div className="flex items-center gap-3">
@@ -229,8 +424,16 @@ export default function ChitFunds() {
                         <span className="font-bold text-violet-500">₹{cf.totalValue?.toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Monthly Installment:</span>
-                        <span className="font-semibold text-foreground">₹{cf.monthlyInstallment?.toLocaleString()}</span>
+                        <span className="text-muted-foreground">Total Deposited:</span>
+                        <span className="font-semibold text-foreground">₹{totalDeposited.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Upcoming Installment:</span>
+                        <span className="font-semibold text-foreground">{upcomingText}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Last Paid:</span>
+                        <span className="font-semibold text-foreground">{lastPaidText}</span>
                       </div>
                       <div className="flex justify-between pt-2 border-t border-border">
                         <span className="text-muted-foreground">Allotted Amount:</span>
@@ -243,6 +446,13 @@ export default function ChitFunds() {
                         <span className="font-semibold text-foreground">{cf.pendingInstallments} months</span>
                       </div>
                     </div>
+
+                    {cf.linkedAccount && (
+                      <div className="flex justify-between pt-2 border-t border-border mt-3 text-xs text-muted-foreground">
+                        <span>Linked Account:</span>
+                        <span className="font-semibold text-foreground">{cf.linkedAccount.name}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -345,10 +555,10 @@ export default function ChitFunds() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Organizer</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Member</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Value</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Monthly</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Upcoming</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Last Paid</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Allotted?</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Pending</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Installments</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Progress</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -356,6 +566,22 @@ export default function ChitFunds() {
                 {paginatedChitFunds.map((cf) => {
                   const paid = (cf.durationMonths ?? 0) - (cf.pendingInstallments ?? 0);
                   const progress = cf.durationMonths ? Math.min(100, (paid / cf.durationMonths) * 100) : 0;
+
+                  const schedule = cf.paymentSchedule
+                    ? (JSON.parse(cf.paymentSchedule) as ScheduleRow[])
+                    : generateDefaultSchedule(cf.durationMonths || 20, cf.totalValue || 300000, cf.startDate || new Date().toISOString().split('T')[0]);
+
+                  const upcomingRow = schedule.find(row => row.status === 'Open / Pending');
+                  const upcomingText = upcomingRow
+                    ? `₹${upcomingRow.actualAmount.toLocaleString()} (${upcomingRow.calendarMonth})`
+                    : 'None';
+
+                  const paidRows = schedule.filter(row => row.status === 'Paid & Closed' || row.status === 'Allotted');
+                  const lastPaidRow = paidRows.length > 0 ? paidRows[paidRows.length - 1] : null;
+                  const lastPaidText = lastPaidRow
+                    ? `₹${lastPaidRow.actualAmount.toLocaleString()} (${lastPaidRow.calendarMonth})`
+                    : 'N/A';
+
                   return (
                     <tr key={cf.id} className="hover:bg-background/80 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -371,7 +597,10 @@ export default function ChitFunds() {
                         ₹{cf.totalValue?.toLocaleString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap font-medium text-foreground text-sm">
-                        ₹{cf.monthlyInstallment?.toLocaleString()}
+                        {upcomingText}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground font-medium">
+                        {lastPaidText}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         {cf.isAllotted ? (
@@ -379,9 +608,6 @@ export default function ChitFunds() {
                         ) : (
                           <span className="text-muted-foreground italic">No</span>
                         )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
-                        {cf.pendingInstallments} months
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
@@ -547,56 +773,168 @@ export default function ChitFunds() {
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto pr-1 space-y-6">
-                  {/* Performance Indicators */}
-                  <div className="grid grid-cols-3 gap-4 bg-muted/30 p-4 rounded-xl">
-                    <div>
-                      <span className="text-xs text-muted-foreground block">Monthly Installment</span>
-                      <span className="text-base font-semibold text-foreground">₹{selectedChitFund.monthlyInstallment?.toLocaleString()}</span>
-                    </div>
-                    <div>
-                      <span className="text-xs text-muted-foreground block">Duration</span>
-                      <span className="text-base font-semibold text-foreground">{selectedChitFund.durationMonths} Months</span>
-                    </div>
-                    <div>
-                      <span className="text-xs text-muted-foreground block">Status</span>
-                      <span className={`text-base font-bold ${selectedChitFund.isAllotted ? 'text-green-500' : 'text-amber-500'}`}>
-                        {selectedChitFund.isAllotted ? `Allotted (₹${selectedChitFund.allottedAmount?.toLocaleString()})` : 'Awaiting Bidding'}
-                      </span>
-                    </div>
-                  </div>
+                {(() => {
+                  const currentSchedule = selectedChitFund.paymentSchedule
+                    ? (JSON.parse(selectedChitFund.paymentSchedule) as ScheduleRow[])
+                    : generateDefaultSchedule(selectedChitFund.durationMonths, selectedChitFund.totalValue, selectedChitFund.startDate);
 
-                  {/* Transaction log */}
-                  <div>
-                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Installment Transaction Log</h4>
-                    <div className="space-y-2">
-                      {expenses.filter((e) => e.linkedChitFund?.id === selectedChitFund.id).length === 0 ? (
-                        <p className="text-sm text-muted-foreground py-8 text-center bg-background/30 rounded-lg">No contributions or allotments logged for this chit fund.</p>
-                      ) : (
-                        expenses
-                          .filter((e) => e.linkedChitFund?.id === selectedChitFund.id)
-                          .map((exp) => {
-                            const isContribution = exp.type === 'DEBIT'; // DEBIT is contribution
-                            return (
-                              <div
-                                key={exp.id}
-                                className="flex justify-between items-center p-3 rounded-lg border border-border/30 bg-background/50 hover:bg-background/85 transition-colors"
-                              >
-                                <div>
-                                  <div className="font-semibold text-sm text-foreground">{exp.category}</div>
-                                  <div className="text-xs text-muted-foreground">{exp.expenseDate}</div>
-                                  {exp.description && <p className="text-xs text-muted-foreground italic mt-1">{exp.description}</p>}
-                                </div>
-                                <span className={`font-bold text-sm ${isContribution ? 'text-green-500' : 'text-red-500'}`}>
-                                  {isContribution ? '+' : '-'}₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                </span>
+                  const totalDepositedAmt = currentSchedule.reduce((sum, row) => {
+                    if (row.status === 'Paid & Closed' || row.status === 'Allotted') {
+                      return sum + row.actualAmount;
+                    }
+                    return sum;
+                  }, 0);
+
+                  const paidMonths = currentSchedule.filter(row => row.status === 'Paid & Closed' || row.status === 'Allotted').length;
+
+                  return (
+                    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                      {/* Performance Indicators */}
+                      <div className="grid grid-cols-3 gap-4 bg-muted/30 p-4 rounded-xl mb-4">
+                        <div>
+                          <span className="text-xs text-muted-foreground block">Deposited So Far</span>
+                          <span className="text-base font-bold text-foreground">₹{totalDepositedAmt.toLocaleString()}</span>
+                        </div>
+                        <div>
+                          <span className="text-xs text-muted-foreground block">Paid/Duration</span>
+                          <span className="text-base font-semibold text-foreground">{paidMonths} / {selectedChitFund.durationMonths} Months</span>
+                        </div>
+                        <div>
+                          <span className="text-xs text-muted-foreground block">Bidding Status</span>
+                          <span className={`text-base font-bold ${selectedChitFund.isAllotted ? 'text-green-500' : 'text-amber-500'}`}>
+                            {selectedChitFund.isAllotted ? `Allotted (₹${selectedChitFund.allottedAmount?.toLocaleString()})` : 'Awaiting Bidding'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Tab selector */}
+                      <div className="flex border-b border-border/50 mb-4 text-sm">
+                        <button
+                          onClick={() => setActiveTab('schedule')}
+                          className={`pb-2 px-4 font-semibold border-b-2 transition-all ${
+                            activeTab === 'schedule'
+                              ? 'border-primary text-primary'
+                              : 'border-transparent text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          Installment Payment Schedule
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('transactions')}
+                          className={`pb-2 px-4 font-semibold border-b-2 transition-all ${
+                            activeTab === 'transactions'
+                              ? 'border-primary text-primary'
+                              : 'border-transparent text-muted-foreground hover:text-foreground'
+                          }`}
+                        >
+                          Expense Transaction Log
+                        </button>
+                      </div>
+
+                      {/* Tab Content */}
+                      <div className="flex-1 overflow-y-auto pr-1 min-h-0 custom-scrollbar">
+                        {activeTab === 'schedule' ? (
+                          <div className="space-y-4">
+                            <div className="flex justify-between items-center">
+                              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Schedule Statement</h4>
+                              <div className="text-xs text-muted-foreground italic">
+                                Changing status automatically updates balance progress
                               </div>
-                            );
-                          })
-                      )}
+                            </div>
+
+                            <div className="border border-border/60 rounded-xl overflow-hidden shadow-xs">
+                              <table className="min-w-full divide-y divide-border/60 text-sm">
+                                <thead className="bg-muted/50">
+                                  <tr>
+                                    <th className="px-4 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap">Sr</th>
+                                    <th className="px-4 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap">Month / Cycle</th>
+                                    <th className="px-4 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap">Actual Amt</th>
+                                    <th className="px-4 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap">Allocated if Opted</th>
+                                    <th className="px-4 py-2 text-left font-semibold text-muted-foreground whitespace-nowrap">Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-border/40 bg-card">
+                                  {(() => {
+                                    return localSchedule.map((row, idx) => {
+                                      const isPaidOrAllotted = row.status === 'Paid & Closed' || row.status === 'Allotted';
+                                      return (
+                                        <tr key={row.srNo} className="hover:bg-muted/10 transition-colors">
+                                          <td className="px-4 py-1.5 text-muted-foreground font-mono whitespace-nowrap">{row.srNo}</td>
+                                          <td className="px-4 py-1.5 text-foreground font-medium whitespace-nowrap">{row.calendarMonth} {row.calendarYear} ({row.monthCycle})</td>
+                                          
+                                          <td className="px-4 py-1.5 text-foreground font-semibold whitespace-nowrap">
+                                            ₹{row.actualAmount.toLocaleString()}
+                                          </td>
+                                          <td className="px-4 py-1.5 text-foreground font-semibold whitespace-nowrap">
+                                            ₹{row.chitAmountAllocated.toLocaleString()}
+                                          </td>
+
+                                          <td className="px-4 py-1.5 whitespace-nowrap">
+                                            {isPaidOrAllotted ? (
+                                              <span
+                                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                                  row.status === 'Paid & Closed'
+                                                    ? 'bg-green-500/10 text-green-500'
+                                                    : 'bg-violet-500/10 text-violet-500'
+                                                }`}
+                                              >
+                                                {row.status}
+                                              </span>
+                                            ) : (
+                                              <select
+                                                value={row.status}
+                                                onChange={(e) => handleStatusChange(idx, e.target.value as any)}
+                                                className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-transparent border border-border text-amber-500 bg-amber-500/10 outline-none focus:ring-0 cursor-pointer"
+                                              >
+                                                <option value="Open / Pending" className="bg-card text-foreground">Open / Pending</option>
+                                                <option value="Paid & Closed" className="bg-card text-foreground">Paid & Closed</option>
+                                                <option value="Allotted" className="bg-card text-foreground">Allotted</option>
+                                              </select>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      );
+                                    });
+                                  })()}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Installment Transaction Log</h4>
+                            <div className="space-y-2">
+                              {expenses.filter((e) => e.linkedChitFund?.id === selectedChitFund.id).length === 0 ? (
+                                <p className="text-sm text-muted-foreground py-8 text-center bg-background/30 rounded-lg">No contributions or allotments logged for this chit fund.</p>
+                              ) : (
+                                expenses
+                                  .filter((e) => e.linkedChitFund?.id === selectedChitFund.id)
+                                  .map((exp) => {
+                                    const isContribution = exp.type === 'DEBIT';
+                                    return (
+                                      <div
+                                        key={exp.id}
+                                        className="flex justify-between items-center p-3 rounded-lg border border-border/30 bg-background/50 hover:bg-background/85 transition-colors text-xs"
+                                      >
+                                        <div>
+                                          <div className="font-semibold text-foreground">{exp.category}</div>
+                                          <div className="text-muted-foreground">{exp.expenseDate}</div>
+                                          {exp.description && <p className="text-muted-foreground italic mt-1">{exp.description}</p>}
+                                        </div>
+                                        <span className={`font-bold ${isContribution ? 'text-green-500' : 'text-red-500'}`}>
+                                          {isContribution ? '+' : '-'}₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                        </span>
+                                      </div>
+                                    );
+                                  })
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  );
+                })()}
               </div>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
@@ -610,67 +948,132 @@ export default function ChitFunds() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-semibold mb-4">Add Chit Fund</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Organizer Name</label>
-                  <input required value={formData.organizerName} onChange={e => setFormData({ ...formData, organizerName: e.target.value })} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" placeholder="Organizer" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Member Name</label>
-                  <input required value={formData.memberName} onChange={e => setFormData({ ...formData, memberName: e.target.value })} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" placeholder="Your name" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Total Value (₹)</label>
-                  <input required type="number" value={formData.totalValue} onChange={e => setFormData({ ...formData, totalValue: parseFloat(e.target.value) })} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Monthly Installment (₹)</label>
-                  <input required type="number" value={formData.monthlyInstallment} onChange={e => setFormData({ ...formData, monthlyInstallment: parseFloat(e.target.value) })} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Duration (Months)</label>
-                  <input required type="number" value={formData.durationMonths} onChange={e => setFormData({ ...formData, durationMonths: parseInt(e.target.value) })} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Pending Installments</label>
-                  <input required type="number" value={formData.pendingInstallments} onChange={e => setFormData({ ...formData, pendingInstallments: parseInt(e.target.value) })} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Start Date</label>
-                <input required type="date" value={formData.startDate} onChange={e => setFormData({ ...formData, startDate: e.target.value })} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center gap-2">
-                  <input type="checkbox" id="isAllotted" checked={formData.isAllotted} onChange={e => setFormData({ ...formData, isAllotted: e.target.checked })} className="h-4 w-4 rounded border-input text-primary" />
-                  <label htmlFor="isAllotted" className="text-sm font-medium">Already Allotted?</label>
-                </div>
-                {formData.isAllotted && (
+          <div className="bg-card rounded-lg p-6 max-w-5xl w-full max-h-[90vh] overflow-y-auto shadow-xl border border-border">
+            <h2 className="text-xl font-bold text-foreground mb-4">Add Chit Fund</h2>
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Left Column: Meta Fields */}
+              <div className="lg:col-span-5 space-y-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium mb-1">Allotted Amount (₹)</label>
-                    <input type="number" value={formData.allottedAmount ?? ''} onChange={e => setFormData({ ...formData, allottedAmount: parseFloat(e.target.value) })} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" />
+                    <label className="block text-sm font-medium mb-1">Organizer Name</label>
+                    <input required value={formData.organizerName} onChange={e => setFormData({ ...formData, organizerName: e.target.value })} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-xs" placeholder="Organizer" />
                   </div>
-                )}
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Member Name</label>
+                    <input required value={formData.memberName} onChange={e => setFormData({ ...formData, memberName: e.target.value })} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-xs" placeholder="Your name" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Total Value (₹)</label>
+                    <input required type="number" value={formData.totalValue} onChange={e => handleMetaChange('totalValue', parseFloat(e.target.value))} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-xs" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Start Month</label>
+                    <input required type="month" value={formData.startDate ? formData.startDate.substring(0, 7) : ''} onChange={e => handleMetaChange('startDate', e.target.value + '-01')} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-xs" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Duration (Months)</label>
+                    <input required type="number" value={formData.durationMonths} onChange={e => handleMetaChange('durationMonths', parseInt(e.target.value))} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-xs" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Linked Bank Account</label>
+                    <select value={formData.linkedAccountId} onChange={e => setFormData({ ...formData, linkedAccountId: e.target.value })} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-xs">
+                      <option value="">-- None --</option>
+                      {bankAccounts.map(ba => (
+                        <option key={ba.id} value={ba.id}>{ba.name} ({ba.bankName})</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Auto computed info summary */}
+                <div className="p-4 bg-muted/30 rounded-lg space-y-2 text-xs border border-border/50">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Is Allotted?</span>
+                    <span className="font-semibold text-foreground">{scheduleRows.some(r => r.status === 'Allotted') ? 'Yes' : 'No'}</span>
+                  </div>
+                  {scheduleRows.some(r => r.status === 'Allotted') && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Allotted Amount:</span>
+                      <span className="font-semibold text-green-500">₹{scheduleRows.find(r => r.status === 'Allotted')?.chitAmountAllocated.toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Pending Installments:</span>
+                    <span className="font-semibold text-foreground">{scheduleRows.filter(r => r.status === 'Open / Pending').length} months</span>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-4">
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded text-xs font-semibold">Cancel</button>
+                  <button type="submit" className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90 text-xs font-bold transition-all">Save Chit Fund</button>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Linked Bank Account (Optional)</label>
-                <select value={formData.linkedAccountId} onChange={e => setFormData({ ...formData, linkedAccountId: e.target.value })} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all">
-                  <option value="">-- None --</option>
-                  {bankAccounts.map(ba => (
-                    <option key={ba.id} value={ba.id}>{ba.name} ({ba.bankName})</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex justify-end gap-2 mt-6">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">Save Chit Fund</button>
+
+              {/* Right Column: Spreadsheet payment schedule editor */}
+              <div className="lg:col-span-7 flex flex-col min-h-0 border-l border-border/55 lg:pl-6">
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="text-sm font-semibold text-foreground">Interactive Payment Schedule Editor</h3>
+                  <button
+                    type="button"
+                    onClick={rebuildSchedule}
+                    className="text-xs text-primary hover:underline font-semibold"
+                  >
+                    Reset/Regenerate Schedule
+                  </button>
+                </div>
+                
+                <div className="border border-border/60 rounded-xl overflow-hidden max-h-[50vh] overflow-y-auto custom-scrollbar shadow-xs">
+                  <table className="min-w-full divide-y divide-border/60 text-xs">
+                    <thead className="bg-muted/50 sticky top-0 z-10">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium text-muted-foreground">Sr</th>
+                        <th className="px-3 py-2 text-left font-medium text-muted-foreground">Calendar Month</th>
+                        <th className="px-3 py-2 text-left font-medium text-muted-foreground">Actual Amt (₹)</th>
+                        <th className="px-3 py-2 text-left font-medium text-muted-foreground">Allocated if Opted (₹)</th>
+                        <th className="px-3 py-2 text-left font-medium text-muted-foreground">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/40 bg-card">
+                      {scheduleRows.map((row, idx) => (
+                        <tr key={row.srNo} className="hover:bg-muted/10">
+                          <td className="px-3 py-1.5 text-muted-foreground font-mono">{row.srNo}</td>
+                          <td className="px-3 py-1.5 text-foreground font-medium">{row.calendarMonth} {row.calendarYear}</td>
+                          <td className="px-2 py-1">
+                            <input
+                              type="number"
+                              value={row.actualAmount}
+                              onChange={(e) => updateScheduleField(idx, 'actualAmount', parseFloat(e.target.value) || 0)}
+                              className="w-full px-2 py-0.5 rounded bg-muted text-foreground border border-input focus:border-primary outline-none text-xs"
+                            />
+                          </td>
+                          <td className="px-2 py-1">
+                            <input
+                              type="number"
+                              value={row.chitAmountAllocated}
+                              onChange={(e) => updateScheduleField(idx, 'chitAmountAllocated', parseFloat(e.target.value) || 0)}
+                              className="w-full px-2 py-0.5 rounded bg-muted text-foreground border border-input focus:border-primary outline-none text-xs"
+                            />
+                          </td>
+                          <td className="px-2 py-1">
+                            <select
+                              value={row.status}
+                              onChange={(e) => updateScheduleField(idx, 'status', e.target.value)}
+                              className="w-full px-2 py-0.5 rounded bg-muted text-foreground border border-input focus:border-primary outline-none text-xs cursor-pointer"
+                            >
+                              <option value="Open / Pending">Open / Pending</option>
+                              <option value="Paid & Closed">Paid & Closed</option>
+                              <option value="Allotted">Allotted</option>
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </form>
           </div>

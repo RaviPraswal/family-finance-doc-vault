@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
+import { useToastStore } from '../store/toastStore';
+import { useConfirmStore } from '../store/confirmStore';
 import { Plus, Banknote, Trash2 } from 'lucide-react';
 
 interface IncomeSource {
@@ -12,6 +14,8 @@ interface IncomeSource {
 }
 
 export default function SideIncome() {
+  const toast = useToastStore();
+  const confirm = useConfirmStore();
   const [incomes, setIncomes] = useState<IncomeSource[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -54,20 +58,29 @@ export default function SideIncome() {
       });
       setIsModalOpen(false);
       setFormData({ sourceName: '', ownerName: '', amount: 0, frequency: 'Monthly' });
+      toast.success('Income source saved', 'Your side income source has been added successfully.');
       fetchIncomes();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toast.error('Failed to save', err.message || 'Could not save income source. Please try again.');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this income record?")) return;
-    try {
-      await apiClient(`/api/incomesources/${id}`, { method: 'DELETE' });
-      fetchIncomes();
-    } catch (err) {
-      console.error(err);
-    }
+    confirm.show({
+      title: 'Delete Income Source',
+      message: 'Are you sure you want to delete this income source? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await apiClient(`/api/incomesources/${id}`, { method: 'DELETE' });
+          toast.success('Income source deleted', 'The income source has been removed.');
+          fetchIncomes();
+        } catch (err: any) {
+          toast.error('Cannot delete income source', err.message || 'Failed to delete income source.');
+        }
+      },
+    });
   };
 
   return (

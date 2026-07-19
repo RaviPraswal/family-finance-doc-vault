@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
+import { useToastStore } from '../store/toastStore';
 import { Plus, Building } from 'lucide-react';
 
 interface Project {
@@ -13,6 +14,7 @@ interface Project {
 }
 
 export default function Projects() {
+  const toast = useToastStore();
   const [projects, setProjects] = useState<Project[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
@@ -54,9 +56,10 @@ export default function Projects() {
       });
       setIsModalOpen(false);
       setFormData({ name: '', budget: '', status: 'IN_PROGRESS', startDate: '', priority: 'MEDIUM' });
+      toast.success('Project saved', 'Your project has been created successfully.');
       fetchProjects();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toast.error('Failed to save project', err.message || 'Could not save project. Please try again.');
     }
   };
 

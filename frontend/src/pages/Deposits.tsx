@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
+import { useToastStore } from '../store/toastStore';
+import { useConfirmStore } from '../store/confirmStore';
 import { Plus, Wallet, Trash2 } from 'lucide-react';
 
 interface Deposit {
@@ -15,6 +17,8 @@ interface Deposit {
 }
 
 export default function Deposits() {
+  const toast = useToastStore();
+  const confirm = useConfirmStore();
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -61,20 +65,29 @@ export default function Deposits() {
       });
       setIsModalOpen(false);
       setFormData({ type: 'FD', institution: '', accountHolderName: '', principalAmount: 0, maturityAmount: 0, interestRate: 0, startDate: '', maturityDate: '' });
+      toast.success('Deposit saved', 'Your deposit record has been added successfully.');
       fetchDeposits();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      toast.error('Failed to save deposit', err.message || 'Could not save deposit. Please try again.');
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this deposit?")) return;
-    try {
-      await apiClient(`/api/deposits/${id}`, { method: 'DELETE' });
-      fetchDeposits();
-    } catch (err) {
-      console.error(err);
-    }
+    confirm.show({
+      title: 'Delete Deposit',
+      message: 'Are you sure you want to delete this deposit? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await apiClient(`/api/deposits/${id}`, { method: 'DELETE' });
+          toast.success('Deposit deleted', 'The deposit record has been removed.');
+          fetchDeposits();
+        } catch (err: any) {
+          toast.error('Cannot delete deposit', err.message || 'Failed to delete deposit.');
+        }
+      },
+    });
   };
 
   return (

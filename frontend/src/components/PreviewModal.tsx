@@ -3,6 +3,8 @@ import { useAuthStore } from '../store/authStore';
 import { X, Download, Loader2, Eye, Share2, Trash2 } from 'lucide-react';
 import { apiClient } from '../api/client';
 import ShareModal from './ShareModal';
+import { useToastStore } from '../store/toastStore';
+import { useConfirmStore } from '../store/confirmStore';
 
 interface Version {
   id: string;
@@ -165,17 +167,26 @@ export default function PreviewModal({ documentId, documentName, documentType, o
   };
 
   const handleDeleteVersion = async (versionId: string) => {
-    if (!window.confirm('Are you sure you want to delete this version?')) return;
-    try {
-      await fetch(`/api/documents/${documentId}/versions/${versionId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      fetchVersions();
-      onUpdate();
-    } catch (err) {
-      console.error('Failed to delete version', err);
-    }
+    // Use stores via getState() since this is called from an event handler
+    useConfirmStore.getState().show({
+      title: 'Delete Version',
+      message: 'Are you sure you want to delete this version? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await fetch(`/api/documents/${documentId}/versions/${versionId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          useToastStore.getState().success('Version deleted', 'The document version has been removed.');
+          fetchVersions();
+          onUpdate();
+        } catch (err: any) {
+          useToastStore.getState().error('Cannot delete version', err.message || 'Failed to delete version.');
+        }
+      },
+    });
   };
 
   return (

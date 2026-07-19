@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Wallet, FileText, Calendar, Tag, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
 import { apiClient } from '../api/client';
+import { useToastStore } from '../store/toastStore';
 
 interface BankAccount {
   id: string;
@@ -73,6 +74,7 @@ interface Expense {
 }
 
 export default function Expenses() {
+  const toast = useToastStore();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
@@ -242,10 +244,11 @@ export default function Expenses() {
       setLinkedIncomeSourceId('');
       setType('DEBIT');
       setMadeAgainst('MANUAL_ENTRY');
+      toast.success('Transaction added', 'Your transaction has been recorded successfully.');
       fetchExpenses();
       fetchCategories();
-    } catch (error) {
-      console.error('Failed to add transaction', error);
+    } catch (error: any) {
+      toast.error('Transaction failed', error.message || 'Could not add transaction. Please try again.');
     }
   };
 

@@ -577,10 +577,10 @@ export default function ChitFunds() {
         </div>
       ) : (
         /* High-Density Dense Table View with Nested Expandable Statement Schedules (Default) */
-        <div className="space-y-4 flex-1 flex flex-col min-h-0">
+        <div className="space-y-4 h-[calc(100vh-16rem)] flex flex-col min-h-0">
           <div className="bg-card rounded-2xl shadow-sm border border-border/50 overflow-hidden flex-1 flex flex-col min-h-0">
             <div className="overflow-auto custom-scrollbar flex-1">
-              <table className="min-w-full divide-y divide-border/20 dense-table">
+              <table className="min-w-full divide-y divide-border dense-table">
                 <thead className="bg-muted/30 sticky top-0 z-10 backdrop-blur-md">
                   <tr>
                     <th className="px-4 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none w-10"></th>
@@ -689,7 +689,7 @@ export default function ChitFunds() {
                                   </div>
 
                                   <div className="border border-border/50 rounded-xl overflow-hidden shadow-xs max-h-[300px] overflow-y-auto custom-scrollbar">
-                                    <table className="min-w-full divide-y divide-border/20 text-xs text-foreground dense-table">
+                                    <table className="min-w-full divide-y divide-border text-xs text-foreground dense-table">
                                       <thead className="bg-muted/40 sticky top-0">
                                         <tr>
                                           <th className="px-3 py-2 text-left font-bold text-muted-foreground uppercase tracking-wider w-8">Cycle</th>
@@ -699,7 +699,7 @@ export default function ChitFunds() {
                                           <th className="px-3 py-2 text-left font-bold text-muted-foreground uppercase tracking-wider">Payment Status</th>
                                         </tr>
                                       </thead>
-                                      <tbody className="divide-y divide-border/20 bg-card/60">
+                                      <tbody className="divide-y divide-border bg-card/60">
                                         {details.schedule.map((row, rIdx) => {
                                           const isClosed = row.status === 'Paid & Closed' || row.status === 'Allotted';
                                           return (

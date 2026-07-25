@@ -357,10 +357,10 @@ export default function SideIncome() {
       </div>
 
       {/* Main Single Screen Dense Dashboard Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-14rem)] min-h-0">
         
         {/* Left Columns (col-span-8): Graphs, Heatmap, Ledger */}
-        <div className="lg:col-span-8 flex flex-col gap-6 min-h-0">
+        <div className="lg:col-span-8 flex flex-col gap-6 h-full min-h-0">
           
           {/* Top Panel Grid: Monthly trend & Heatmap calendar */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -477,7 +477,7 @@ export default function SideIncome() {
             </div>
 
             <div className="overflow-auto custom-scrollbar flex-1">
-              <table className="min-w-full divide-y divide-border/20 dense-table">
+              <table className="min-w-full divide-y divide-border dense-table">
                 <thead className="bg-muted/30 sticky top-0 z-10 backdrop-blur-md">
                   <tr>
                     <th className="px-4 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Date</th>
@@ -489,7 +489,7 @@ export default function SideIncome() {
                     <th className="px-4 py-2 text-right text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-16"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-border/20 bg-card/50">
+                <tbody className="divide-y divide-border bg-card/50">
                   {paginatedTxns.map((tx, idx) => (
                     <tr key={tx.id} className={`hover:bg-muted/30 transition-colors group ${idx % 2 === 0 ? 'bg-background/20' : 'bg-card/10'}`}>
                       <td className="px-4 py-2 whitespace-nowrap font-mono text-xs text-muted-foreground">
@@ -583,7 +583,7 @@ export default function SideIncome() {
         </div>
 
         {/* Right Column (col-span-4): Source Channels Directory, Projections, Share */}
-        <div className="lg:col-span-4 flex flex-col gap-6 min-h-0 overflow-y-auto pr-1 custom-scrollbar">
+        <div className="lg:col-span-4 flex flex-col gap-6 h-full min-h-0 overflow-y-auto pr-1 custom-scrollbar">
           
           {/* Income Source Channels */}
           <div className="bg-card border border-border/50 rounded-xl p-4 flex flex-col">

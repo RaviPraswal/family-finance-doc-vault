@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Wallet, FileText, Calendar, Tag, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+import { Plus, Wallet, FileText, Calendar, Tag, ArrowUpRight, ArrowDownLeft, Edit2, Trash2, History } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
+import { useConfirmStore } from '../store/confirmStore';
 
 interface BankAccount {
   id: string;
@@ -74,11 +75,14 @@ interface Expense {
   linkedIncomeSource?: IncomeSource;
   linkedCreditCard?: any;
   customFieldsData?: string;
+  editHistory?: string;
 }
 
 export default function Expenses() {
   const toast = useToastStore();
+  const confirm = useConfirmStore();
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [categories, setCategories] = useState<string[]>([]);
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [loans, setLoans] = useState<Loan[]>([]);
@@ -225,11 +229,83 @@ export default function Expenses() {
     ]).finally(() => setLoading(false));
   }, []);
 
+  const handleEditClick = (expense: Expense) => {
+    setEditingExpense(expense);
+    setAmount(String(expense.amount));
+    setCategory(expense.category);
+    setExpenseDate(expense.expenseDate);
+    setDescription(expense.description || '');
+    setType(expense.type);
+    setMadeAgainst(expense.madeAgainst || 'MANUAL_ENTRY');
+    setLinkedAccountId(expense.linkedAccount?.id || '');
+    setLinkedLoanId(expense.linkedLoan?.id || '');
+    setLinkedChitFundId(expense.linkedChitFund?.id || '');
+    setLinkedPeerLendingId(expense.linkedPeerLending?.id || '');
+    setLinkedInvestmentId(expense.linkedInvestment?.id || '');
+    setLinkedDepositId(expense.linkedDeposit?.id || '');
+    setLinkedProjectId(expense.linkedProject?.id || '');
+    setLinkedIncomeSourceId(expense.linkedIncomeSource?.id || '');
+    setLinkedCreditCardId(expense.linkedCreditCard?.id || '');
+
+    let cData = {};
+    try {
+      if (expense.customFieldsData) {
+        cData = JSON.parse(expense.customFieldsData);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setCustomFieldsData(cData);
+
+    const formElement = document.getElementById('transaction-form');
+    if (formElement) {
+      formElement.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const clearForm = () => {
+    setEditingExpense(null);
+    setAmount('');
+    setCategory('');
+    setDescription('');
+    setLinkedAccountId('');
+    setLinkedLoanId('');
+    setLinkedChitFundId('');
+    setLinkedPeerLendingId('');
+    setLinkedInvestmentId('');
+    setLinkedDepositId('');
+    setLinkedProjectId('');
+    setLinkedIncomeSourceId('');
+    setLinkedCreditCardId('');
+    setCustomFieldsData({});
+    setType('DEBIT');
+    setMadeAgainst('MANUAL_ENTRY');
+  };
+
+  const handleDeleteClick = (expense: Expense) => {
+    confirm.show({
+      title: 'Delete Transaction',
+      message: 'Are you sure you want to delete this transaction? This will reverse any related balance updates.',
+      onConfirm: async () => {
+        try {
+          await apiClient(`/api/expenses/${expense.id}`, { method: 'DELETE' });
+          toast.success('Deleted', 'Transaction has been deleted successfully.');
+          fetchExpenses();
+          fetchCategories();
+        } catch (err: any) {
+          toast.error('Error', err.message || 'Could not delete transaction. Please try again.');
+        }
+      }
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiClient('/api/expenses', {
-        method: 'POST',
+      const url = editingExpense ? `/api/expenses/${editingExpense.id}` : '/api/expenses';
+      const method = editingExpense ? 'PUT' : 'POST';
+      await apiClient(url, {
+        method,
         body: JSON.stringify({
           amount: parseFloat(amount),
           category,
@@ -249,26 +325,18 @@ export default function Expenses() {
           customFieldsData: madeAgainst === 'PROJECT' ? JSON.stringify(customFieldsData) : null
         })
       });
-      setAmount('');
-      setCategory('');
-      setDescription('');
-      setLinkedAccountId('');
-      setLinkedLoanId('');
-      setLinkedChitFundId('');
-      setLinkedPeerLendingId('');
-      setLinkedInvestmentId('');
-      setLinkedDepositId('');
-      setLinkedProjectId('');
-      setLinkedIncomeSourceId('');
-      setLinkedCreditCardId('');
-      setCustomFieldsData({});
-      setType('DEBIT');
-      setMadeAgainst('MANUAL_ENTRY');
-      toast.success('Transaction added', 'Your transaction has been recorded successfully.');
+      clearForm();
+      toast.success(
+        editingExpense ? 'Transaction updated' : 'Transaction added',
+        `Your transaction has been ${editingExpense ? 'updated' : 'recorded'} successfully.`
+      );
       fetchExpenses();
       fetchCategories();
     } catch (error: any) {
-      toast.error('Transaction failed', error.message || 'Could not add transaction. Please try again.');
+      toast.error(
+        editingExpense ? 'Update failed' : 'Transaction failed',
+        error.message || 'Could not save transaction. Please try again.'
+      );
     }
   };
 
@@ -296,8 +364,8 @@ export default function Expenses() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-6">
-          <div className="glass-panel p-6 rounded-2xl border border-border/50">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Add Transaction</h3>
+          <div id="transaction-form" className="glass-panel p-6 rounded-2xl border border-border/50">
+            <h3 className="text-lg font-semibold text-foreground mb-4">{editingExpense ? 'Edit Transaction' : 'Add Transaction'}</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">Transaction Type</label>
@@ -615,13 +683,24 @@ export default function Expenses() {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                className="w-full py-2.5 bg-primary text-primary-foreground font-medium rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Add Transaction
-              </button>
+              <div className="flex gap-2">
+                {editingExpense && (
+                  <button
+                    type="button"
+                    onClick={clearForm}
+                    className="flex-1 py-2.5 bg-muted text-muted-foreground hover:bg-muted/80 font-medium rounded-xl transition-colors text-sm"
+                  >
+                    Cancel Edit
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  className={`${editingExpense ? 'flex-1' : 'w-full'} py-2.5 bg-primary text-primary-foreground font-medium rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2 text-sm`}
+                >
+                  {editingExpense ? <Edit2 className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                  {editingExpense ? 'Update Transaction' : 'Add Transaction'}
+                </button>
+              </div>
             </form>
           </div>
           
@@ -789,12 +868,40 @@ export default function Expenses() {
                                    </>
                                  )}
                               </div>
+                              {expense.editHistory && (
+                                <div className="mt-2 pt-2 border-t border-border/20">
+                                  <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                                    <History className="h-3 w-3" /> Edit History
+                                  </span>
+                                  <div className="text-[10px] text-muted-foreground whitespace-pre-line mt-1 bg-muted/20 p-2 rounded-lg leading-relaxed text-left">
+                                    {expense.editHistory}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className={`font-bold ${isCredit ? 'text-green-500' : 'text-foreground'}`}>
-                              {isCredit ? '+' : '-'}₹{expense.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </p>
+                          <div className="text-right flex items-center gap-3 shrink-0">
+                            <div>
+                              <p className={`font-bold ${isCredit ? 'text-green-500' : 'text-foreground'}`}>
+                                {isCredit ? '+' : '-'}₹{expense.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleEditClick(expense)}
+                                className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground rounded transition-colors"
+                                title="Edit Transaction"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteClick(expense)}
+                                className="p-1 hover:bg-muted text-muted-foreground hover:text-red-500 rounded transition-colors"
+                                title="Delete Transaction"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );

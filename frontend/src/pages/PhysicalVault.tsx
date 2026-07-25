@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '../api/client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Landmark as AlmirahIcon, Search, CheckCircle, XCircle, ArrowLeftRight, X 
+  Landmark as AlmirahIcon, Search, CheckCircle, XCircle, ArrowLeftRight, X, Download, Printer, AlertTriangle 
 } from 'lucide-react';
+import { exportToCSV, exportToPDF } from '../utils/exportUtils';
 
 interface PhysicalLocation {
   almirahId: string;
@@ -74,7 +75,23 @@ export default function PhysicalVault() {
   const [docLogs, setDocLogs] = useState<Log[]>([]);
   const [borrowerName, setBorrowerName] = useState('');
   const [notes, setNotes] = useState('');
-  const [tab, setTab] = useState<'almirah' | 'stats'>('almirah');
+  
+  // Rule 2: TABLE must be the default
+  const [tab, setTab] = useState<'list' | 'almirah' | 'stats'>('list');
+
+  // List View Filter States
+  const [docSearch, setDocSearch] = useState('');
+  const [docFilterCategory, setDocFilterCategory] = useState('ALL');
+  const [docFilterOwner, setDocFilterOwner] = useState('ALL');
+  const [docFilterExpiry, setDocFilterExpiry] = useState('ALL');
+  
+  // List View Sort States
+  const [docSortField, setDocSortField] = useState<'name' | 'expiry' | 'size'>('name');
+  const [docSortOrder, setDocSortOrder] = useState<'asc' | 'desc'>('asc');
+  
+  // List View Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(15);
 
   const getShelf2Holders = () => {
     if (familyMembers.length === 0) {
@@ -119,6 +136,12 @@ export default function PhysicalVault() {
 
   const shelf2Holders = getShelf2Holders();
 
+  useEffect(() => {
+    fetchDocuments();
+    fetchStats();
+    fetchFamilyMembers();
+  }, []);
+
   const fetchDocuments = async () => {
     try {
       const data = await apiClient('/api/documents');
@@ -149,12 +172,6 @@ export default function PhysicalVault() {
     }
   };
 
-  useEffect(() => {
-    fetchDocuments();
-    fetchStats();
-    fetchFamilyMembers();
-  }, []);
-
   const fetchLogs = async (docId: string) => {
     try {
       const data = await apiClient(`/api/physical-documents/${docId}/logs`);
@@ -180,7 +197,6 @@ export default function PhysicalVault() {
       setBorrowerName('');
       setNotes('');
       
-      // Refresh
       fetchDocuments();
       fetchStats();
       const updated = documents.find(d => d.id === selectedDoc.id);
@@ -212,7 +228,6 @@ export default function PhysicalVault() {
       setIsCheckInOpen(false);
       setNotes('');
       
-      // Refresh
       fetchDocuments();
       fetchStats();
       const updated = documents.find(d => d.id === selectedDoc.id);
@@ -253,7 +268,7 @@ export default function PhysicalVault() {
     }).length;
   };
 
-  // Searching logic
+  // Searching logic for cupboard view
   const searchResults = documents.filter(doc => {
     if (!searchQuery) return false;
     const query = searchQuery.toLowerCase();
@@ -263,7 +278,6 @@ export default function PhysicalVault() {
     const matchesCategory = doc.category.toLowerCase().includes(query);
     const matchesDescription = doc.description?.toLowerCase().includes(query) || false;
     
-    // Check location hierarchy matches
     const loc = doc.physicalLocation;
     const matchesLoc = loc ? (
       loc.shelf.toLowerCase().includes(query) ||
@@ -274,6 +288,115 @@ export default function PhysicalVault() {
 
     return matchesName || matchesTags || matchesCategory || matchesDescription || matchesLoc;
   });
+
+  const getDocumentExpiryUrgency = useCallback((expiryDate?: string) => {
+    if (!expiryDate) return 'none';
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const exp = new Date(expiryDate);
+    exp.setHours(0, 0, 0, 0);
+    const diffTime = exp.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return 'expired';
+    if (diffDays <= 30) return '30d';
+    if (diffDays <= 90) return '90d';
+    return 'none';
+  }, []);
+
+  // Filter List View dataset
+  const filteredListDocs = documents.filter(doc => {
+    const matchesSearch = doc.name.toLowerCase().includes(docSearch.toLowerCase()) || 
+                          (doc.description && doc.description.toLowerCase().includes(docSearch.toLowerCase())) ||
+                          doc.category.toLowerCase().includes(docSearch.toLowerCase()) ||
+                          doc.tags?.some(t => t.toLowerCase().includes(docSearch.toLowerCase()));
+
+    const matchesCategory = docFilterCategory === 'ALL' || doc.category === docFilterCategory;
+    const matchesOwner = docFilterOwner === 'ALL' || doc.physicalLocation?.holder === docFilterOwner;
+
+    const urgency = getDocumentExpiryUrgency(doc.expiryDate);
+    let matchesExpiry = true;
+    if (docFilterExpiry === '30D') {
+      matchesExpiry = urgency === '30d' || urgency === 'expired';
+    } else if (docFilterExpiry === '90D') {
+      matchesExpiry = urgency === '90d';
+    }
+
+    return matchesSearch && matchesCategory && matchesOwner && matchesExpiry;
+  });
+
+  // Sort List View dataset (Rule 6: Overdue floats to top)
+  const sortedListDocs = [...filteredListDocs].sort((a, b) => {
+    const aUrgency = getDocumentExpiryUrgency(a.expiryDate);
+    const bUrgency = getDocumentExpiryUrgency(b.expiryDate);
+    
+    const aOverdue = aUrgency === 'expired' || aUrgency === '30d';
+    const bOverdue = bUrgency === 'expired' || bUrgency === '30d';
+    if (aOverdue && !bOverdue) return -1;
+    if (!aOverdue && bOverdue) return 1;
+
+    let comparison = 0;
+    if (docSortField === 'name') {
+      comparison = a.name.localeCompare(b.name);
+    } else if (docSortField === 'expiry') {
+      const aTime = a.expiryDate ? new Date(a.expiryDate).getTime() : Infinity;
+      const bTime = b.expiryDate ? new Date(b.expiryDate).getTime() : Infinity;
+      comparison = aTime - bTime;
+    } else if (docSortField === 'size') {
+      comparison = a.size - b.size;
+    }
+    return docSortOrder === 'asc' ? comparison : -comparison;
+  });
+
+  // List view Pagination
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedListDocs = sortedListDocs.slice(startIndex, startIndex + itemsPerPage);
+  const totalPages = Math.ceil(sortedListDocs.length / itemsPerPage);
+
+  // Summary Strip Calculations
+  const totalDocsCount = filteredListDocs.length;
+  const expiring30Count = filteredListDocs.filter(d => {
+    const u = getDocumentExpiryUrgency(d.expiryDate);
+    return u === '30d' || u === 'expired';
+  }).length;
+  const expiring90Count = filteredListDocs.filter(d => getDocumentExpiryUrgency(d.expiryDate) === '90d').length;
+
+  const totalStorageBytes = filteredListDocs.reduce((sum, d) => sum + (d.size || 0), 0);
+  const storageUsedMB = (totalStorageBytes / (1024 * 1024)).toFixed(1);
+  const storageQuotaMB = 1024; // 1 GB quota
+  const storageUsedPercent = Math.round((totalStorageBytes / (storageQuotaMB * 1024 * 1024)) * 100);
+
+  const uniqueCategories = Array.from(new Set(documents.map(d => d.category)));
+  const uniqueOwners = Array.from(new Set(documents.map(d => d.physicalLocation?.holder).filter(Boolean)));
+
+  // Exporters
+  const handleExportCSV = () => {
+    const headers = ['Document Name', 'Category', 'Holder', 'Size (KB)', 'Expiry Date', 'Status', 'Almirah Location'];
+    const exportData = sortedListDocs.map(d => [
+      d.name,
+      d.category,
+      d.physicalLocation?.holder || '',
+      (d.size / 1024).toFixed(1),
+      d.expiryDate || '',
+      d.physicalLocation?.originalPresent ? 'In-Vault' : 'Borrowed',
+      d.physicalLocation ? `${d.physicalLocation.shelf} > ${d.physicalLocation.folder}` : ''
+    ]);
+    exportToCSV(exportData, headers, 'Physical_Documents_Vault_Report');
+  };
+
+  const handleExportPDF = () => {
+    const headers = ['Name', 'Category', 'Holder', 'Size', 'Expiry Date', 'Status', 'Location'];
+    const exportData = sortedListDocs.map(d => [
+      d.name,
+      d.category,
+      d.physicalLocation?.holder || '-',
+      `${(d.size / 1024).toFixed(0)} KB`,
+      d.expiryDate ? new Date(d.expiryDate).toLocaleDateString() : '-',
+      d.physicalLocation?.originalPresent ? 'In-Vault' : 'Borrowed',
+      d.physicalLocation ? `${d.physicalLocation.shelf} > ${d.physicalLocation.folder}` : '-'
+    ]);
+    exportToPDF('Physical Documents Directory', headers, exportData, 'Physical_Documents_Vault_Report');
+  };
 
   return (
     <div className="h-full flex flex-col space-y-6">
@@ -288,6 +411,12 @@ export default function PhysicalVault() {
         </div>
 
         <div className="flex bg-card border border-border/80 p-1 rounded-xl shadow-inner shrink-0">
+          <button 
+            onClick={() => setTab('list')} 
+            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all ${tab === 'list' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'}`}
+          >
+            Directory Table
+          </button>
           <button 
             onClick={() => setTab('almirah')} 
             className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all ${tab === 'almirah' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground'}`}
@@ -347,7 +476,410 @@ export default function PhysicalVault() {
             </div>
           </div>
         </div>
+      ) : tab === 'list' ? (
+        /* Rule 2 & 3: Dense Table View (Default) */
+        <div className="space-y-4 flex-1 flex flex-col min-h-0">
+          
+          {/* Rule 1: Summary Strip */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="glass-panel p-4 rounded-xl border border-border/50">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Total Documents</span>
+              <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">{totalDocsCount}</p>
+            </div>
+            <div className="glass-panel p-4 rounded-xl border border-border/50 bg-gradient-to-br from-red-500/5 to-transparent">
+              <span className="text-[10px] uppercase font-bold text-red-400 tracking-wider block">Expiring in 30 Days</span>
+              <p className="text-lg font-mono font-bold text-red-500 mt-1 tabular-nums">{expiring30Count}</p>
+            </div>
+            <div className="glass-panel p-4 rounded-xl border border-border/50 bg-gradient-to-br from-yellow-500/5 to-transparent">
+              <span className="text-[10px] uppercase font-bold text-yellow-500 tracking-wider block">Expiring in 90 Days</span>
+              <p className="text-lg font-mono font-bold text-yellow-500 mt-1 tabular-nums">{expiring90Count}</p>
+            </div>
+            <div className="glass-panel p-4 rounded-xl border border-border/50">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Storage Quota</span>
+              <p className="text-sm font-mono font-bold text-foreground mt-2 tabular-nums">
+                {storageUsedMB} MB / {storageQuotaMB} MB ({storageUsedPercent}%)
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
+            {/* Left panel Table */}
+            <div className="lg:col-span-8 flex flex-col gap-4 min-h-0">
+              {/* Search + Filter control row */}
+              <div className="flex flex-wrap items-center justify-between gap-4 bg-card/30 p-2.5 rounded-xl border border-border/50">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                    <input
+                      type="text"
+                      placeholder="Search vault..."
+                      value={docSearch}
+                      onChange={(e) => setDocSearch(e.target.value)}
+                      className="pl-8 pr-3 py-1 w-48 bg-background border border-border rounded text-xs outline-none focus:ring-1 focus:ring-primary text-foreground"
+                    />
+                  </div>
+
+                  <select
+                    value={docFilterCategory}
+                    onChange={(e) => setDocFilterCategory(e.target.value)}
+                    className="px-2 py-1 bg-background border border-border rounded text-xs text-foreground outline-none cursor-pointer focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="ALL">All Categories</option>
+                    {uniqueCategories.map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={docFilterOwner}
+                    onChange={(e) => setDocFilterOwner(e.target.value)}
+                    className="px-2 py-1 bg-background border border-border rounded text-xs text-foreground outline-none cursor-pointer focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="ALL">All Holders</option>
+                    {uniqueOwners.map(o => (
+                      <option key={o} value={o}>{o}</option>
+                    ))}
+                  </select>
+
+                  <select
+                    value={docFilterExpiry}
+                    onChange={(e) => setDocFilterExpiry(e.target.value)}
+                    className="px-2 py-1 bg-background border border-border rounded text-xs text-foreground outline-none cursor-pointer focus:ring-1 focus:ring-primary"
+                  >
+                    <option value="ALL">All Expiries</option>
+                    <option value="30D">Expiring (30 Days)</option>
+                    <option value="90D">Expiring (90 Days)</option>
+                  </select>
+                </div>
+
+                {/* Exporters */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={handleExportCSV}
+                    className="flex items-center gap-1 px-2 py-1 bg-muted hover:bg-muted/80 border border-border/50 text-[10px] text-muted-foreground hover:text-foreground font-bold uppercase rounded cursor-pointer transition-colors"
+                  >
+                    <Download className="h-3 w-3" /> CSV
+                  </button>
+                  <button
+                    onClick={handleExportPDF}
+                    className="flex items-center gap-1 px-2 py-1 bg-muted hover:bg-muted/80 border border-border/50 text-[10px] text-muted-foreground hover:text-foreground font-bold uppercase rounded cursor-pointer transition-colors"
+                  >
+                    <Printer className="h-3 w-3" /> PDF
+                  </button>
+                </div>
+              </div>
+
+              {/* Table rendering */}
+              <div className="bg-card rounded-xl border border-border/50 overflow-hidden flex-1 flex flex-col min-h-0">
+                <div className="overflow-auto custom-scrollbar flex-1">
+                  <table className="min-w-full divide-y divide-border/20 dense-table text-left">
+                    <thead className="bg-muted/30 sticky top-0 z-10 backdrop-blur-md">
+                      <tr>
+                        <th 
+                          onClick={() => {
+                            if (docSortField === 'name') setDocSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+                            else { setDocSortField('name'); setDocSortOrder('asc'); }
+                          }}
+                          className="px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase cursor-pointer hover:bg-muted select-none"
+                        >
+                          Document Name {docSortField === 'name' ? (docSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                        </th>
+                        <th className="px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase select-none">Category</th>
+                        <th className="px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase select-none">Holder</th>
+                        <th 
+                          onClick={() => {
+                            if (docSortField === 'size') setDocSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+                            else { setDocSortField('size'); setDocSortOrder('asc'); }
+                          }}
+                          className="px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase cursor-pointer hover:bg-muted select-none text-right"
+                        >
+                          Size {docSortField === 'size' ? (docSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                        </th>
+                        <th 
+                          onClick={() => {
+                            if (docSortField === 'expiry') setDocSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+                            else { setDocSortField('expiry'); setDocSortOrder('asc'); }
+                          }}
+                          className="px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase cursor-pointer hover:bg-muted select-none text-right"
+                        >
+                          Expiry Date {docSortField === 'expiry' ? (docSortOrder === 'asc' ? ' ▲' : ' ▼') : ''}
+                        </th>
+                        <th className="px-3 py-2 text-[10px] font-bold text-muted-foreground uppercase select-none text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-card/50 divide-y divide-border/20">
+                      {paginatedListDocs.map((doc, idx) => {
+                        const urgency = getDocumentExpiryUrgency(doc.expiryDate);
+                        const isExpired = urgency === 'expired';
+                        const is30d = urgency === '30d';
+                        const is90d = urgency === '90d';
+                        return (
+                          <tr 
+                            key={doc.id} 
+                            onClick={() => selectDocument(doc)}
+                            className={`hover:bg-muted/30 transition-colors cursor-pointer ${selectedDoc?.id === doc.id ? 'bg-primary/5 border-l-2 border-l-primary' : ''} ${idx % 2 === 0 ? 'bg-background/25' : 'bg-card/15'}`}
+                          >
+                            <td className="px-3 py-2 whitespace-nowrap">
+                              <span className="font-semibold text-foreground text-xs">{doc.name}</span>
+                              <span className="text-[9px] text-muted-foreground block font-mono">
+                                {doc.physicalLocation ? `${doc.physicalLocation.shelf} > ${doc.physicalLocation.folder}` : 'No Loc'}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-xs text-foreground font-medium uppercase">{doc.category}</td>
+                            <td className="px-3 py-2 whitespace-nowrap text-xs text-muted-foreground">{doc.physicalLocation?.holder || '-'}</td>
+                            <td className="px-3 py-2 whitespace-nowrap font-mono text-right tabular-nums text-xs">
+                              {(doc.size / 1024).toFixed(0)} KB
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-right font-mono text-xs">
+                              {doc.expiryDate ? (
+                                <span className={`font-bold ${isExpired || is30d ? 'text-red-500' : is90d ? 'text-yellow-500' : 'text-muted-foreground'}`}>
+                                  {new Date(doc.expiryDate).toLocaleDateString()}
+                                </span>
+                              ) : '-'}
+                            </td>
+                            <td className="px-3 py-2 whitespace-nowrap text-right text-xs">
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase border ${
+                                doc.physicalLocation?.originalPresent 
+                                  ? 'bg-green-500/10 text-green-500 border-green-500/20' 
+                                  : 'bg-red-500/10 text-red-500 border-red-500/20'
+                              }`}>
+                                {doc.physicalLocation?.originalPresent ? 'Vault' : 'Out'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination Controls */}
+                {sortedListDocs.length > 0 && (
+                  <div className="flex items-center justify-between border-t border-border/50 p-2.5 bg-muted/10">
+                    <div className="flex flex-1 justify-between sm:hidden">
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        className="relative inline-flex items-center rounded border border-border bg-card px-3 py-1 text-xs font-medium text-foreground hover:bg-muted/80 disabled:opacity-50"
+                      >
+                        Previous
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages || totalPages <= 1}
+                        className="relative ml-3 inline-flex items-center rounded border border-border bg-card px-3 py-1 text-xs font-medium text-foreground hover:bg-muted/80 disabled:opacity-50"
+                      >
+                        Next
+                      </button>
+                    </div>
+                    <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                      <div className="flex items-center gap-4">
+                        <p className="text-xs text-muted-foreground">
+                          Showing <span className="font-semibold text-foreground">{startIndex + 1}</span> to{' '}
+                          <span className="font-semibold text-foreground">{Math.min(startIndex + itemsPerPage, sortedListDocs.length)}</span> of{' '}
+                          <span className="font-semibold text-foreground">{sortedListDocs.length}</span> results
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-muted-foreground">Show</span>
+                          <select
+                            value={itemsPerPage}
+                            onChange={(e) => {
+                              setItemsPerPage(Number(e.target.value));
+                              setCurrentPage(1);
+                            }}
+                            className="px-1.5 py-0.5 rounded bg-card border border-border text-foreground text-[10px] outline-none cursor-pointer focus:ring-1 focus:ring-primary"
+                          >
+                            <option value={15}>15 entries</option>
+                            <option value={30}>30 entries</option>
+                            <option value={50}>50 entries</option>
+                          </select>
+                        </div>
+                      </div>
+                      {totalPages > 1 && (
+                        <div>
+                          <nav className="isolate inline-flex -space-x-px rounded-md shadow-xs" aria-label="Pagination">
+                            <button
+                              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                              disabled={currentPage === 1}
+                              className="relative inline-flex items-center rounded-l px-1.5 py-1 text-muted-foreground ring-1 ring-inset ring-border bg-card hover:bg-muted disabled:opacity-50"
+                            >
+                              <span className="sr-only">Previous</span>
+                              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                            {Array.from({ length: totalPages }).map((_, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => setCurrentPage(idx + 1)}
+                                className={`relative inline-flex items-center px-3 py-1 text-xs font-semibold ring-1 ring-inset ring-border focus:z-20 ${
+                                  currentPage === idx + 1
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'text-foreground bg-card hover:bg-muted'
+                                }`}
+                              >
+                                {idx + 1}
+                              </button>
+                            ))}
+                            <button
+                              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                              disabled={currentPage === totalPages}
+                              className="relative inline-flex items-center rounded-r px-1.5 py-1 text-muted-foreground ring-1 ring-inset ring-border bg-card hover:bg-muted disabled:opacity-50"
+                            >
+                              <span className="sr-only">Next</span>
+                              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          </nav>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right panel Inspector */}
+            <div className="lg:col-span-4 flex flex-col h-[calc(100vh-16rem)] overflow-hidden">
+              {selectedDoc ? (
+                <div className="glass-panel p-4 rounded-xl flex-1 flex flex-col relative text-xs">
+                  <button 
+                    onClick={() => setSelectedDoc(null)}
+                    className="absolute right-3 top-3 p-1 hover:bg-muted rounded-full"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+
+                  <h3 className="font-bold text-sm text-foreground truncate pr-6 leading-tight">{selectedDoc.name}</h3>
+                  <p className="text-muted-foreground text-[10px] uppercase font-bold mt-0.5">Category: {selectedDoc.category}</p>
+
+                  {/* Location Info */}
+                  {selectedDoc.physicalLocation && (
+                    <div className="p-2.5 bg-muted/40 border border-border/50 rounded-xl mt-3 text-[11px]">
+                      <span className="font-semibold text-muted-foreground block mb-0.5">📍 Cupboard Location</span>
+                      <span className="text-primary font-bold">
+                        {selectedDoc.physicalLocation.almirahId} → {selectedDoc.physicalLocation.shelf} → {selectedDoc.physicalLocation.holder} → {selectedDoc.physicalLocation.folder}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Urgency warning badge */}
+                  {selectedDoc.expiryDate && (
+                    <div className="mt-3">
+                      {(() => {
+                        const u = getDocumentExpiryUrgency(selectedDoc.expiryDate);
+                        if (u === 'expired') {
+                          return (
+                            <div className="flex items-center gap-1.5 p-2 bg-red-500/10 text-red-500 rounded-lg border border-red-500/20 font-bold uppercase text-[9px]">
+                              <AlertTriangle className="h-3.5 w-3.5 animate-bounce" /> Expiry date passed!
+                            </div>
+                          );
+                        } else if (u === '30d') {
+                          return (
+                            <div className="flex items-center gap-1.5 p-2 bg-red-500/10 text-red-500 rounded-lg border border-red-500/20 font-bold uppercase text-[9px]">
+                              <AlertTriangle className="h-3.5 w-3.5" /> Expiring within 30 days!
+                            </div>
+                          );
+                        } else if (u === '90d') {
+                          return (
+                            <div className="flex items-center gap-1.5 p-2 bg-yellow-500/10 text-yellow-500 rounded-lg border border-yellow-500/20 font-bold uppercase text-[9px]">
+                              <AlertTriangle className="h-3.5 w-3.5" /> Expiring soon (90 days)
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Availability */}
+                  <div className="flex items-center justify-between mt-3 py-1.5 border-t border-border/30">
+                    <span className="font-bold text-muted-foreground text-[10px] uppercase">Availability</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
+                      selectedDoc.physicalLocation?.originalPresent 
+                        ? 'bg-green-500/10 text-green-500 border-green-500/20' 
+                        : 'bg-red-500/10 text-red-500 border-red-500/20'
+                    }`}>
+                      {selectedDoc.physicalLocation?.originalPresent ? 'In-Cupboard' : 'Checked Out'}
+                    </span>
+                  </div>
+
+                  {/* Borrow Action buttons */}
+                  <div className="flex gap-2 mt-3">
+                    {selectedDoc.physicalLocation?.originalPresent ? (
+                      <button 
+                        onClick={() => setIsCheckOutOpen(true)}
+                        className="flex-1 flex items-center justify-center gap-1.5 bg-primary text-primary-foreground py-2 rounded-lg font-bold hover:opacity-90 text-[11px] shadow-sm cursor-pointer"
+                      >
+                        <ArrowLeftRight className="h-3.5 w-3.5" /> Check Out Original
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => setIsCheckInOpen(true)}
+                        className="flex-1 flex items-center justify-center gap-1.5 bg-green-600 text-white py-2 rounded-lg font-bold hover:bg-green-700 text-[11px] shadow-sm cursor-pointer"
+                      >
+                        <CheckCircle className="h-3.5 w-3.5" /> Check In Original
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Borrow info */}
+                  {!selectedDoc.physicalLocation?.originalPresent && selectedDoc.physicalLocation?.lastBorrowedBy && (
+                    <div className="mt-3 p-3 bg-red-500/5 border border-red-500/10 rounded-xl space-y-1">
+                      <div className="flex justify-between">
+                        <span className="font-semibold text-muted-foreground">Borrowed By:</span>
+                        <span className="font-bold text-foreground">{selectedDoc.physicalLocation.lastBorrowedBy}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="font-semibold text-muted-foreground">Borrowed At:</span>
+                        <span className="font-bold text-foreground">
+                          {new Date(selectedDoc.physicalLocation.lastBorrowedAt!).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Audit Logs */}
+                  <div className="flex-1 flex flex-col pt-3 border-t border-border/30 mt-3 min-h-0">
+                    <h4 className="font-bold text-[10px] mb-2 text-muted-foreground uppercase tracking-wide">Activity Logs</h4>
+                    <div className="flex-1 overflow-y-auto space-y-2 max-h-[160px] custom-scrollbar">
+                      {docLogs.length === 0 ? (
+                        <p className="text-[10px] text-muted-foreground py-2">No activity recorded yet.</p>
+                      ) : (
+                        docLogs.map(log => (
+                          <div key={log.id} className="p-2 bg-muted/20 border border-border/30 rounded-lg space-y-0.5">
+                            <div className="flex justify-between items-center font-bold text-[10px]">
+                              <span className={log.actionType === 'CHECK_IN' ? 'text-green-600' : 'text-red-500'}>
+                                {log.actionType}
+                              </span>
+                              <span className="text-[9px] text-muted-foreground font-normal">
+                                {new Date(log.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                            {log.borrowerName && (
+                              <p className="text-muted-foreground"><span className="font-medium text-foreground">Borrower:</span> {log.borrowerName}</p>
+                            )}
+                            {log.notes && (
+                              <p className="text-muted-foreground italic">"{log.notes}"</p>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="glass-panel p-6 rounded-xl flex-1 flex flex-col justify-center items-center text-center text-muted-foreground">
+                  <AlmirahIcon className="h-10 w-10 mb-2 opacity-15" />
+                  <p className="font-medium text-xs">Select a document in the table to inspect details.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       ) : (
+        /* Visual Cupboard / Almirah */
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           {/* Left Column: Search & Virtual Almirah Cabinet */}
@@ -357,7 +889,7 @@ export default function PhysicalVault() {
             <div className="flex items-center bg-card border border-border rounded-2xl px-4 py-3 shadow-md focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition-all">
               <Search className="h-5 w-5 text-muted-foreground mr-3" />
               <input 
-                type="text"
+                type="text" 
                 placeholder="Search e.g. 'Father Passport', 'Car Insurance'..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -450,11 +982,11 @@ export default function PhysicalVault() {
                                 setSelectedHolder({ ...holder, shelf: 'Shelf 1' });
                                 setSelectedFolder(null);
                               }}
-                              className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center font-semibold transition-all hover:scale-105 hover:shadow-md ${holder.color} ${selectedHolder?.code === holder.code ? 'ring-2 ring-primary border-transparent' : ''}`}
+                              className={`p-3 border rounded-xl flex flex-col items-center justify-center text-center transition-all ${selectedHolder?.code === holder.code && selectedHolder?.shelf === 'Shelf 1' ? 'border-primary bg-primary/5 ring-2 ring-primary/20' : 'border-border bg-card hover:bg-muted/50'}`}
                             >
                               <span className="text-2xl mb-1">{holder.icon}</span>
-                              <span className="text-xs tracking-tight">{holder.name}</span>
-                              <span className="text-[10px] mt-1 opacity-70">({getHolderDocsCount('Shelf 1', holder.code)} files)</span>
+                              <span className="font-semibold text-xs leading-tight text-foreground truncate max-w-full">{holder.name}</span>
+                              <span className="text-[10px] text-muted-foreground mt-1 font-bold bg-muted px-2 py-0.5 rounded-full">{getHolderDocsCount('Shelf 1', holder.code)} files</span>
                             </button>
                           ))}
                         </motion.div>
@@ -468,7 +1000,7 @@ export default function PhysicalVault() {
                       onClick={() => setExpandedShelf(expandedShelf === 'Shelf 2' ? null : 'Shelf 2')}
                       className="w-full px-5 py-4 flex items-center justify-between text-left font-bold text-base bg-muted/40 hover:bg-muted/80 transition-colors"
                     >
-                      <span className="flex items-center gap-2">👨‍👩‍👧‍👦 Shelf 2 – Family Member Zone</span>
+                      <span className="flex items-center gap-2">📂 Shelf 2 – Individual Family Folders</span>
                       <span className="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold">
                         {getShelfDocsCount('Shelf 2')} files
                       </span>
@@ -481,7 +1013,7 @@ export default function PhysicalVault() {
                           animate={{ height: 'auto', opacity: 1 }}
                           exit={{ height: 0, opacity: 0 }}
                           transition={{ duration: 0.2 }}
-                          className="p-4 grid grid-cols-2 md:grid-cols-3 gap-3 bg-muted/10 border-t border-border/50"
+                          className="p-4 grid grid-cols-2 md:grid-cols-4 gap-3 bg-muted/10 border-t border-border/50"
                         >
                           {shelf2Holders.map(holder => (
                             <button
@@ -490,11 +1022,11 @@ export default function PhysicalVault() {
                                 setSelectedHolder({ ...holder, shelf: 'Shelf 2' });
                                 setSelectedFolder(null);
                               }}
-                              className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center font-semibold transition-all hover:scale-105 hover:shadow-md ${holder.color} ${selectedHolder?.code === holder.code ? 'ring-2 ring-primary border-transparent' : ''}`}
+                              className={`p-3 border rounded-xl flex flex-col items-center justify-center text-center transition-all ${selectedHolder?.code === holder.code && selectedHolder?.shelf === 'Shelf 2' ? 'border-primary bg-primary/5 ring-2 ring-primary/20' : 'border-border bg-card hover:bg-muted/50'}`}
                             >
                               <span className="text-2xl mb-1">{holder.icon}</span>
-                              <span className="text-xs tracking-tight">{holder.name}</span>
-                              <span className="text-[10px] mt-1 opacity-70">({getHolderDocsCount('Shelf 2', holder.code)} files)</span>
+                              <span className="font-semibold text-xs leading-tight text-foreground truncate max-w-full">{holder.name}</span>
+                              <span className="text-[10px] text-muted-foreground mt-1 font-bold bg-muted px-2 py-0.5 rounded-full">{getHolderDocsCount('Shelf 2', holder.code)} files</span>
                             </button>
                           ))}
                         </motion.div>
@@ -508,7 +1040,7 @@ export default function PhysicalVault() {
                       onClick={() => setExpandedShelf(expandedShelf === 'Shelf 3' ? null : 'Shelf 3')}
                       className="w-full px-5 py-4 flex items-center justify-between text-left font-bold text-base bg-muted/40 hover:bg-muted/80 transition-colors"
                     >
-                      <span className="flex items-center gap-2">🏢 Shelf 3 – Wealth & Archive Zone</span>
+                      <span className="flex items-center gap-2">📂 Shelf 3 – High Value Assets & Deeds</span>
                       <span className="bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold">
                         {getShelfDocsCount('Shelf 3')} files
                       </span>
@@ -521,7 +1053,7 @@ export default function PhysicalVault() {
                           animate={{ height: 'auto', opacity: 1 }}
                           exit={{ height: 0, opacity: 0 }}
                           transition={{ duration: 0.2 }}
-                          className="p-4 grid grid-cols-2 md:grid-cols-3 gap-3 bg-muted/10 border-t border-border/50"
+                          className="p-4 grid grid-cols-2 md:grid-cols-4 gap-3 bg-muted/10 border-t border-border/50"
                         >
                           {SHELF_3_HOLDERS.map(holder => (
                             <button
@@ -530,11 +1062,11 @@ export default function PhysicalVault() {
                                 setSelectedHolder({ ...holder, shelf: 'Shelf 3' });
                                 setSelectedFolder(null);
                               }}
-                              className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center font-semibold transition-all hover:scale-105 hover:shadow-md ${holder.color} ${selectedHolder?.code === holder.code ? 'ring-2 ring-primary border-transparent' : ''}`}
+                              className={`p-3 border rounded-xl flex flex-col items-center justify-center text-center transition-all ${selectedHolder?.code === holder.code && selectedHolder?.shelf === 'Shelf 3' ? 'border-primary bg-primary/5 ring-2 ring-primary/20' : 'border-border bg-card hover:bg-muted/50'}`}
                             >
                               <span className="text-2xl mb-1">{holder.icon}</span>
-                              <span className="text-xs tracking-tight">{holder.name}</span>
-                              <span className="text-[10px] mt-1 opacity-70">({getHolderDocsCount('Shelf 3', holder.code)} files)</span>
+                              <span className="font-semibold text-xs leading-tight text-foreground truncate max-w-full">{holder.name}</span>
+                              <span className="text-[10px] text-muted-foreground mt-1 font-bold bg-muted px-2 py-0.5 rounded-full">{getHolderDocsCount('Shelf 3', holder.code)} files</span>
                             </button>
                           ))}
                         </motion.div>
@@ -545,58 +1077,68 @@ export default function PhysicalVault() {
                 </div>
               </div>
             )}
+
           </div>
 
-          {/* Right Column: Dynamic Explorer Panel */}
+          {/* Right Column: Folders & Document Detail Inspector */}
           <div className="lg:col-span-5 flex flex-col space-y-6">
             
-            {/* If holder chosen, list categories/folders */}
+            {/* Folder selection within a selected holder */}
             {selectedHolder && !selectedDoc && (
-              <div className="glass-panel p-6 rounded-2xl flex-1 flex flex-col">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-lg font-bold flex items-center gap-2">
-                    <span>{selectedHolder.icon}</span>
-                    <span>{selectedHolder.name}</span>
-                  </h3>
+              <div className="glass-panel p-6 rounded-2xl flex-1 flex flex-col space-y-4">
+                <div className="flex justify-between items-start border-b border-border/50 pb-3">
+                  <div>
+                    <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                      <span>{selectedHolder.icon}</span> {selectedHolder.name}
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Location: {selectedHolder.shelf}</p>
+                  </div>
                   <button 
-                    onClick={() => {
-                      setSelectedHolder(null);
-                      setSelectedFolder(null);
-                    }}
+                    onClick={() => setSelectedHolder(null)}
                     className="p-1.5 hover:bg-muted rounded-full"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-4 w-4 text-muted-foreground" />
                   </button>
                 </div>
 
-                {/* Subfolder list */}
-                <div className="grid grid-cols-2 gap-3 mb-6">
-                  {selectedHolder.folders.map((folder: string) => {
-                    const count = getFilteredDocs(selectedHolder.shelf, selectedHolder.code, folder).length;
-                    return (
-                      <button
-                        key={folder}
-                        onClick={() => setSelectedFolder(folder)}
-                        className={`flex justify-between items-center px-4 py-3 rounded-xl border text-sm font-semibold transition-all hover:bg-muted/40 ${selectedFolder === folder ? 'border-primary bg-primary/5 text-primary' : 'border-border'}`}
-                      >
-                        <span>📂 {folder}</span>
-                        <span className="text-xs opacity-75">({count})</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                {!selectedFolder ? (
+                  /* Select Folder */
+                  <div className="space-y-4 flex-1 overflow-y-auto">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Select Folder / Category File</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {selectedHolder.folders.map((folder: string) => {
+                        const count = getFilteredDocs(selectedHolder.shelf, selectedHolder.code, folder).length;
+                        return (
+                          <button
+                            key={folder}
+                            onClick={() => setSelectedFolder(folder)}
+                            className="p-3 border border-border/40 rounded-xl bg-muted/10 hover:bg-muted/40 transition-all text-left flex justify-between items-center group"
+                          >
+                            <span className="font-semibold text-xs text-foreground group-hover:text-primary transition-colors">{folder}</span>
+                            <span className="text-[10px] font-bold bg-muted px-2 py-0.5 rounded-full text-muted-foreground">{count} files</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  /* List Documents in Selected Folder */
+                  <div className="space-y-4 flex-1 flex flex-col min-h-0">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <button onClick={() => setSelectedFolder(null)} className="hover:text-foreground font-semibold">Folders</button>
+                      <span>→</span>
+                      <span className="text-foreground font-semibold truncate">{selectedFolder}</span>
+                    </div>
 
-                {/* Document List for selected subfolder */}
-                {selectedFolder && (
-                  <div className="flex-1 flex flex-col border-t border-border/80 pt-4">
-                    <h4 className="font-bold text-sm mb-3">Documents in: {selectedFolder}</h4>
-                    
-                    <div className="flex-1 space-y-2 overflow-y-auto max-h-[300px]">
+                    <div className="space-y-2 flex-1 overflow-y-auto pr-1">
                       {getFilteredDocs(selectedHolder.shelf, selectedHolder.code, selectedFolder).length === 0 ? (
-                        <p className="text-xs text-muted-foreground py-4 text-center">No documents in this folder yet.</p>
+                        <div className="text-center py-12 text-muted-foreground">
+                          <p className="text-sm">No files uploaded in this folder.</p>
+                          <p className="text-xs opacity-75 mt-1">Files uploaded in general categories matching this path will appear here.</p>
+                        </div>
                       ) : (
                         getFilteredDocs(selectedHolder.shelf, selectedHolder.code, selectedFolder).map(doc => (
-                          <div
+                          <div 
                             key={doc.id}
                             onClick={() => selectDocument(doc)}
                             className="p-3 bg-muted/20 border border-border/50 hover:bg-muted/50 transition-colors rounded-xl flex items-center justify-between cursor-pointer"

@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import UploadModal from '../components/UploadModal';
 import ShareModal from '../components/ShareModal';
 import PreviewModal from '../components/PreviewModal';
-import { LogOut, Upload, FileText, Trash2, Download, Bell, AlertTriangle, Share2, Search, Eye } from 'lucide-react';
+import { LogOut, Upload, FileText, Trash2, Download, Bell, AlertTriangle, Share2, Search, Eye, ArrowRight, ShieldAlert } from 'lucide-react';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
 
@@ -29,6 +29,15 @@ interface Notification {
   read: boolean;
 }
 
+interface AlertItem {
+  type: 'EXPIRY' | 'OVERDUE' | 'LOW_BALANCE';
+  urgency: number; // 0 = expired/critical, 1 = overdue payment, 2 = expiring soon, 3 = low balance
+  title: string;
+  message: string;
+  actionLabel: string;
+  actionPath: string;
+}
+
 export default function Dashboard() {
   const toast = useToastStore();
   const confirm = useConfirmStore();
@@ -42,6 +51,12 @@ export default function Dashboard() {
   const logout = useAuthStore((state) => state.logout);
   const navigate = useNavigate();
   const token = useAuthStore((state) => state.token);
+
+  // States for Alert aggregation
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+  const [loans, setLoans] = useState<any[]>([]);
+  const [peerLendings, setPeerLendings] = useState<any[]>([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
 
   const fetchDocuments = async () => {
     try {
@@ -61,12 +76,31 @@ export default function Dashboard() {
     }
   };
 
+  const fetchAlertData = async () => {
+    try {
+      const [banksData, loansData, peersData, expensesData] = await Promise.all([
+        apiClient('/api/bankaccounts'),
+        apiClient('/api/loans'),
+        apiClient('/api/peerlendings'),
+        apiClient('/api/expenses')
+      ]);
+      setBankAccounts(banksData);
+      setLoans(loansData);
+      setPeerLendings(peersData);
+      setExpenses(expensesData);
+    } catch (err) {
+      console.error('Failed to fetch alert data', err);
+    }
+  };
+
   useEffect(() => {
     fetchDocuments();
     fetchNotifications();
+    fetchAlertData();
     const interval = setInterval(() => {
       fetchDocuments();
       fetchNotifications();
+      fetchAlertData();
     }, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -146,6 +180,105 @@ export default function Dashboard() {
     return null;
   };
 
+  // Rule 8 Dashboard Cross-Module Alerts Computation
+  const getAlertItems = (): AlertItem[] => {
+    const alerts: AlertItem[] = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // 1. Expiring/Expired Documents (30 days or less)
+    documents.forEach(doc => {
+      if (!doc.expiryDate) return;
+      const exp = new Date(doc.expiryDate);
+      exp.setHours(0, 0, 0, 0);
+      const diffTime = exp.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays < 0) {
+        alerts.push({
+          type: 'EXPIRY',
+          urgency: 0,
+          title: `Expired: ${doc.name}`,
+          message: `Document has expired on ${exp.toLocaleDateString()}. Please renew immediately.`,
+          actionLabel: 'Manage Vault',
+          actionPath: '/vault'
+        });
+      } else if (diffDays <= 30) {
+        alerts.push({
+          type: 'EXPIRY',
+          urgency: 2,
+          title: `Expiring Soon: ${doc.name}`,
+          message: `Document will expire in ${diffDays} days (${exp.toLocaleDateString()}).`,
+          actionLabel: 'Manage Vault',
+          actionPath: '/vault'
+        });
+      }
+    });
+
+    // 2. Overdue Peer Lendings (Udhaar)
+    peerLendings.forEach(p => {
+      if (p.dueDate && p.amount > 0) {
+        const due = new Date(p.dueDate);
+        due.setHours(0, 0, 0, 0);
+        if (due < today) {
+          alerts.push({
+            type: 'OVERDUE',
+            urgency: 1,
+            title: `Overdue Udhaar: ${p.personName}`,
+            message: `${p.type === 'TAKEN' ? 'Pay back' : 'Collect'} ₹${p.amount.toLocaleString()} - was due on ${due.toLocaleDateString()}.`,
+            actionLabel: 'View Udhaar',
+            actionPath: '/peer-lending'
+          });
+        }
+      }
+    });
+
+    // 3. Overdue Loan EMIs (Active loans where current month's EMI is unpaid past 5th day)
+    loans.forEach(l => {
+      const outstanding = l.outstandingAmount ?? 0;
+      if (outstanding > 0) {
+        const currentMonth = today.getMonth();
+        const currentYear = today.getFullYear();
+        
+        const currentMonthPayments = expenses.filter(e => 
+          e.linkedLoan?.id === l.id && 
+          new Date(e.expenseDate).getMonth() === currentMonth &&
+          new Date(e.expenseDate).getFullYear() === currentYear
+        );
+
+        if (currentMonthPayments.length === 0 && today.getDate() > 5) {
+          alerts.push({
+            type: 'OVERDUE',
+            urgency: 1,
+            title: `Overdue EMI: ${l.lenderName}`,
+            message: `EMI payment of ₹${(l.emiAmount ?? 0).toLocaleString()} is pending past the monthly due date.`,
+            actionLabel: 'Manage Loans',
+            actionPath: '/loans'
+          });
+        }
+      }
+    });
+
+    // 4. Low Bank Balances (Less than ₹5,000 threshold)
+    bankAccounts.forEach(b => {
+      const balance = b.currentBalance ?? 0;
+      if (balance < 5000) {
+        alerts.push({
+          type: 'LOW_BALANCE',
+          urgency: 3,
+          title: `Low Balance: ${b.bankName}`,
+          message: `Liquid balance is critical: ₹${balance.toLocaleString()} (minimum threshold ₹5,000).`,
+          actionLabel: 'Bank Accounts',
+          actionPath: '/bank-accounts'
+        });
+      }
+    });
+
+    return alerts.sort((a, b) => a.urgency - b.urgency).slice(0, 5);
+  };
+
+  const criticalAlerts = getAlertItems();
+
   const filteredDocuments = documents.filter(doc => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
@@ -216,7 +349,48 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1">
+        
+        {/* Rule 8: Dashboard Critical Cross-Module Alert Widget */}
+        {criticalAlerts.length > 0 && (
+          <div className="mb-6 bg-gradient-to-r from-red-500/10 via-orange-500/5 to-transparent border border-red-500/20 p-4 rounded-2xl shadow-sm relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+              <ShieldAlert className="h-24 w-24 text-red-500" />
+            </div>
+            <div className="flex items-center gap-2 text-red-500 font-bold text-xs uppercase tracking-wider mb-3">
+              <AlertTriangle className="h-4 w-4 animate-pulse" /> Critical Family Finance Alerts
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {criticalAlerts.map((alert, idx) => (
+                <div 
+                  key={idx} 
+                  className="bg-card/65 backdrop-blur-sm border border-border/80 p-3 rounded-xl hover:border-primary/45 transition-colors cursor-pointer flex flex-col justify-between"
+                  onClick={() => navigate(alert.actionPath)}
+                >
+                  <div>
+                    <div className="flex justify-between items-start gap-1">
+                      <span className="font-semibold text-xs text-foreground leading-tight">{alert.title}</span>
+                      <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded uppercase ${
+                        alert.urgency === 0 ? 'bg-red-500 text-white' :
+                        alert.urgency === 1 ? 'bg-red-100 text-red-600 dark:bg-red-500/25 dark:text-red-400' :
+                        alert.urgency === 2 ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-500/25 dark:text-yellow-400' :
+                        'bg-blue-100 text-blue-600 dark:bg-blue-500/25 dark:text-blue-400'
+                      }`}>
+                        {alert.urgency === 0 ? 'Expired' : alert.urgency === 1 ? 'Overdue' : 'Warning'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{alert.message}</p>
+                  </div>
+                  <div className="mt-2.5 pt-2 border-t border-border/30 flex items-center justify-between text-[10px] font-bold text-primary group">
+                    <span>{alert.actionLabel}</span>
+                    <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <h2 className="text-xl font-semibold text-foreground">Your Vault</h2>
           

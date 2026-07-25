@@ -94,6 +94,54 @@ public class ExpenseController {
             throw new RuntimeException("Unauthorized");
         }
 
+        // Check for changes and append to editHistory
+        boolean changed = false;
+        StringBuilder changesSummary = new StringBuilder();
+
+        if (existing.getAmount() != null && entity.getAmount() != null && existing.getAmount().compareTo(entity.getAmount()) != 0) {
+            changed = true;
+            changesSummary.append(String.format("Amount changed from ₹%s to ₹%s. ", existing.getAmount(), entity.getAmount()));
+        }
+        if (existing.getCategory() != null && !existing.getCategory().equals(entity.getCategory())) {
+            changed = true;
+            changesSummary.append(String.format("Category changed from '%s' to '%s'. ", existing.getCategory(), entity.getCategory()));
+        }
+        if (existing.getExpenseDate() != null && !existing.getExpenseDate().equals(entity.getExpenseDate())) {
+            changed = true;
+            changesSummary.append(String.format("Date changed from '%s' to '%s'. ", existing.getExpenseDate(), entity.getExpenseDate()));
+        }
+        if ((existing.getDescription() != null && !existing.getDescription().equals(entity.getDescription())) || 
+            (existing.getDescription() == null && entity.getDescription() != null && !entity.getDescription().isEmpty())) {
+            changed = true;
+            changesSummary.append(String.format("Description changed from '%s' to '%s'. ", 
+                existing.getDescription() != null ? existing.getDescription() : "", 
+                entity.getDescription() != null ? entity.getDescription() : ""));
+        }
+        if (existing.getType() != null && !existing.getType().equals(entity.getType())) {
+            changed = true;
+            changesSummary.append(String.format("Type changed from '%s' to '%s'. ", existing.getType(), entity.getType()));
+        }
+        if (existing.getMadeAgainst() != null && !existing.getMadeAgainst().equals(entity.getMadeAgainst())) {
+            changed = true;
+            changesSummary.append(String.format("Made Against changed from '%s' to '%s'. ", existing.getMadeAgainst(), entity.getMadeAgainst()));
+        }
+
+        if (changed) {
+            String timestamp = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
+                    .format(java.time.LocalDateTime.now());
+            String author = user != null ? user.getName() : "System";
+            String newHistoryLog = String.format("[%s by %s] %s", timestamp, author, changesSummary.toString().trim());
+
+            String currentHistory = existing.getEditHistory();
+            if (currentHistory == null || currentHistory.trim().isEmpty()) {
+                entity.setEditHistory(newHistoryLog);
+            } else {
+                entity.setEditHistory(currentHistory + "\n" + newHistoryLog);
+            }
+        } else {
+            entity.setEditHistory(existing.getEditHistory());
+        }
+
         // 1. Reverse old transaction effect
         adjustLinkedEntityBalances(existing, false);
 

@@ -204,4 +204,15 @@ public class Expense extends TenantBaseEntity {
     public void setCustomFieldsData(String customFieldsData) {
         this.customFieldsData = customFieldsData;
     }
+
+    @Column(columnDefinition = "TEXT")
+    private String editHistory;
+
+    public String getEditHistory() {
+        return editHistory;
+    }
+
+    public void setEditHistory(String editHistory) {
+        this.editHistory = editHistory;
+    }
 }

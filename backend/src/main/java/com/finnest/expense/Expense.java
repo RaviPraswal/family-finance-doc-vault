@@ -74,6 +74,9 @@ public class Expense extends TenantBaseEntity {
     @JoinColumn(name = "linked_credit_card_id")
     private com.finnest.portfolio.CreditCard linkedCreditCard;
 
+    @Column(columnDefinition = "TEXT")
+    private String customFieldsData;
+
     public BigDecimal getAmount() {
         return amount;
     }
@@ -192,5 +195,13 @@ public class Expense extends TenantBaseEntity {
 
     public void setLinkedCreditCard(com.finnest.portfolio.CreditCard linkedCreditCard) {
         this.linkedCreditCard = linkedCreditCard;
+    }
+
+    public String getCustomFieldsData() {
+        return customFieldsData;
+    }
+
+    public void setCustomFieldsData(String customFieldsData) {
+        this.customFieldsData = customFieldsData;
     }
 }

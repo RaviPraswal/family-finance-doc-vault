@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
-import { Plus, Banknote, Trash2 } from 'lucide-react';
+import { Plus, Banknote, Trash2, Search, Download, Printer, Calendar, TrendingUp, BarChart3, PieChart } from 'lucide-react';
+import { exportToCSV, exportToPDF } from '../utils/exportUtils';
 
 interface IncomeSource {
   id: string;
@@ -13,12 +14,25 @@ interface IncomeSource {
   dateReceived: string;
 }
 
+interface BankAccount {
+  id: string;
+  name: string;
+  bankName: string;
+}
+
 export default function SideIncome() {
   const toast = useToastStore();
   const confirm = useConfirmStore();
   const [incomes, setIncomes] = useState<IncomeSource[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  
+  // Modals / Quick Actions
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isReceiveOpen, setIsReceiveOpen] = useState(false);
+  const [selectedSourceId, setSelectedSourceId] = useState<string>('');
+  
+  // Form states
   const [formData, setFormData] = useState<Partial<IncomeSource>>({
     sourceName: '',
     ownerName: '',
@@ -26,9 +40,24 @@ export default function SideIncome() {
     frequency: 'Monthly'
   });
 
+  const [receiveForm, setReceiveForm] = useState({
+    amount: '',
+    bankAccountId: '',
+    expenseDate: new Date().toISOString().split('T')[0],
+    description: '',
+    category: 'Side Income'
+  });
+
+  // Table filtering and pagination states
+  const [search, setSearch] = useState('');
+  const [filterSourceId, setFilterSourceId] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   useEffect(() => {
     fetchIncomes();
     fetchExpenses();
+    fetchBankAccounts();
   }, []);
 
   const fetchIncomes = async () => {
@@ -44,6 +73,15 @@ export default function SideIncome() {
     try {
       const data = await apiClient('/api/expenses');
       setExpenses(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchBankAccounts = async () => {
+    try {
+      const data = await apiClient('/api/bankaccounts');
+      setBankAccounts(data);
     } catch (err) {
       console.error(err);
     }
@@ -65,6 +103,46 @@ export default function SideIncome() {
     }
   };
 
+  const handleReceiveSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSourceId) return;
+    try {
+      await apiClient('/api/expenses', {
+        method: 'POST',
+        body: JSON.stringify({
+          amount: parseFloat(receiveForm.amount),
+          category: receiveForm.category,
+          expenseDate: receiveForm.expenseDate,
+          description: receiveForm.description,
+          type: 'CREDIT',
+          madeAgainst: 'INCOME_SOURCE',
+          linkedAccount: receiveForm.bankAccountId ? { id: receiveForm.bankAccountId } : null,
+          linkedIncomeSource: { id: selectedSourceId }
+        })
+      });
+
+      // Update dateReceived in the income source
+      const matchedSource = incomes.find(i => i.id === selectedSourceId);
+      if (matchedSource) {
+        await apiClient(`/api/incomesources/${selectedSourceId}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            ...matchedSource,
+            dateReceived: receiveForm.expenseDate
+          })
+        });
+      }
+
+      setIsReceiveOpen(false);
+      setReceiveForm({ amount: '', bankAccountId: '', expenseDate: new Date().toISOString().split('T')[0], description: '', category: 'Side Income' });
+      toast.success('Inflow recorded', 'The credit transaction was successfully logged.');
+      fetchExpenses();
+      fetchIncomes();
+    } catch (err: any) {
+      toast.error('Failed to save credit transaction', err.message || 'Error occurred.');
+    }
+  };
+
   const handleDelete = async (id: string) => {
     confirm.show({
       title: 'Delete Income Source',
@@ -83,462 +161,570 @@ export default function SideIncome() {
     });
   };
 
-  const [viewMode, setViewMode] = useState<'card' | 'list' | 'detailed'>('card');
-  const [selectedIncomeId, setSelectedIncomeId] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const handleDeleteTx = async (id: string) => {
+    confirm.show({
+      title: 'Delete Transaction',
+      message: 'Are you sure you want to delete this credit statement entry?',
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await apiClient(`/api/expenses/${id}`, { method: 'DELETE' });
+          toast.success('Transaction deleted', 'The entry has been deleted.');
+          fetchExpenses();
+        } catch (err: any) {
+          toast.error('Cannot delete transaction', err.message || 'Failed.');
+        }
+      }
+    });
+  };
 
-  // Reset page when switching viewMode
-  useEffect(() => {
-    setItemsPerPage(viewMode === 'card' ? 6 : 10);
-    setCurrentPage(1);
-  }, [viewMode]);
+  // 1. Expected and Received Income Calculations
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
 
-  // Select first income source if none selected
-  useEffect(() => {
-    if (incomes.length > 0 && !selectedIncomeId) {
-      setSelectedIncomeId(incomes[0].id);
-    }
-  }, [incomes, selectedIncomeId]);
+  const creditTransactions = useMemo(() => {
+    return expenses.filter(e => e.type === 'CREDIT' && e.madeAgainst === 'INCOME_SOURCE');
+  }, [expenses]);
 
-  const selectedIncome = incomes.find(inc => inc.id === selectedIncomeId) || incomes[0];
+  const receivedThisMonth = useMemo(() => {
+    return creditTransactions
+      .filter(e => {
+        const d = new Date(e.expenseDate);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      })
+      .reduce((sum, e) => sum + e.amount, 0);
+  }, [creditTransactions, currentMonth, currentYear]);
 
-  // Pagination calculations
+  const expectedMonthly = useMemo(() => {
+    return incomes
+      .filter(i => i.frequency === 'Monthly')
+      .reduce((sum, i) => sum + i.amount, 0);
+  }, [incomes]);
+
+  const outstandingCollect = Math.max(0, expectedMonthly - receivedThisMonth);
+  const coverageRatio = expectedMonthly > 0 ? Math.round((receivedThisMonth / expectedMonthly) * 100) : 0;
+  const allTimeTotal = creditTransactions.reduce((sum, e) => sum + e.amount, 0);
+
+  // 2. Filter & Sort Inflow History Statement Table
+  const filteredTxns = useMemo(() => {
+    return creditTransactions
+      .filter(tx => {
+        const sourceName = tx.linkedIncomeSource?.sourceName || '';
+        const matchesSearch = sourceName.toLowerCase().includes(search.toLowerCase()) ||
+                              (tx.category || '').toLowerCase().includes(search.toLowerCase()) ||
+                              (tx.description || '').toLowerCase().includes(search.toLowerCase());
+        const matchesSource = filterSourceId === 'ALL' || tx.linkedIncomeSource?.id === filterSourceId;
+        return matchesSearch && matchesSource;
+      })
+      .sort((a, b) => new Date(b.expenseDate).getTime() - new Date(a.expenseDate).getTime());
+  }, [creditTransactions, search, filterSourceId]);
+
+  // Paginated Ledger History
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedIncomes = incomes.slice(startIndex, startIndex + itemsPerPage);
-  const totalPages = Math.ceil(incomes.length / itemsPerPage);
+  const paginatedTxns = filteredTxns.slice(startIndex, startIndex + itemsPerPage);
+  const totalPages = Math.ceil(filteredTxns.length / itemsPerPage);
+
+  // 3. Calendar Day Grid mapping side-inflow collections
+  const calendarDays = useMemo(() => {
+    const totalDays = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const daysArr = [];
+    for (let day = 1; day <= totalDays; day++) {
+      const formattedDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const dayTxns = creditTransactions.filter(e => e.expenseDate === formattedDate);
+      const totalAmt = dayTxns.reduce((sum, e) => sum + e.amount, 0);
+      daysArr.push({ day, amount: totalAmt });
+    }
+    return daysArr;
+  }, [creditTransactions, currentMonth, currentYear]);
+
+  // 4. Monthly Trend (6 months history calculation)
+  const monthlyTrendData = useMemo(() => {
+    const trend = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const m = d.getMonth();
+      const y = d.getFullYear();
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      
+      const total = creditTransactions
+        .filter(e => {
+          const date = new Date(e.expenseDate);
+          return date.getMonth() === m && date.getFullYear() === y;
+        })
+        .reduce((sum, e) => sum + e.amount, 0);
+      
+      trend.push({ monthStr: `${months[m]}`, amount: total });
+    }
+    return trend;
+  }, [creditTransactions, now]);
+
+  // Max value in trend for scale
+  const maxTrendVal = useMemo(() => {
+    const max = Math.max(...monthlyTrendData.map(t => t.amount));
+    return max > 0 ? max : 10000;
+  }, [monthlyTrendData]);
+
+  // 5. Projected Upcoming Inflows pipeline (30 Days window prediction)
+  const upcomingInflows = useMemo(() => {
+    const predicted = [];
+    const today = new Date();
+    for (const source of incomes) {
+      if (source.frequency === 'Monthly') {
+        const lastDate = source.dateReceived ? new Date(source.dateReceived) : new Date(now.getFullYear(), now.getMonth() - 1, 15);
+        const nextDate = new Date(lastDate.getFullYear(), lastDate.getMonth() + 1, lastDate.getDate());
+        
+        // check if nextDate is in future or today
+        if (nextDate >= today) {
+          predicted.push({
+            sourceName: source.sourceName,
+            amount: source.amount,
+            nextDate: nextDate.toLocaleDateString(),
+            daysLeft: Math.ceil((nextDate.getTime() - today.getTime()) / (1000 * 3600 * 24))
+          });
+        }
+      }
+    }
+    return predicted.sort((a, b) => a.daysLeft - b.daysLeft);
+  }, [incomes, now]);
+
+  // Exporters
+  const handleExportCSV = () => {
+    const headers = ['Date', 'Source Channel', 'Inflow Category', 'Bank Received', 'Description', 'Amount Received'];
+    const exportData = filteredTxns.map(tx => [
+      tx.expenseDate,
+      tx.linkedIncomeSource?.sourceName || 'Direct',
+      tx.category,
+      tx.linkedAccount?.name || '-',
+      tx.description || '',
+      tx.amount
+    ]);
+    exportToCSV(exportData, headers, 'Side_Income_Statement');
+  };
+
+  const handleExportPDF = () => {
+    const headers = ['Date', 'Source Channel', 'Category', 'Bank account', 'Amount'];
+    const exportData = filteredTxns.map(tx => [
+      tx.expenseDate,
+      tx.linkedIncomeSource?.sourceName || 'Direct',
+      tx.category,
+      tx.linkedAccount?.name || '-',
+      `₹${tx.amount.toLocaleString()}`
+    ]);
+    exportToPDF('Side Inflows Statement Ledger', headers, exportData, 'Side_Income_Statement');
+  };
 
   return (
     <div className="h-full flex flex-col">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Side Income & Revenue</h1>
-          <p className="text-sm text-muted-foreground">Track dynamic inflows from side-hustles, properties, and freelancing</p>
+          <h1 className="text-2xl font-bold text-foreground font-sans">Side Income Dashboard</h1>
+          <p className="text-sm text-muted-foreground">Monitor freelancing, rental yields, and business cashflow with real-time statement ledgers</p>
         </div>
-        <div className="flex items-center gap-3">
-          {/* View Toggle */}
-          <div className="flex items-center gap-1 bg-muted p-1 rounded-lg border border-border">
-            <button
-              onClick={() => setViewMode('card')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'card' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Card View"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="List View"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>
-            </button>
-            <button
-              onClick={() => setViewMode('detailed')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'detailed' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Detailed View"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg>
-            </button>
-          </div>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 text-sm font-medium transition-all"
+        >
+          <Plus className="h-4 w-4" /> Add Income Channel
+        </button>
+      </div>
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90"
-          >
-            <Plus className="h-4 w-4" /> Add Income
-          </button>
+      {/* Summary KPI Strip */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+        <div className="glass-panel p-4 rounded-xl border border-border/50">
+          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Expected Inflow (Monthly)</span>
+          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{expectedMonthly.toLocaleString()}</p>
+        </div>
+        <div className="glass-panel p-4 rounded-xl border border-border/50">
+          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Collected (This Month)</span>
+          <p className="text-lg font-mono font-bold text-green-500 mt-1 tabular-nums">₹{receivedThisMonth.toLocaleString()}</p>
+        </div>
+        <div className="glass-panel p-4 rounded-xl border border-border/50">
+          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Uncollected Balance</span>
+          <p className={`text-lg font-mono font-bold mt-1 tabular-nums ${outstandingCollect > 0 ? 'text-amber-500' : 'text-foreground'}`}>
+            ₹{outstandingCollect.toLocaleString()}
+          </p>
+        </div>
+        <div className="glass-panel p-4 rounded-xl border border-border/50">
+          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Coverage Percentage</span>
+          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">{coverageRatio}%</p>
+        </div>
+        <div className="glass-panel p-4 rounded-xl border border-border/50">
+          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Cumulative Inflows (All-Time)</span>
+          <p className="text-lg font-mono font-bold text-primary mt-1 tabular-nums">₹{allTimeTotal.toLocaleString()}</p>
         </div>
       </div>
 
-      {incomes.length === 0 ? (
-        <div className="py-12 text-center text-muted-foreground bg-card border border-border rounded-lg">
-          No side income recorded. Track your freelancing, rental income, or business revenue here.
-        </div>
-      ) : viewMode === 'card' ? (
-        /* Card View */
-        <div className="space-y-6 flex-1">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {paginatedIncomes.map((inc) => (
-              <div key={inc.id} className="bg-card p-6 rounded-lg shadow-sm border border-border flex flex-col justify-between hover:shadow-md transition-shadow">
-                <div>
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-500/10 text-green-500 rounded-lg">
-                        <Banknote className="h-6 w-6" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-base text-foreground">{inc.sourceName}</h3>
-                        <p className="text-xs text-muted-foreground">{inc.frequency}</p>
-                      </div>
-                    </div>
-                    <button onClick={() => handleDelete(inc.id)} className="text-muted-foreground hover:text-red-500 p-1">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                  
-                  <div className="mb-4 pb-4 border-b border-border">
-                    <p className="text-xs text-muted-foreground mb-1">Amount</p>
-                    <p className="text-xl font-bold text-green-500">+₹{inc.amount.toLocaleString()}</p>
-                  </div>
-
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Last Received:</span>
-                      <span className="font-semibold text-foreground">{inc.dateReceived ? new Date(inc.dateReceived).toLocaleDateString() : 'No transactions yet'}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Pagination Controls */}
-          {incomes.length > 0 && (
-            <div className="flex items-center justify-between border-t border-border/50 pt-4 mt-6">
-              <div className="flex flex-1 justify-between sm:hidden">
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="relative inline-flex items-center rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/80 disabled:opacity-50"
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages || totalPages <= 1}
-                  className="relative ml-3 inline-flex items-center rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/80 disabled:opacity-50"
-                >
-                  Next
-                </button>
-              </div>
-              <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                <div className="flex items-center gap-4">
-                  <p className="text-sm text-muted-foreground">
-                    Showing <span className="font-semibold text-foreground">{startIndex + 1}</span> to{' '}
-                    <span className="font-semibold text-foreground">{Math.min(startIndex + itemsPerPage, incomes.length)}</span> of{' '}
-                    <span className="font-semibold text-foreground">{incomes.length}</span> results
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Show</span>
-                    <select
-                      value={itemsPerPage}
-                      onChange={(e) => {
-                        setItemsPerPage(Number(e.target.value));
-                        setCurrentPage(1);
-                      }}
-                      className="px-2.5 py-1 rounded-lg bg-card border border-border text-foreground text-xs outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all cursor-pointer"
-                    >
-                      <option value={6}>6 cards</option>
-                      <option value={12}>12 cards</option>
-                      <option value={24}>24 cards</option>
-                      <option value={48}>48 cards</option>
-                    </select>
-                  </div>
-                </div>
-                {totalPages > 1 && (
-                  <div>
-                    <nav className="isolate inline-flex -space-x-px rounded-md shadow-xs" aria-label="Pagination">
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                        disabled={currentPage === 1}
-                        className="relative inline-flex items-center rounded-l-md px-2 py-2 text-muted-foreground ring-1 ring-inset ring-border bg-card hover:bg-muted disabled:opacity-50"
-                      >
-                        <span className="sr-only">Previous</span>
-                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                          <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                      {Array.from({ length: totalPages }).map((_, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setCurrentPage(idx + 1)}
-                          className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-border focus:z-20 ${
-                            currentPage === idx + 1
-                              ? 'bg-primary text-primary-foreground'
-                              : 'text-foreground bg-card hover:bg-muted'
-                          }`}
-                        >
-                          {idx + 1}
-                        </button>
-                      ))}
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                        disabled={currentPage === totalPages}
-                        className="relative inline-flex items-center rounded-r-md px-2 py-2 text-muted-foreground ring-1 ring-inset ring-border bg-card hover:bg-muted disabled:opacity-50"
-                      >
-                        <span className="sr-only">Next</span>
-                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                          <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                    </nav>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      ) : viewMode === 'list' ? (
-        /* List View (Table) */
-        <div className="space-y-6 flex-1 flex flex-col min-h-0">
-          <div className="bg-card rounded-lg shadow-sm border border-border overflow-hidden h-[calc(100vh-10rem)] overflow-y-auto custom-scrollbar flex-1">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-background sticky top-0 z-10">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Source</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Frequency</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Estimated Amount</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Last Received</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-card divide-y divide-gray-200">
-                {paginatedIncomes.map((inc) => (
-                  <tr key={inc.id} className="hover:bg-background/80 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <Banknote className="h-5 w-5 text-muted-foreground mr-3" />
-                        <div className="text-sm font-medium text-foreground">{inc.sourceName}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                      {inc.frequency}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap font-bold text-green-500 text-sm">
-                      +₹{inc.amount.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                      {inc.dateReceived ? new Date(inc.dateReceived).toLocaleDateString() : 'No transactions yet'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button onClick={() => handleDelete(inc.id)} className="text-red-600 hover:text-red-900">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination Controls */}
-          {incomes.length > 0 && (
-            <div className="flex items-center justify-between border-t border-border/50 pt-4 mt-2">
-              <div className="flex flex-1 justify-between sm:hidden">
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="relative inline-flex items-center rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/80 disabled:opacity-50"
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages || totalPages <= 1}
-                  className="relative ml-3 inline-flex items-center rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/80 disabled:opacity-50"
-                >
-                  Next
-                </button>
-              </div>
-              <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                <div className="flex items-center gap-4">
-                  <p className="text-sm text-muted-foreground">
-                    Showing <span className="font-semibold text-foreground">{startIndex + 1}</span> to{' '}
-                    <span className="font-semibold text-foreground">{Math.min(startIndex + itemsPerPage, incomes.length)}</span> of{' '}
-                    <span className="font-semibold text-foreground">{incomes.length}</span> results
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Show</span>
-                    <select
-                      value={itemsPerPage}
-                      onChange={(e) => {
-                        setItemsPerPage(Number(e.target.value));
-                        setCurrentPage(1);
-                      }}
-                      className="px-2.5 py-1 rounded-lg bg-card border border-border text-foreground text-xs outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all cursor-pointer"
-                    >
-                      <option value={10}>10 entries</option>
-                      <option value={20}>20 entries</option>
-                      <option value={50}>50 entries</option>
-                      <option value={100}>100 entries</option>
-                    </select>
-                  </div>
-                </div>
-                {totalPages > 1 && (
-                  <div>
-                    <nav className="isolate inline-flex -space-x-px rounded-md shadow-xs" aria-label="Pagination">
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                        disabled={currentPage === 1}
-                        className="relative inline-flex items-center rounded-l-md px-2 py-2 text-muted-foreground ring-1 ring-inset ring-border bg-card hover:bg-muted disabled:opacity-50"
-                      >
-                        <span className="sr-only">Previous</span>
-                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                          <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                      {Array.from({ length: totalPages }).map((_, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setCurrentPage(idx + 1)}
-                          className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-border focus:z-20 ${
-                            currentPage === idx + 1
-                              ? 'bg-primary text-primary-foreground'
-                              : 'text-foreground bg-card hover:bg-muted'
-                          }`}
-                        >
-                          {idx + 1}
-                        </button>
-                      ))}
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                        disabled={currentPage === totalPages}
-                        className="relative inline-flex items-center rounded-r-md px-2 py-2 text-muted-foreground ring-1 ring-inset ring-border bg-card hover:bg-muted disabled:opacity-50"
-                      >
-                        <span className="sr-only">Next</span>
-                        <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                          <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                    </nav>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      ) : (
-        /* Detailed Split-Pane View */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
-          <div className="lg:col-span-4 space-y-3 overflow-y-auto h-[calc(100vh-10rem)] pr-2 custom-scrollbar">
-            {incomes.map((inc) => (
-              <div
-                key={inc.id}
-                onClick={() => setSelectedIncomeId(inc.id)}
-                className={`p-4 rounded-xl border transition-all cursor-pointer ${
-                  selectedIncome?.id === inc.id
-                    ? 'border-primary bg-primary/5 shadow-sm'
-                    : 'border-border hover:bg-muted/50 bg-card'
-                }`}
-              >
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${selectedIncome?.id === inc.id ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
-                      <Banknote className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-sm text-foreground">{inc.sourceName}</h4>
-                      <p className="text-xs text-muted-foreground">{inc.frequency}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(inc.id);
-                    }}
-                    className="text-muted-foreground hover:text-red-500 p-1"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-                <div className="mt-3 flex justify-between items-baseline">
-                  <span className="text-xs text-muted-foreground">Est. Amount:</span>
-                  <span className="text-sm font-bold text-green-500">₹{inc.amount.toLocaleString()}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="lg:col-span-8 bg-card border border-border rounded-xl p-6 flex flex-col h-[calc(100vh-10rem)] overflow-hidden">
-            {selectedIncome ? (
-              <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
-                <div className="border-b border-border/50 pb-4 mb-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-bold text-lg text-foreground">{selectedIncome.sourceName}</h3>
-                      <p className="text-xs text-muted-foreground">Frequency: {selectedIncome.frequency}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xs text-muted-foreground block">Estimated Revenue</span>
-                      <span className="text-2xl font-bold text-green-500">₹{selectedIncome.amount.toLocaleString()}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto pr-1 space-y-6">
-                  {/* Performance Indicators */}
-                  <div className="grid grid-cols-2 gap-4 bg-muted/30 p-4 rounded-xl">
-                    <div>
-                      <span className="text-xs text-muted-foreground block">Last Inflow Date</span>
-                      <span className="text-base font-semibold text-foreground">
-                        {selectedIncome.dateReceived ? new Date(selectedIncome.dateReceived).toLocaleDateString() : 'No transactions yet'}
+      {/* Main Single Screen Dense Dashboard Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
+        
+        {/* Left Columns (col-span-8): Graphs, Heatmap, Ledger */}
+        <div className="lg:col-span-8 flex flex-col gap-6 min-h-0">
+          
+          {/* Top Panel Grid: Monthly trend & Heatmap calendar */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            {/* Monthly Inflow Trend (Bar Chart SVG) */}
+            <div className="bg-card border border-border/50 rounded-xl p-4">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-1.5">
+                <BarChart3 className="h-4 w-4" /> Monthly collection trends (6mo)
+              </h3>
+              
+              <div className="h-40 flex items-end justify-between gap-2 pt-2 border-b border-border/30 pb-1">
+                {monthlyTrendData.map((data, idx) => {
+                  const percentage = Math.max(8, (data.amount / maxTrendVal) * 100);
+                  return (
+                    <div key={idx} className="flex-1 flex flex-col items-center group">
+                      <span className="text-[9px] font-mono font-semibold text-green-400 opacity-0 group-hover:opacity-100 transition-opacity mb-1 tabular-nums">
+                        ₹{data.amount >= 1000 ? `${(data.amount / 1000).toFixed(0)}k` : data.amount}
                       </span>
+                      <div 
+                        className="w-full bg-green-500/10 hover:bg-green-500/30 border border-green-500/20 rounded-t transition-all cursor-pointer"
+                        style={{ height: `${percentage}%` }}
+                        title={`₹${data.amount.toLocaleString()}`}
+                      ></div>
+                      <span className="text-[10px] text-muted-foreground mt-2 font-semibold">{data.monthStr}</span>
                     </div>
-                    <div>
-                      <span className="text-xs text-muted-foreground block">Frequency Scheme</span>
-                      <span className="text-base font-semibold text-foreground">{selectedIncome.frequency} Inflows</span>
-                    </div>
-                  </div>
+                  );
+                })}
+              </div>
+            </div>
 
-                  {/* Transaction log */}
-                  <div>
-                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Itemized Inflow Logs</h4>
-                    <div className="space-y-2">
-                      {expenses.filter((e) => e.linkedIncomeSource?.id === selectedIncome.id).length === 0 ? (
-                        <p className="text-sm text-muted-foreground py-8 text-center bg-background/30 rounded-lg">No dynamic inflows logged yet for this source.</p>
-                      ) : (
-                        expenses
-                          .filter((e) => e.linkedIncomeSource?.id === selectedIncome.id)
-                          .map((exp) => {
-                            const isCredit = exp.type === 'CREDIT';
-                            return (
-                              <div
-                                key={exp.id}
-                                className="flex justify-between items-center p-3 rounded-lg border border-border/30 bg-background/50 hover:bg-background/85 transition-colors"
-                              >
-                                <div>
-                                  <div className="font-semibold text-sm text-foreground">{exp.category}</div>
-                                  <div className="text-xs text-muted-foreground">{exp.expenseDate}</div>
-                                  {exp.description && <p className="text-xs text-muted-foreground italic mt-1">{exp.description}</p>}
-                                </div>
-                                <span className={`font-bold text-sm ${isCredit ? 'text-green-500' : 'text-red-500'}`}>
-                                  {isCredit ? '+' : '-'}₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                </span>
-                              </div>
-                            );
-                          })
+            {/* Income Heatmap Calendar Grid */}
+            <div className="bg-card border border-border/50 rounded-xl p-4">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-1.5">
+                <Calendar className="h-4 w-4" /> Collection Heatmap (This Month)
+              </h3>
+              
+              <div className="grid grid-cols-7 gap-1">
+                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((dayName, index) => (
+                  <div key={index} className="text-center text-[10px] font-bold text-muted-foreground">{dayName}</div>
+                ))}
+                
+                {/* Pad days before the first day of current month */}
+                {Array.from({ length: new Date(currentYear, currentMonth, 1).getDay() }).map((_, idx) => (
+                  <div key={`pad-${idx}`} className="h-5 bg-transparent"></div>
+                ))}
+                
+                {/* Active calendar grid mapping */}
+                {calendarDays.map(({ day, amount }) => {
+                  const hasInflow = amount > 0;
+                  return (
+                    <div 
+                      key={day}
+                      className={`h-6 flex flex-col items-center justify-center rounded text-[10px] font-mono border relative group cursor-pointer transition-all ${
+                        hasInflow 
+                          ? 'bg-green-500/20 border-green-500/40 text-green-400 font-bold' 
+                          : 'bg-card border-border/30 hover:bg-muted/30 text-muted-foreground'
+                      }`}
+                      title={hasInflow ? `Received: ₹${amount.toLocaleString()}` : undefined}
+                    >
+                      {day}
+                      {hasInflow && (
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-slate-900 border border-border text-[9px] px-1.5 py-0.5 rounded text-white font-mono z-55 whitespace-nowrap">
+                          ₹{amount.toLocaleString()}
+                        </div>
                       )}
                     </div>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
-                <Banknote className="h-12 w-12 stroke-1 mb-2 opacity-50" />
-                <p className="text-sm">Select an income source on the left to view metrics and itemized statements.</p>
+            </div>
+          </div>
+
+          {/* Bottom Panel: Ledger history list table */}
+          <div className="bg-card border border-border/50 rounded-2xl flex-1 flex flex-col min-h-0 overflow-hidden">
+            <div className="p-3.5 border-b border-border/50 flex flex-wrap items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Search history..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-8 pr-2.5 py-1 bg-background border border-border rounded text-xs outline-none focus:ring-1 focus:ring-primary w-48 text-foreground"
+                  />
+                </div>
+                
+                <select
+                  value={filterSourceId}
+                  onChange={(e) => setFilterSourceId(e.target.value)}
+                  className="px-2 py-1 bg-background border border-border rounded text-xs text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                >
+                  <option value="ALL">All Source Channels</option>
+                  {incomes.map(inc => (
+                    <option key={inc.id} value={inc.id}>{inc.sourceName}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleExportCSV}
+                  className="flex items-center gap-1.5 px-2.5 py-1 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded text-[10px] font-medium border border-border/50 transition-all cursor-pointer"
+                >
+                  <Download className="h-3 w-3" /> CSV
+                </button>
+                <button
+                  onClick={handleExportPDF}
+                  className="flex items-center gap-1.5 px-2.5 py-1 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded text-[10px] font-medium border border-border/50 transition-all cursor-pointer"
+                >
+                  <Printer className="h-3 w-3" /> PDF
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-auto custom-scrollbar flex-1">
+              <table className="min-w-full divide-y divide-border/20 dense-table">
+                <thead className="bg-muted/30 sticky top-0 z-10 backdrop-blur-md">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Date</th>
+                    <th className="px-4 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Income Source</th>
+                    <th className="px-4 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Category</th>
+                    <th className="px-4 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Target Bank</th>
+                    <th className="px-4 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Description</th>
+                    <th className="px-4 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Inflow credit</th>
+                    <th className="px-4 py-2 text-right text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-16"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/20 bg-card/50">
+                  {paginatedTxns.map((tx, idx) => (
+                    <tr key={tx.id} className={`hover:bg-muted/30 transition-colors group ${idx % 2 === 0 ? 'bg-background/20' : 'bg-card/10'}`}>
+                      <td className="px-4 py-2 whitespace-nowrap font-mono text-xs text-muted-foreground">
+                        {tx.expenseDate}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        <div className="flex items-center text-xs font-semibold text-foreground">
+                          <Banknote className="h-3.5 w-3.5 text-muted-foreground mr-1.5 shrink-0" />
+                          {tx.linkedIncomeSource?.sourceName || 'Direct Inflow'}
+                        </div>
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap text-xs text-foreground font-medium">
+                        {tx.category}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap text-xs text-muted-foreground font-medium">
+                        {tx.linkedAccount?.name || '-'}
+                      </td>
+                      <td className="px-4 py-2 text-xs text-muted-foreground max-w-[150px] truncate" title={tx.description}>
+                        {tx.description || '-'}
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap font-mono font-bold text-green-500 text-sm tabular-nums">
+                        +₹{tx.amount.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-2 text-right text-xs whitespace-nowrap">
+                        <button 
+                          onClick={() => handleDeleteTx(tx.id)} 
+                          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 transition-all p-0.5"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {filteredTxns.length > 0 && (
+              <div className="flex items-center justify-between border-t border-border/50 p-2.5 bg-muted/10 shrink-0 text-xs">
+                <div className="flex flex-1 justify-between sm:hidden">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="relative inline-flex items-center rounded border border-border bg-card px-3 py-1.5 font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                  >
+                    Prev
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="relative inline-flex items-center rounded border border-border bg-card px-3 py-1.5 font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+                <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between font-sans">
+                  <p className="text-muted-foreground">
+                    Showing <span className="font-semibold text-foreground">{startIndex + 1}</span> to{' '}
+                    <span className="font-semibold text-foreground">{Math.min(startIndex + itemsPerPage, filteredTxns.length)}</span> of{' '}
+                    <span className="font-semibold text-foreground">{filteredTxns.length}</span> results
+                  </p>
+                  {totalPages > 1 && (
+                    <nav className="isolate inline-flex -space-x-px rounded shadow-xs" aria-label="Pagination">
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={currentPage === 1}
+                        className="relative inline-flex items-center px-2 py-1.5 text-muted-foreground ring-1 ring-inset ring-border bg-card hover:bg-muted disabled:opacity-50 rounded-l"
+                      >
+                        <span className="sr-only">Previous</span>
+                        <svg className="h-4.5 w-4.5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                        className="relative inline-flex items-center px-2 py-1.5 text-muted-foreground ring-1 ring-inset ring-border bg-card hover:bg-muted disabled:opacity-50 rounded-r"
+                      >
+                        <span className="sr-only">Next</span>
+                        <svg className="h-4.5 w-4.5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    </nav>
+                  )}
+                </div>
               </div>
             )}
           </div>
         </div>
-      )}
 
+        {/* Right Column (col-span-4): Source Channels Directory, Projections, Share */}
+        <div className="lg:col-span-4 flex flex-col gap-6 min-h-0 overflow-y-auto pr-1 custom-scrollbar">
+          
+          {/* Income Source Channels */}
+          <div className="bg-card border border-border/50 rounded-xl p-4 flex flex-col">
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3.5 flex items-center justify-between">
+              <span>Income Channels Directory</span>
+              <span className="text-[10px] text-muted-foreground font-mono">{incomes.length} channels</span>
+            </h3>
+
+            <div className="space-y-2">
+              {incomes.map(source => {
+                const isReceived = creditTransactions.some(e => {
+                  const d = new Date(e.expenseDate);
+                  return e.linkedIncomeSource?.id === source.id && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+                });
+                return (
+                  <div key={source.id} className="p-3 rounded-lg border border-border/40 bg-card/65 hover:bg-muted/15 transition-all flex items-center justify-between group">
+                    <div>
+                      <h4 className="text-xs font-bold text-foreground leading-tight flex items-center gap-1.5">
+                        {source.sourceName}
+                        {isReceived ? (
+                          <span className="text-[8px] bg-green-500/10 text-green-500 font-bold px-1 rounded uppercase">Collected</span>
+                        ) : (
+                          <span className="text-[8px] bg-amber-500/10 text-amber-500 font-bold px-1 rounded uppercase">Pending</span>
+                        )}
+                      </h4>
+                      <p className="text-[10px] text-muted-foreground mt-0.5 font-medium uppercase">
+                        {source.frequency} • {source.ownerName}
+                      </p>
+                      <p className="text-[9px] text-muted-foreground font-mono mt-1">
+                        Last credit: {source.dateReceived ? new Date(source.dateReceived).toLocaleDateString() : 'Never'}
+                      </p>
+                    </div>
+
+                    <div className="text-right flex flex-col items-end gap-1.5">
+                      <span className="text-xs font-mono font-bold text-green-500 tabular-nums">
+                        ₹{source.amount.toLocaleString()}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => {
+                            setSelectedSourceId(source.id);
+                            setReceiveForm(prev => ({
+                              ...prev,
+                              amount: source.amount.toString()
+                            }));
+                            setIsReceiveOpen(true);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 text-[10px] bg-primary/10 text-primary hover:bg-primary hover:text-white px-2 py-0.5 rounded font-bold transition-all cursor-pointer"
+                        >
+                          + Receive
+                        </button>
+                        <button
+                          onClick={() => handleDelete(source.id)}
+                          className="text-muted-foreground hover:text-red-500"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Allocation Share Percentage Progress Bars */}
+          <div className="bg-card border border-border/50 rounded-xl p-4">
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3.5 flex items-center gap-1.5">
+              <PieChart className="h-4 w-4" /> Share of Expected monthly budget
+            </h3>
+            <div className="space-y-3 pt-1">
+              {incomes.filter(i => i.frequency === 'Monthly').map(source => {
+                const percent = expectedMonthly > 0 ? Math.round((source.amount / expectedMonthly) * 100) : 0;
+                return (
+                  <div key={source.id} className="text-xs">
+                    <div className="flex justify-between font-semibold mb-1">
+                      <span className="text-foreground">{source.sourceName}</span>
+                      <span className="text-muted-foreground font-mono">{percent}%</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-1">
+                      <div className="bg-green-500 h-1 rounded-full" style={{ width: `${percent}%` }}></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Projected Incoming collection schedule (30 days pipeline) */}
+          <div className="bg-card border border-border/50 rounded-xl p-4 flex-1">
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <TrendingUp className="h-4 w-4" /> Projected inflows (Next 30 Days)
+            </h3>
+            
+            <div className="space-y-2">
+              {upcomingInflows.length === 0 ? (
+                <p className="text-[10px] text-muted-foreground italic py-3 text-center">No projected monthly collections pending.</p>
+              ) : (
+                upcomingInflows.map((item, idx) => (
+                  <div key={idx} className="flex justify-between items-center p-2 rounded-lg bg-muted/20 border border-border/20 text-xs">
+                    <div>
+                      <div className="font-semibold text-foreground">{item.sourceName}</div>
+                      <div className="text-[10px] text-muted-foreground">Due On: {item.nextDate}</div>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-mono font-bold text-foreground">₹{item.amount.toLocaleString()}</span>
+                      <span className={`block text-[9px] font-bold ${item.daysLeft <= 3 ? 'text-red-500' : 'text-muted-foreground'}`}>
+                        {item.daysLeft} days left
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* Add Income Source Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-lg p-6 max-w-md w-full">
-            <h2 className="text-xl font-semibold mb-4">Add Side Income</h2>
+          <div className="bg-card border border-border rounded-2xl p-5 max-w-sm w-full shadow-2xl">
+            <h2 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">Add Side Income Channel</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Source Name</label>
-                <input required value={formData.sourceName} onChange={e => setFormData({...formData, sourceName: e.target.value})} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" placeholder="e.g. Freelance, Rental Yield" />
+                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Source Name</label>
+                <input required value={formData.sourceName} onChange={e => setFormData({...formData, sourceName: e.target.value})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary outline-none transition-all text-xs" placeholder="e.g. Rent, Freelancing" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Owner Name</label>
+                <input required value={formData.ownerName} onChange={e => setFormData({...formData, ownerName: e.target.value})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary outline-none transition-all text-xs" placeholder="e.g. Self, Partner" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Amount (₹)</label>
-                  <input required type="number" value={formData.amount} onChange={e => setFormData({...formData, amount: parseFloat(e.target.value)})} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all" />
+                  <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Expected Amount (₹)</label>
+                  <input required type="number" value={formData.amount || ''} onChange={e => setFormData({...formData, amount: parseFloat(e.target.value)})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary outline-none transition-all text-xs font-mono" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Frequency</label>
-                  <select value={formData.frequency} onChange={e => setFormData({...formData, frequency: e.target.value})} className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all">
+                  <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Frequency</label>
+                  <select value={formData.frequency} onChange={e => setFormData({...formData, frequency: e.target.value})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary outline-none transition-all text-xs cursor-pointer">
                     <option value="One-time">One-time</option>
                     <option value="Monthly">Monthly</option>
                     <option value="Quarterly">Quarterly</option>
@@ -547,8 +733,48 @@ export default function SideIncome() {
                 </div>
               </div>
               <div className="flex justify-end gap-2 mt-6">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">Save Income</button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-xs text-muted-foreground hover:bg-muted rounded-lg font-semibold">Cancel</button>
+                <button type="submit" className="px-4 py-2 text-xs bg-primary text-white rounded-lg hover:bg-primary/90 font-bold transition-all">Save Channel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Receive Collection Modal */}
+      {isReceiveOpen && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border rounded-2xl p-5 max-w-sm w-full shadow-2xl">
+            <h2 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">Log Received credit Inflow</h2>
+            <form onSubmit={handleReceiveSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Inflow Amount (₹)</label>
+                <input required type="number" value={receiveForm.amount} onChange={e => setReceiveForm({...receiveForm, amount: e.target.value})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary outline-none transition-all text-xs font-mono" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Receive Bank Account</label>
+                <select required value={receiveForm.bankAccountId} onChange={e => setReceiveForm({...receiveForm, bankAccountId: e.target.value})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary outline-none transition-all text-xs cursor-pointer">
+                  <option value="">-- Select Destination Bank --</option>
+                  {bankAccounts.map(ba => (
+                    <option key={ba.id} value={ba.id}>{ba.name} ({ba.bankName})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Receive Date</label>
+                <input required type="date" value={receiveForm.expenseDate} onChange={e => setReceiveForm({...receiveForm, expenseDate: e.target.value})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary outline-none transition-all text-xs" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Credit Category</label>
+                <input required value={receiveForm.category} onChange={e => setReceiveForm({...receiveForm, category: e.target.value})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary outline-none transition-all text-xs" placeholder="e.g. Side Income, Rental Inflow" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Optional Memo / Description</label>
+                <textarea value={receiveForm.description} onChange={e => setReceiveForm({...receiveForm, description: e.target.value})} className="w-full p-2 rounded-lg bg-background text-foreground border border-border focus:border-primary outline-none text-xs" placeholder="Transaction details..." rows={2} />
+              </div>
+              <div className="flex justify-end gap-2 mt-6">
+                <button type="button" onClick={() => setIsReceiveOpen(false)} className="px-4 py-2 text-xs text-muted-foreground hover:bg-muted rounded-lg font-semibold">Cancel</button>
+                <button type="submit" className="px-4 py-2 text-xs bg-primary text-white rounded-lg hover:bg-primary/90 font-bold transition-all">Submit Inflow</button>
               </div>
             </form>
           </div>

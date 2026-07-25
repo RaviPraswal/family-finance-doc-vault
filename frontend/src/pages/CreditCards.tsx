@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, CreditCard as CardIcon, Trash2, Landmark, Clock, ArrowUpRight, ArrowDownLeft, Calendar, Edit2 } from 'lucide-react';
+import { Plus, CreditCard as CardIcon, Trash2, Edit2 } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';

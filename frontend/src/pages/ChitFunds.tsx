@@ -238,7 +238,7 @@ export default function ChitFunds() {
     try {
       const isAllotted = scheduleRows.some(r => r.status === 'Allotted');
       const winningRow = scheduleRows.find(r => r.status === 'Allotted');
-      const commission = formData.totalValue * 0.05;
+      const commission = (formData.totalValue || 0) * 0.05;
       const gstOnCommission = commission * 0.18;
       const allottedAmount = winningRow
         ? winningRow.chitAmountAllocated - gstOnCommission

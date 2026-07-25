@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
-import { Plus, Building } from 'lucide-react';
+import { Plus, Building, Edit2 } from 'lucide-react';
 
 interface Project {
   id: string;
@@ -11,6 +11,7 @@ interface Project {
   startDate: string;
   endDate?: string;
   priority: string;
+  customFieldsConfig?: string;
 }
 
 export default function Projects() {
@@ -20,6 +21,20 @@ export default function Projects() {
   const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', budget: '', status: 'IN_PROGRESS', startDate: '', priority: 'MEDIUM' });
+  const [customFields, setCustomFields] = useState<string[]>([]);
+  const [newFieldName, setNewFieldName] = useState('');
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+
+  // Project Expense Modal States
+  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [projectForExpense, setProjectForExpense] = useState<Project | null>(null);
+  const [expenseFormData, setExpenseFormData] = useState({
+    amount: '',
+    category: '',
+    expenseDate: new Date().toISOString().split('T')[0],
+    description: ''
+  });
+  const [customFieldsData, setCustomFieldsData] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchProjects();
@@ -44,22 +59,81 @@ export default function Projects() {
     }
   };
 
+  const handleEditClick = (project: Project) => {
+    setEditingProject(project);
+    setFormData({
+      name: project.name || '',
+      budget: String(project.budget || ''),
+      status: project.status || 'IN_PROGRESS',
+      startDate: project.startDate || '',
+      priority: project.priority || 'MEDIUM'
+    });
+    let configFields: string[] = [];
+    try {
+      if (project.customFieldsConfig) {
+        configFields = JSON.parse(project.customFieldsConfig);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setCustomFields(configFields);
+    setIsModalOpen(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiClient('/api/projects', {
-        method: 'POST',
+      const url = editingProject ? `/api/projects/${editingProject.id}` : '/api/projects';
+      const method = editingProject ? 'PUT' : 'POST';
+      await apiClient(url, {
+        method,
         body: JSON.stringify({
           ...formData,
-          budget: parseFloat(formData.budget)
+          budget: parseFloat(formData.budget),
+          customFieldsConfig: JSON.stringify(customFields)
         })
       });
       setIsModalOpen(false);
       setFormData({ name: '', budget: '', status: 'IN_PROGRESS', startDate: '', priority: 'MEDIUM' });
-      toast.success('Project saved', 'Your project has been created successfully.');
+      setCustomFields([]);
+      setEditingProject(null);
+      toast.success(editingProject ? 'Project updated' : 'Project saved', `Your project has been ${editingProject ? 'updated' : 'created'} successfully.`);
       fetchProjects();
     } catch (err: any) {
       toast.error('Failed to save project', err.message || 'Could not save project. Please try again.');
+    }
+  };
+
+  const handleExpenseSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!projectForExpense) return;
+    try {
+      await apiClient('/api/expenses', {
+        method: 'POST',
+        body: JSON.stringify({
+          amount: parseFloat(expenseFormData.amount),
+          category: expenseFormData.category,
+          expenseDate: expenseFormData.expenseDate,
+          description: expenseFormData.description,
+          type: 'DEBIT',
+          madeAgainst: 'PROJECT',
+          linkedProject: { id: projectForExpense.id },
+          customFieldsData: JSON.stringify(customFieldsData)
+        })
+      });
+      setIsExpenseModalOpen(false);
+      setExpenseFormData({
+        amount: '',
+        category: '',
+        expenseDate: new Date().toISOString().split('T')[0],
+        description: ''
+      });
+      setCustomFieldsData({});
+      toast.success('Project expense added', 'The project expense has been recorded successfully.');
+      fetchExpenses();
+      fetchProjects();
+    } catch (err: any) {
+      toast.error('Failed to log expense', err.message || 'Could not log expense. Please try again.');
     }
   };
 
@@ -154,11 +228,22 @@ export default function Projects() {
                       <div className="p-2 bg-primary/10 text-primary rounded-lg">
                         <Building className="h-6 w-6" />
                       </div>
-                      <h3 className="font-semibold text-base text-foreground">{project.name}</h3>
+                      <div>
+                        <h3 className="font-semibold text-base text-foreground leading-tight">{project.name}</h3>
+                      </div>
                     </div>
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${project.status === 'COMPLETED' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>
-                      {project.status === 'COMPLETED' ? 'Completed' : 'In Progress'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleEditClick(project)}
+                        className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground rounded transition-colors"
+                        title="Edit Project"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${project.status === 'COMPLETED' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>
+                        {project.status === 'COMPLETED' ? 'Completed' : 'In Progress'}
+                      </span>
+                    </div>
                   </div>
                   <div className="space-y-2 text-sm text-muted-foreground mb-4">
                     <p>Budget: <span className="font-semibold text-foreground">₹{project.budget.toLocaleString()}</span></p>
@@ -176,20 +261,55 @@ export default function Projects() {
 
                   {expandedProjectId === project.id && (
                     <div className="mt-4 pt-4 border-t border-border">
-                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Project Expense Log</h4>
+                      <div className="flex justify-between items-center mb-2">
+                        <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Project Expense Log</h4>
+                        <button
+                          onClick={() => {
+                            setProjectForExpense(project);
+                            setCustomFieldsData({});
+                            setIsExpenseModalOpen(true);
+                          }}
+                          className="text-xs text-primary font-semibold hover:underline"
+                        >
+                          + Log Expense
+                        </button>
+                      </div>
                       <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
                         {expenses.filter(e => e.linkedProject?.id === project.id).length === 0 ? (
                           <p className="text-xs text-muted-foreground py-2 text-center">No expenses logged for this project yet.</p>
                         ) : (
-                          expenses.filter(e => e.linkedProject?.id === project.id).map((exp) => (
-                            <div key={exp.id} className="flex justify-between text-xs items-center py-1.5 border-b border-border/50 last:border-0">
-                              <div>
-                                <span className="font-medium text-foreground">{exp.category}</span>
-                                <span className="text-[10px] text-muted-foreground block">{exp.expenseDate}</span>
+                          expenses.filter(e => e.linkedProject?.id === project.id).map((exp) => {
+                            let customData: Record<string, string> = {};
+                            try {
+                              if (exp.customFieldsData) {
+                                customData = JSON.parse(exp.customFieldsData);
+                              }
+                            } catch (e) {
+                              console.error(e);
+                            }
+                            return (
+                              <div key={exp.id} className="py-1.5 border-b border-border/50 last:border-0">
+                                <div className="flex justify-between text-xs items-center">
+                                  <div>
+                                    <span className="font-medium text-foreground">{exp.category}</span>
+                                    <span className="text-[10px] text-muted-foreground block">{exp.expenseDate}</span>
+                                  </div>
+                                  <span className="font-semibold text-red-500">-₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                {Object.keys(customData).length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {Object.entries(customData).map(([key, val]) => (
+                                      val && (
+                                        <span key={key} className="text-[9px] bg-muted px-1.5 py-0.5 rounded text-muted-foreground">
+                                          {key}: {val}
+                                        </span>
+                                      )
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                              <span className="font-semibold text-red-500">-₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                            </div>
-                          ))
+                            );
+                          })
                         )}
                       </div>
                     </div>
@@ -476,8 +596,17 @@ export default function Projects() {
                 <div className="border-b border-border/50 pb-4 mb-4">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-bold text-lg text-foreground">{selectedProject.name}</h3>
-                      <p className="text-xs text-muted-foreground">Project Timeline | Start Date: {new Date(selectedProject.startDate).toLocaleDateString()}</p>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-lg text-foreground">{selectedProject.name}</h3>
+                        <button
+                          onClick={() => handleEditClick(selectedProject)}
+                          className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground rounded transition-colors"
+                          title="Edit Project"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">Project Timeline | Start Date: {new Date(selectedProject.startDate).toLocaleDateString()}</p>
                     </div>
                     <div className="text-right">
                       <span className="text-xs text-muted-foreground block">Allocated Budget</span>
@@ -532,28 +661,63 @@ export default function Projects() {
 
                   {/* Transaction log */}
                   <div>
-                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Itemized Expense Log</h4>
+                    <div className="flex justify-between items-center mb-3 border-b border-border/30 pb-2">
+                      <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Itemized Expense Log</h4>
+                      <button
+                        onClick={() => {
+                          setProjectForExpense(selectedProject);
+                          setCustomFieldsData({});
+                          setIsExpenseModalOpen(true);
+                        }}
+                        className="text-xs text-primary font-semibold hover:underline flex items-center gap-1"
+                      >
+                        + Log Expense
+                      </button>
+                    </div>
                     <div className="space-y-2">
                       {expenses.filter((e) => e.linkedProject?.id === selectedProject.id).length === 0 ? (
                         <p className="text-sm text-muted-foreground py-8 text-center bg-background/30 rounded-lg">No expenses logged against this project.</p>
                       ) : (
                         expenses
                           .filter((e) => e.linkedProject?.id === selectedProject.id)
-                          .map((exp) => (
-                            <div
-                              key={exp.id}
-                              className="flex justify-between items-center p-3 rounded-lg border border-border/30 bg-background/50 hover:bg-background/85 transition-colors"
-                            >
-                              <div>
-                                <div className="font-semibold text-sm text-foreground">{exp.category}</div>
-                                <div className="text-xs text-muted-foreground">{exp.expenseDate}</div>
-                                {exp.description && <p className="text-xs text-muted-foreground italic mt-1">{exp.description}</p>}
+                          .map((exp) => {
+                            let customData: Record<string, string> = {};
+                            try {
+                              if (exp.customFieldsData) {
+                                customData = JSON.parse(exp.customFieldsData);
+                              }
+                            } catch (e) {
+                              console.error(e);
+                            }
+                            return (
+                              <div
+                                key={exp.id}
+                                className="p-3 rounded-lg border border-border/30 bg-background/50 hover:bg-background/85 transition-colors"
+                              >
+                                <div className="flex justify-between items-center">
+                                  <div>
+                                    <div className="font-semibold text-sm text-foreground">{exp.category}</div>
+                                    <div className="text-xs text-muted-foreground">{exp.expenseDate}</div>
+                                    {exp.description && <p className="text-xs text-muted-foreground italic mt-1">{exp.description}</p>}
+                                  </div>
+                                  <span className="font-bold text-sm text-red-500">
+                                    -₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                  </span>
+                                </div>
+                                {Object.keys(customData).length > 0 && (
+                                  <div className="flex flex-wrap gap-2 mt-2 pt-2 border-t border-border/10">
+                                    {Object.entries(customData).map(([key, val]) => (
+                                      val && (
+                                        <span key={key} className="text-xs bg-muted/60 px-2 py-0.5 rounded text-foreground/80 font-medium">
+                                          <span className="text-muted-foreground font-normal">{key}:</span> {val}
+                                        </span>
+                                      )
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                              <span className="font-bold text-sm text-red-500">
-                                -₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                              </span>
-                            </div>
-                          ))
+                            );
+                          })
                       )}
                     </div>
                   </div>
@@ -574,7 +738,7 @@ export default function Projects() {
       {isModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-lg p-6 max-w-md w-full">
-            <h2 className="text-xl font-semibold mb-4">Create New Project</h2>
+            <h2 className="text-xl font-semibold mb-4">{editingProject ? 'Edit Project' : 'Create New Project'}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Project Name (e.g. New House, Shaadi)</label>
@@ -596,9 +760,139 @@ export default function Projects() {
                   <option value="LOW">Low Priority</option>
                 </select>
               </div>
+
+              {/* Custom Expense Fields Config */}
+              <div className="border-t border-border/50 pt-4 mt-4">
+                <label className="block text-sm font-medium mb-1">Configured Expense Fields (e.g. Material, Quantity)</label>
+                <div className="flex gap-2">
+                  <input
+                    value={newFieldName}
+                    onChange={e => setNewFieldName(e.target.value)}
+                    placeholder="Enter field name"
+                    className="flex-1 p-2 rounded bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (newFieldName.trim() && !customFields.includes(newFieldName.trim())) {
+                        setCustomFields([...customFields, newFieldName.trim()]);
+                        setNewFieldName('');
+                      }
+                    }}
+                    className="px-3 py-2 bg-muted hover:bg-muted/80 text-foreground border border-border rounded text-sm font-semibold"
+                  >
+                    + Add Field
+                  </button>
+                </div>
+                {customFields.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    {customFields.map((field) => (
+                      <span key={field} className="inline-flex items-center gap-1 bg-primary/10 text-primary text-xs px-2 py-1 rounded-md border border-primary/20">
+                        {field}
+                        <button
+                          type="button"
+                          onClick={() => setCustomFields(customFields.filter(f => f !== field))}
+                          className="hover:text-red-500 font-bold ml-1 text-sm leading-none"
+                        >
+                          &times;
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="flex justify-end gap-2 mt-6">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">Save Project</button>
+                <button type="button" onClick={() => { setIsModalOpen(false); setEditingProject(null); setFormData({ name: '', budget: '', status: 'IN_PROGRESS', startDate: '', priority: 'MEDIUM' }); setCustomFields([]); }} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">{editingProject ? 'Update Project' : 'Save Project'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Log Project Expense Modal */}
+      {isExpenseModalOpen && projectForExpense && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <h2 className="text-xl font-semibold mb-4">Log Expense: {projectForExpense.name}</h2>
+            <form onSubmit={handleExpenseSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Amount (₹)</label>
+                <input
+                  required
+                  type="number"
+                  step="0.01"
+                  value={expenseFormData.amount}
+                  onChange={e => setExpenseFormData({...expenseFormData, amount: e.target.value})}
+                  className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Category</label>
+                <input
+                  required
+                  value={expenseFormData.category}
+                  onChange={e => setExpenseFormData({...expenseFormData, category: e.target.value})}
+                  className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                  placeholder="Material, Labour, Design, etc."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Date</label>
+                <input
+                  required
+                  type="date"
+                  value={expenseFormData.expenseDate}
+                  onChange={e => setExpenseFormData({...expenseFormData, expenseDate: e.target.value})}
+                  className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Description</label>
+                <input
+                  value={expenseFormData.description}
+                  onChange={e => setExpenseFormData({...expenseFormData, description: e.target.value})}
+                  className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                  placeholder="Optional details"
+                />
+              </div>
+
+              {/* Configured Custom Fields Inputs */}
+              {(() => {
+                let fields: string[] = [];
+                try {
+                  if (projectForExpense.customFieldsConfig) {
+                    fields = JSON.parse(projectForExpense.customFieldsConfig);
+                  }
+                } catch (e) {
+                  console.error(e);
+                }
+                if (fields.length === 0) return null;
+                return (
+                  <div className="border-t border-border/50 pt-4 mt-4 space-y-4">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Custom Project Details</h3>
+                    {fields.map((field) => (
+                      <div key={field}>
+                        <label className="block text-sm font-medium mb-1">{field}</label>
+                        <input
+                          value={customFieldsData[field] || ''}
+                          onChange={e => setCustomFieldsData({
+                            ...customFieldsData,
+                            [field]: e.target.value
+                          })}
+                          className="w-full p-3 rounded-md bg-muted text-foreground border border-input focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm"
+                          placeholder={`Enter ${field}`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+
+              <div className="flex justify-end gap-2 mt-6">
+                <button type="button" onClick={() => setIsExpenseModalOpen(false)} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">Log Expense</button>
               </div>
             </form>
           </div>

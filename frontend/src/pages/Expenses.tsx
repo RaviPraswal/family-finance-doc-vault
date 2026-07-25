@@ -47,6 +47,7 @@ interface Project {
   id: string;
   name: string;
   budget: number;
+  customFieldsConfig?: string;
 }
 
 interface IncomeSource {
@@ -71,6 +72,8 @@ interface Expense {
   linkedDeposit?: Deposit;
   linkedProject?: Project;
   linkedIncomeSource?: IncomeSource;
+  linkedCreditCard?: any;
+  customFieldsData?: string;
 }
 
 export default function Expenses() {
@@ -103,6 +106,7 @@ export default function Expenses() {
   const [linkedProjectId, setLinkedProjectId] = useState('');
   const [linkedIncomeSourceId, setLinkedIncomeSourceId] = useState('');
   const [linkedCreditCardId, setLinkedCreditCardId] = useState('');
+  const [customFieldsData, setCustomFieldsData] = useState<Record<string, string>>({});
   const [filterBankId, setFilterBankId] = useState('');
   const [filterType, setFilterType] = useState('');
 
@@ -241,7 +245,8 @@ export default function Expenses() {
           linkedDeposit: madeAgainst === 'RECURRING_DEPOSIT' && linkedDepositId ? { id: linkedDepositId } : null,
           linkedProject: madeAgainst === 'PROJECT' && linkedProjectId ? { id: linkedProjectId } : null,
           linkedIncomeSource: madeAgainst === 'INCOME_SOURCE' && linkedIncomeSourceId ? { id: linkedIncomeSourceId } : null,
-          linkedCreditCard: madeAgainst === 'CREDIT_CARD' && linkedCreditCardId ? { id: linkedCreditCardId } : null
+          linkedCreditCard: madeAgainst === 'CREDIT_CARD' && linkedCreditCardId ? { id: linkedCreditCardId } : null,
+          customFieldsData: madeAgainst === 'PROJECT' ? JSON.stringify(customFieldsData) : null
         })
       });
       setAmount('');
@@ -256,6 +261,7 @@ export default function Expenses() {
       setLinkedProjectId('');
       setLinkedIncomeSourceId('');
       setLinkedCreditCardId('');
+      setCustomFieldsData({});
       setType('DEBIT');
       setMadeAgainst('MANUAL_ENTRY');
       toast.success('Transaction added', 'Your transaction has been recorded successfully.');
@@ -473,21 +479,59 @@ export default function Expenses() {
               )}
 
               {madeAgainst === 'PROJECT' && (
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Select Project</label>
-                  <select
-                    value={linkedProjectId}
-                    onChange={(e) => setLinkedProjectId(e.target.value)}
-                    className="w-full px-3 py-2 bg-background/50 border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-                    required
-                  >
-                    <option value="">-- Select Project --</option>
-                    {projects.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} (Budget: ₹{p.budget.toLocaleString()})
-                      </option>
-                    ))}
-                  </select>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1">Select Project</label>
+                    <select
+                      value={linkedProjectId}
+                      onChange={(e) => {
+                        setLinkedProjectId(e.target.value);
+                        setCustomFieldsData({});
+                      }}
+                      className="w-full px-3 py-2 bg-background/50 border border-border rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                      required
+                    >
+                      <option value="">-- Select Project --</option>
+                      {projects.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} (Budget: ₹{p.budget.toLocaleString()})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Render custom inputs if project has config */}
+                  {(() => {
+                    const selectedProject = projects.find(p => p.id === linkedProjectId);
+                    if (!selectedProject || !selectedProject.customFieldsConfig) return null;
+                    let fields: string[] = [];
+                    try {
+                      fields = JSON.parse(selectedProject.customFieldsConfig);
+                    } catch (e) {
+                      console.error(e);
+                    }
+                    if (fields.length === 0) return null;
+                    return (
+                      <div className="bg-muted/30 p-3 rounded-xl border border-border/50 space-y-3">
+                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">Custom Project Details</span>
+                        {fields.map((field) => (
+                          <div key={field}>
+                            <label className="block text-[11px] font-medium text-muted-foreground mb-1">{field}</label>
+                            <input
+                              type="text"
+                              value={customFieldsData[field] || ''}
+                              onChange={(e) => setCustomFieldsData({
+                                ...customFieldsData,
+                                [field]: e.target.value
+                              })}
+                              className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 outline-none text-foreground"
+                              placeholder={`Enter ${field}`}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -706,6 +750,26 @@ export default function Expenses() {
                                 )}
                               </div>
                               <p className="text-sm text-muted-foreground">{expense.description || 'No description'}</p>
+                              {expense.madeAgainst === 'PROJECT' && expense.customFieldsData && (() => {
+                                let customData: Record<string, string> = {};
+                                try {
+                                  customData = JSON.parse(expense.customFieldsData);
+                                } catch (e) {
+                                  console.error(e);
+                                }
+                                if (Object.keys(customData).length === 0) return null;
+                                return (
+                                  <div className="flex flex-wrap gap-1 mt-1.5">
+                                    {Object.entries(customData).map(([key, val]) => (
+                                      val && (
+                                        <span key={key} className="text-[10px] bg-muted px-2 py-0.5 rounded text-muted-foreground font-medium border border-border/50">
+                                          {key}: {val}
+                                        </span>
+                                      )
+                                    ))}
+                                  </div>
+                                );
+                              })()}
                               <div className="flex items-center gap-2 mt-1">
                                 <span className="text-xs text-muted-foreground">{expense.expenseDate}</span>
                                 {expense.linkedAccount && (

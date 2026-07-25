@@ -16,6 +16,9 @@ public class Project extends TenantBaseEntity {
     private BigDecimal budget;
     private String priority = "MEDIUM"; // HIGH, MEDIUM, LOW
 
+    @jakarta.persistence.Column(columnDefinition = "TEXT")
+    private String customFieldsConfig;
+
     public String getPriority() {
         return priority;
     }
@@ -64,5 +67,13 @@ public class Project extends TenantBaseEntity {
 
     public void setEndDate(LocalDate endDate) {
         this.endDate = endDate;
+    }
+
+    public String getCustomFieldsConfig() {
+        return customFieldsConfig;
+    }
+
+    public void setCustomFieldsConfig(String customFieldsConfig) {
+        this.customFieldsConfig = customFieldsConfig;
     }
 }

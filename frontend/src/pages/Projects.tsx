@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
-import { Plus, Building } from 'lucide-react';
+import { Plus, Building, Edit2 } from 'lucide-react';
 
 interface Project {
   id: string;
@@ -23,6 +23,7 @@ export default function Projects() {
   const [formData, setFormData] = useState({ name: '', budget: '', status: 'IN_PROGRESS', startDate: '', priority: 'MEDIUM' });
   const [customFields, setCustomFields] = useState<string[]>([]);
   const [newFieldName, setNewFieldName] = useState('');
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
 
   // Project Expense Modal States
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
@@ -58,11 +59,34 @@ export default function Projects() {
     }
   };
 
+  const handleEditClick = (project: Project) => {
+    setEditingProject(project);
+    setFormData({
+      name: project.name || '',
+      budget: String(project.budget || ''),
+      status: project.status || 'IN_PROGRESS',
+      startDate: project.startDate || '',
+      priority: project.priority || 'MEDIUM'
+    });
+    let configFields: string[] = [];
+    try {
+      if (project.customFieldsConfig) {
+        configFields = JSON.parse(project.customFieldsConfig);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setCustomFields(configFields);
+    setIsModalOpen(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiClient('/api/projects', {
-        method: 'POST',
+      const url = editingProject ? `/api/projects/${editingProject.id}` : '/api/projects';
+      const method = editingProject ? 'PUT' : 'POST';
+      await apiClient(url, {
+        method,
         body: JSON.stringify({
           ...formData,
           budget: parseFloat(formData.budget),
@@ -72,7 +96,8 @@ export default function Projects() {
       setIsModalOpen(false);
       setFormData({ name: '', budget: '', status: 'IN_PROGRESS', startDate: '', priority: 'MEDIUM' });
       setCustomFields([]);
-      toast.success('Project saved', 'Your project has been created successfully.');
+      setEditingProject(null);
+      toast.success(editingProject ? 'Project updated' : 'Project saved', `Your project has been ${editingProject ? 'updated' : 'created'} successfully.`);
       fetchProjects();
     } catch (err: any) {
       toast.error('Failed to save project', err.message || 'Could not save project. Please try again.');
@@ -203,11 +228,22 @@ export default function Projects() {
                       <div className="p-2 bg-primary/10 text-primary rounded-lg">
                         <Building className="h-6 w-6" />
                       </div>
-                      <h3 className="font-semibold text-base text-foreground">{project.name}</h3>
+                      <div>
+                        <h3 className="font-semibold text-base text-foreground leading-tight">{project.name}</h3>
+                      </div>
                     </div>
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${project.status === 'COMPLETED' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>
-                      {project.status === 'COMPLETED' ? 'Completed' : 'In Progress'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleEditClick(project)}
+                        className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground rounded transition-colors"
+                        title="Edit Project"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${project.status === 'COMPLETED' ? 'bg-green-500/10 text-green-500' : 'bg-yellow-500/10 text-yellow-500'}`}>
+                        {project.status === 'COMPLETED' ? 'Completed' : 'In Progress'}
+                      </span>
+                    </div>
                   </div>
                   <div className="space-y-2 text-sm text-muted-foreground mb-4">
                     <p>Budget: <span className="font-semibold text-foreground">₹{project.budget.toLocaleString()}</span></p>
@@ -560,8 +596,17 @@ export default function Projects() {
                 <div className="border-b border-border/50 pb-4 mb-4">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-bold text-lg text-foreground">{selectedProject.name}</h3>
-                      <p className="text-xs text-muted-foreground">Project Timeline | Start Date: {new Date(selectedProject.startDate).toLocaleDateString()}</p>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-lg text-foreground">{selectedProject.name}</h3>
+                        <button
+                          onClick={() => handleEditClick(selectedProject)}
+                          className="p-1 hover:bg-muted text-muted-foreground hover:text-foreground rounded transition-colors"
+                          title="Edit Project"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">Project Timeline | Start Date: {new Date(selectedProject.startDate).toLocaleDateString()}</p>
                     </div>
                     <div className="text-right">
                       <span className="text-xs text-muted-foreground block">Allocated Budget</span>
@@ -693,7 +738,7 @@ export default function Projects() {
       {isModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-lg p-6 max-w-md w-full">
-            <h2 className="text-xl font-semibold mb-4">Create New Project</h2>
+            <h2 className="text-xl font-semibold mb-4">{editingProject ? 'Edit Project' : 'Create New Project'}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Project Name (e.g. New House, Shaadi)</label>
@@ -758,8 +803,8 @@ export default function Projects() {
               </div>
 
               <div className="flex justify-end gap-2 mt-6">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">Save Project</button>
+                <button type="button" onClick={() => { setIsModalOpen(false); setEditingProject(null); setFormData({ name: '', budget: '', status: 'IN_PROGRESS', startDate: '', priority: 'MEDIUM' }); setCustomFields([]); }} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">{editingProject ? 'Update Project' : 'Save Project'}</button>
               </div>
             </form>
           </div>

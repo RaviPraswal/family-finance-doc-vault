@@ -29,6 +29,7 @@ export function SessionExpiryModal() {
   const [extending, setExtending] = useState(false);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const warnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastActivityRef = useRef<number>(Date.now());
 
   const clearTimers = () => {
     if (countdownRef.current) clearInterval(countdownRef.current);
@@ -56,6 +57,30 @@ export function SessionExpiryModal() {
     logout();
   }, [logout]);
 
+  // Listen to user activity to automatically extend session or dismiss modal
+  useEffect(() => {
+    const handleActivity = () => {
+      lastActivityRef.current = Date.now();
+      
+      // If warning modal is showing and user performs an action, auto-extend the session!
+      if (showModal && !extending) {
+        handleExtend();
+      }
+    };
+
+    window.addEventListener('mousemove', handleActivity);
+    window.addEventListener('keydown', handleActivity);
+    window.addEventListener('click', handleActivity);
+    window.addEventListener('scroll', handleActivity);
+
+    return () => {
+      window.removeEventListener('mousemove', handleActivity);
+      window.removeEventListener('keydown', handleActivity);
+      window.removeEventListener('click', handleActivity);
+      window.removeEventListener('scroll', handleActivity);
+    };
+  }, [showModal, extending, handleExtend]);
+
   // Re-schedule warning every time the token changes (login / refresh)
   useEffect(() => {
     clearTimers();
@@ -81,12 +106,20 @@ export function SessionExpiryModal() {
 
     // Schedule the warning modal to appear
     warnTimerRef.current = setTimeout(() => {
-      setCountdown(COUNTDOWN_SECONDS);
-      setShowModal(true);
+      const nowTime = Date.now();
+      const timeSinceLastActivity = nowTime - lastActivityRef.current;
+      if (timeSinceLastActivity < 60000) {
+        // User was active in the last 60 seconds! Auto-extend instead of showing warning modal
+        handleExtend();
+      } else {
+        // User is idle. Show the warning modal
+        setCountdown(COUNTDOWN_SECONDS);
+        setShowModal(true);
+      }
     }, msUntilWarn);
 
     return () => clearTimers();
-  }, [token, logout]);
+  }, [token, logout, handleExtend]);
 
   // Countdown tick when modal is visible
   useEffect(() => {

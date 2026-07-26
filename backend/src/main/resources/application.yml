@@ -8,9 +8,9 @@ spring:
   config:
     import: optional:classpath:application-secrets.yml
   datasource:
-    url: jdbc:postgresql://localhost:5435/finnest_db
-    username: finnest
-    password: finnest_password
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5435/finnest_db}
+    username: ${SPRING_DATASOURCE_USERNAME:finnest}
+    password: ${SPRING_DATASOURCE_PASSWORD:finnest_password}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
@@ -44,7 +44,7 @@ spring:
             enable: true
 
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 jwt:
   secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970

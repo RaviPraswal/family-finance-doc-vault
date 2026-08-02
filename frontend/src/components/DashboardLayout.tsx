@@ -12,7 +12,8 @@ import {
   Sun,
   Moon,
   Clock,
-  Percent
+  Percent,
+  Zap
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
@@ -21,6 +22,7 @@ const navigation = [
   { name: 'Document Vault', href: '/dashboard', icon: FolderOpen },
   { name: 'Physical Almirah', href: '/dashboard/physical-vault', icon: Landmark },
   { name: 'Ledger & AI Scheduler', href: '/dashboard/ledger', icon: Clock },
+  { name: 'Quick Logger', href: '/dashboard/quick-logger', icon: Zap },
 
   { name: 'Portfolio Overview', href: '/dashboard/portfolio', icon: TrendingUp },
   { name: 'Bank Accounts', href: '/dashboard/bank-accounts', icon: Landmark },

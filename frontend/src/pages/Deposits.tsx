@@ -15,6 +15,7 @@ interface Deposit {
   interestRate: number;
   startDate: string;
   maturityDate: string;
+  totalDeposited?: number;
 }
 
 export default function Deposits() {
@@ -170,7 +171,7 @@ export default function Deposits() {
   const activeDeps = deposits.filter(d => getDepositStatus(d) === 'ACTIVE');
   const maturedDeps = deposits.filter(d => getDepositStatus(d) === 'MATURED');
 
-  const totalPrincipalInvested = activeDeps.reduce((sum, d) => sum + d.principalAmount, 0);
+  const totalPrincipalInvested = activeDeps.reduce((sum, d) => sum + (d.type === 'RD' ? (d.totalDeposited || d.principalAmount) : d.principalAmount), 0);
   const totalMaturityValue = activeDeps.reduce((sum, d) => sum + d.maturityAmount, 0);
   
   const activeCount = activeDeps.length;
@@ -361,8 +362,8 @@ export default function Deposits() {
 
                     <div className="space-y-1.5 text-xs border-t border-border/30 pt-3">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Principal:</span>
-                        <span className="font-medium text-foreground font-mono tabular-nums">₹{dep.principalAmount.toLocaleString()}</span>
+                        <span className="text-muted-foreground">{dep.type === 'RD' ? 'Total Deposited:' : 'Principal:'}</span>
+                        <span className="font-medium text-foreground font-mono tabular-nums">₹{(dep.type === 'RD' ? (dep.totalDeposited || dep.principalAmount) : dep.principalAmount).toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Maturity Value:</span>
@@ -526,7 +527,7 @@ export default function Deposits() {
                           {dep.accountHolderName}
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap font-mono font-bold text-foreground text-sm tabular-nums">
-                          ₹{dep.principalAmount.toLocaleString()}
+                          ₹{(dep.type === 'RD' ? (dep.totalDeposited || dep.principalAmount) : dep.principalAmount).toLocaleString()}
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap font-mono font-bold text-green-500 text-sm tabular-nums">
                           ₹{dep.maturityAmount.toLocaleString()}
@@ -679,8 +680,8 @@ export default function Deposits() {
                     </button>
                   </div>
                   <div className="mt-2.5 flex justify-between items-baseline">
-                    <span className="text-[10px] text-muted-foreground">Principal:</span>
-                    <span className="text-xs font-mono font-bold text-foreground tabular-nums">₹{dep.principalAmount.toLocaleString()}</span>
+                    <span className="text-[10px] text-muted-foreground">{dep.type === 'RD' ? 'Total Deposited:' : 'Principal:'}</span>
+                    <span className="text-xs font-mono font-bold text-foreground tabular-nums">₹{(dep.type === 'RD' ? (dep.totalDeposited || dep.principalAmount) : dep.principalAmount).toLocaleString()}</span>
                   </div>
                 </div>
               );
@@ -697,8 +698,8 @@ export default function Deposits() {
                       <p className="text-xs text-muted-foreground">Holder: {selectedDeposit.accountHolderName} | Type: {selectedDeposit.type}</p>
                     </div>
                     <div className="text-right">
-                      <span className="text-[10px] text-muted-foreground block uppercase">Principal Invested</span>
-                      <span className="text-xl font-mono font-bold text-primary tabular-nums">₹{selectedDeposit.principalAmount.toLocaleString()}</span>
+                      <span className="text-[10px] text-muted-foreground block uppercase">{selectedDeposit.type === 'RD' ? 'Total Deposited' : 'Principal Invested'}</span>
+                      <span className="text-xl font-mono font-bold text-primary tabular-nums">₹{(selectedDeposit.type === 'RD' ? (selectedDeposit.totalDeposited || selectedDeposit.principalAmount) : selectedDeposit.principalAmount).toLocaleString()}</span>
                     </div>
                   </div>
                 </div>

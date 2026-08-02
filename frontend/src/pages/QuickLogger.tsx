@@ -66,13 +66,29 @@ export default function QuickLogger() {
   const loadTemplates = () => {
     const stored = localStorage.getItem('fin_quick_templates');
     if (stored) {
-      setTemplates(JSON.parse(stored));
+      let parsed = JSON.parse(stored);
+      let modified = false;
+      parsed = parsed.map((tpl: any) => {
+        if (tpl.id === 'tpl-1' && tpl.amount === 80000) {
+          tpl.amount = 89706;
+          modified = true;
+        }
+        if (tpl.id === 'tpl-3' && tpl.amount === 1000) {
+          tpl.amount = 700;
+          modified = true;
+        }
+        return tpl;
+      });
+      if (modified) {
+        localStorage.setItem('fin_quick_templates', JSON.stringify(parsed));
+      }
+      setTemplates(parsed);
     } else {
       const defaultTemplates: QuickTemplate[] = [
         {
           id: 'tpl-1',
           name: 'Monthly Salary',
-          amount: 80000,
+          amount: 89706,
           category: 'Wages',
           type: 'CREDIT',
           madeAgainst: 'INCOME_SOURCE'
@@ -88,7 +104,7 @@ export default function QuickLogger() {
         {
           id: 'tpl-3',
           name: 'Airtel Fiber Internet',
-          amount: 1000,
+          amount: 700,
           category: 'Entertainment',
           type: 'DEBIT',
           madeAgainst: 'MANUAL_ENTRY'

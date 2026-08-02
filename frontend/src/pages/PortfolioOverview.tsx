@@ -82,16 +82,19 @@ export default function PortfolioOverview() {
   const fetchPortfolioData = async () => {
     try {
       setLoading(true);
+      const withTimeout = (promise: Promise<any>, ms = 5000) =>
+        Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
+
       const [banks, invs, loans, deps, goalsData, expensesData, incomesData, insightsData, chitsData] = await Promise.all([
-        apiClient('/api/bankaccounts'),
-        apiClient('/api/investments'),
-        apiClient('/api/loans'),
-        apiClient('/api/deposits'),
-        apiClient('/api/goals').catch(() => []),
-        apiClient('/api/expenses').catch(() => []),
-        apiClient('/api/incomesources').catch(() => []),
-        apiClient('/api/ai/recommendations').catch(() => []),
-        apiClient('/api/chitfunds').catch(() => [])
+        withTimeout(apiClient('/api/bankaccounts')).catch(() => []),
+        withTimeout(apiClient('/api/investments')).catch(() => []),
+        withTimeout(apiClient('/api/loans')).catch(() => []),
+        withTimeout(apiClient('/api/deposits')).catch(() => []),
+        withTimeout(apiClient('/api/goals')).catch(() => []),
+        withTimeout(apiClient('/api/expenses')).catch(() => []),
+        withTimeout(apiClient('/api/incomesources')).catch(() => []),
+        withTimeout(apiClient('/api/ai/recommendations'), 3000).catch(() => []),
+        withTimeout(apiClient('/api/chitfunds')).catch(() => [])
       ]);
 
       const bankBalance = banks.reduce((sum: number, b: any) => sum + (b.currentBalance || 0), 0);

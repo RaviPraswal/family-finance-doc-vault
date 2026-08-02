@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
@@ -25,6 +25,7 @@ export default function Investments() {
     investedAmount: 0,
     currentValue: 0
   });
+  const [customType, setCustomType] = useState('');
 
   // Filter & Search States
   const [search, setSearch] = useState('');
@@ -66,12 +67,17 @@ export default function Investments() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const payload = {
+        ...formData,
+        type: formData.type === 'CUSTOM' ? customType : formData.type
+      };
       await apiClient('/api/investments', {
         method: 'POST',
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       });
       setIsModalOpen(false);
       setFormData({ type: 'Mutual Fund', name: '', investedAmount: 0, currentValue: 0 });
+      setCustomType('');
       toast.success('Investment saved', 'Your investment record has been added successfully.');
       fetchInvestments();
     } catch (err: any) {
@@ -180,6 +186,10 @@ export default function Investments() {
   const monthlySipOutgo = totalInvestedMonth;
 
   const uniqueTypes = Array.from(new Set(investments.map(i => i.type)));
+  const availableTypes = useMemo(() => {
+    const defaultTypes = ['Mutual Fund', 'Stock / Equity', 'Gold', 'Fixed Deposit', 'Crypto'];
+    return Array.from(new Set([...defaultTypes, ...investments.map(i => i.type).filter(Boolean)]));
+  }, [investments]);
 
   // Export handlers
   const handleExportCSV = () => {
@@ -760,13 +770,18 @@ export default function Investments() {
               <div>
                 <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Asset Class</label>
                 <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm text-foreground">
-                  <option value="Mutual Fund">Mutual Fund</option>
-                  <option value="Stock / Equity">Stock / Equity</option>
-                  <option value="Gold">Gold</option>
-                  <option value="Fixed Deposit">Fixed Deposit</option>
-                  <option value="Crypto">Crypto</option>
+                  {availableTypes.map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                  <option value="CUSTOM">Other / Custom Asset Class...</option>
                 </select>
               </div>
+              {formData.type === 'CUSTOM' && (
+                <div>
+                  <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Custom Asset Class Name</label>
+                  <input required value={customType} onChange={e => setCustomType(e.target.value)} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm" placeholder="e.g. Real Estate, PPF, NPS" />
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Asset Name</label>
                 <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm" placeholder="e.g. Parag Parikh Flexi Cap Fund" />
@@ -782,7 +797,7 @@ export default function Investments() {
                 </div>
               </div>
               <div className="flex justify-end gap-2 mt-6">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors">Cancel</button>
+                <button type="button" onClick={() => { setIsModalOpen(false); setCustomType(''); }} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors">Cancel</button>
                 <button type="submit" className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">Save Investment</button>
               </div>
             </form>

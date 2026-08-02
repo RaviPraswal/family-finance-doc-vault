@@ -10,3 +10,5 @@
 4. **Git Branching Policy:** When working on a feature implementation or bug fix, **do not push code directly to the `main` branch**. Always create a separate, descriptively named git branch for those specific changes. This ensures we can review and track exactly what changes were made before merging them into production.
 5. **Git Push Constraint:** **Do not push code to any remote repository branch** (whether main or a feature branch) unless explicitly requested/confirmed by the user first.
 6. **Commit Message Standard:** For each and every commit, write a descriptive commit message containing a proper commit title and a detailed description detailing what feature was implemented or what bug was resolved.
+7. **AI Automation Testing Constraint:** Do not perform AI automation testing (such as browser subagent form submissions or API requests) using real user accounts (e.g., `sample.ravikumar@gmail.com`). Always use a separate, dedicated testing account (e.g., `test@example.com` or `admin@finnest.com`) for testing to safeguard real user data from modifications.
+

@@ -75,7 +75,7 @@ function App() {
               </ProtectedRoute>
             } 
           >
-            <Route index element={<Dashboard />} />
+            <Route index element={<PortfolioOverview />} />
             
             <Route path="physical-vault" element={<PhysicalVault />} />
             <Route path="ledger" element={<Ledger />} />
@@ -94,6 +94,7 @@ function App() {
             <Route path="budgets" element={<Budgets />} />
             <Route path="family" element={<FamilyMembers />} />
             <Route path="quick-logger" element={<QuickLogger />} />
+            <Route path="vault" element={<Dashboard />} />
           </Route>
         </Routes>
       </div>

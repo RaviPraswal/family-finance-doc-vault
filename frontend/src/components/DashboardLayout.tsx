@@ -11,7 +11,8 @@ import {
   LogOut,
   Sun,
   Moon,
-  Clock
+  Clock,
+  Percent
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
@@ -33,6 +34,7 @@ const navigation = [
   { name: 'Projects & Expenses', href: '/dashboard/projects', icon: HardHat },
   { name: 'Daily Transactions', href: '/dashboard/expenses', icon: Wallet },
   { name: 'Goals', href: '/dashboard/goals', icon: TrendingUp },
+  { name: 'Budgets & Alerts', href: '/dashboard/budgets', icon: Percent },
   { name: 'Family Members', href: '/dashboard/family', icon: Users },
 ];
 

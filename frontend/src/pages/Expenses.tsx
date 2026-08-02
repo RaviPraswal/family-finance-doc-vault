@@ -424,7 +424,7 @@ export default function Expenses() {
       e.category,
       e.type,
       e.description || '',
-      e.linkedAccount?.name || e.linkedCreditCard?.cardName || '',
+      e.linkedAccount?.bankName || e.linkedAccount?.name || e.linkedCreditCard?.cardName || '',
       e.madeAgainst,
       e.amount
     ]);
@@ -438,7 +438,7 @@ export default function Expenses() {
       e.category,
       e.type,
       e.description || '-',
-      e.linkedAccount?.name || e.linkedCreditCard?.cardName || '-',
+      e.linkedAccount?.bankName || e.linkedAccount?.name || e.linkedCreditCard?.cardName || '-',
       `₹${e.amount.toLocaleString()}`
     ]);
     exportToPDF('Detailed Daily Transactions Ledger', headers, exportData, 'Transactions_Statement');
@@ -497,7 +497,7 @@ export default function Expenses() {
                   <option value="">-- None --</option>
                   {bankAccounts.map((account) => (
                     <option key={account.id} value={account.id}>
-                      {account.name} ({account.bankName})
+                      {account.name ? `${account.name} (${account.bankName})` : account.bankName}
                     </option>
                   ))}
                 </select>
@@ -878,7 +878,7 @@ export default function Expenses() {
               <option value="unlinked">Unlinked / Cash</option>
               {bankAccounts.map((account) => (
                 <option key={account.id} value={account.id}>
-                  {account.name}
+                  {account.bankName || account.name}
                 </option>
               ))}
             </select>
@@ -930,7 +930,7 @@ export default function Expenses() {
                         </td>
                         <td className="px-3 py-2 text-xs whitespace-nowrap">
                           {expense.linkedAccount ? (
-                            <span className="text-primary font-medium">🏦 {expense.linkedAccount.name}</span>
+                            <span className="text-primary font-medium">🏦 {expense.linkedAccount.bankName || expense.linkedAccount.name}</span>
                           ) : expense.linkedCreditCard ? (
                             <span className="text-purple-500 font-medium">💳 {expense.linkedCreditCard.cardName}</span>
                           ) : (

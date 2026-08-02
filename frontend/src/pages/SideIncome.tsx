@@ -35,9 +35,7 @@ export default function SideIncome() {
   // Form states
   const [formData, setFormData] = useState<Partial<IncomeSource>>({
     sourceName: '',
-    ownerName: '',
-    amount: 0,
-    frequency: 'Monthly'
+    ownerName: ''
   });
 
   const [receiveForm, setReceiveForm] = useState({
@@ -92,10 +90,14 @@ export default function SideIncome() {
     try {
       await apiClient('/api/incomesources', {
         method: 'POST',
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          amount: 0,
+          frequency: 'One-time'
+        })
       });
       setIsModalOpen(false);
-      setFormData({ sourceName: '', ownerName: '', amount: 0, frequency: 'Monthly' });
+      setFormData({ sourceName: '', ownerName: '' });
       toast.success('Income source saved', 'Your side income source has been added successfully.');
       fetchIncomes();
     } catch (err: any) {
@@ -330,108 +332,13 @@ export default function SideIncome() {
         </button>
       </div>
 
-      {/* Summary KPI Strip */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-        <div className="glass-panel p-4 rounded-xl border border-border/50">
-          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Expected Inflow (Monthly)</span>
-          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{expectedMonthly.toLocaleString()}</p>
-        </div>
-        <div className="glass-panel p-4 rounded-xl border border-border/50">
-          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Collected (This Month)</span>
-          <p className="text-lg font-mono font-bold text-green-500 mt-1 tabular-nums">₹{receivedThisMonth.toLocaleString()}</p>
-        </div>
-        <div className="glass-panel p-4 rounded-xl border border-border/50">
-          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Uncollected Balance</span>
-          <p className={`text-lg font-mono font-bold mt-1 tabular-nums ${outstandingCollect > 0 ? 'text-amber-500' : 'text-foreground'}`}>
-            ₹{outstandingCollect.toLocaleString()}
-          </p>
-        </div>
-        <div className="glass-panel p-4 rounded-xl border border-border/50">
-          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Coverage Percentage</span>
-          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">{coverageRatio}%</p>
-        </div>
-        <div className="glass-panel p-4 rounded-xl border border-border/50">
-          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Cumulative Inflows (All-Time)</span>
-          <p className="text-lg font-mono font-bold text-primary mt-1 tabular-nums">₹{allTimeTotal.toLocaleString()}</p>
-        </div>
-      </div>
 
       {/* Main Single Screen Dense Dashboard Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-14rem)] min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
         
         {/* Left Columns (col-span-8): Graphs, Heatmap, Ledger */}
         <div className="lg:col-span-8 flex flex-col gap-6 h-full min-h-0">
           
-          {/* Top Panel Grid: Monthly trend & Heatmap calendar */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            
-            {/* Monthly Inflow Trend (Bar Chart SVG) */}
-            <div className="bg-card border border-border/50 rounded-xl p-4">
-              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-1.5">
-                <BarChart3 className="h-4 w-4" /> Monthly collection trends (6mo)
-              </h3>
-              
-              <div className="h-40 flex items-end justify-between gap-2 pt-2 border-b border-border/30 pb-1">
-                {monthlyTrendData.map((data, idx) => {
-                  const percentage = Math.max(8, (data.amount / maxTrendVal) * 100);
-                  return (
-                    <div key={idx} className="flex-1 flex flex-col items-center group">
-                      <span className="text-[9px] font-mono font-semibold text-green-400 opacity-0 group-hover:opacity-100 transition-opacity mb-1 tabular-nums">
-                        ₹{data.amount >= 1000 ? `${(data.amount / 1000).toFixed(0)}k` : data.amount}
-                      </span>
-                      <div 
-                        className="w-full bg-green-500/10 hover:bg-green-500/30 border border-green-500/20 rounded-t transition-all cursor-pointer"
-                        style={{ height: `${percentage}%` }}
-                        title={`₹${data.amount.toLocaleString()}`}
-                      ></div>
-                      <span className="text-[10px] text-muted-foreground mt-2 font-semibold">{data.monthStr}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Income Heatmap Calendar Grid */}
-            <div className="bg-card border border-border/50 rounded-xl p-4">
-              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4 flex items-center gap-1.5">
-                <Calendar className="h-4 w-4" /> Collection Heatmap (This Month)
-              </h3>
-              
-              <div className="grid grid-cols-7 gap-1">
-                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((dayName, index) => (
-                  <div key={index} className="text-center text-[10px] font-bold text-muted-foreground">{dayName}</div>
-                ))}
-                
-                {/* Pad days before the first day of current month */}
-                {Array.from({ length: new Date(currentYear, currentMonth, 1).getDay() }).map((_, idx) => (
-                  <div key={`pad-${idx}`} className="h-5 bg-transparent"></div>
-                ))}
-                
-                {/* Active calendar grid mapping */}
-                {calendarDays.map(({ day, amount }) => {
-                  const hasInflow = amount > 0;
-                  return (
-                    <div 
-                      key={day}
-                      className={`h-6 flex flex-col items-center justify-center rounded text-[10px] font-mono border relative group cursor-pointer transition-all ${
-                        hasInflow 
-                          ? 'bg-green-500/20 border-green-500/40 text-green-400 font-bold' 
-                          : 'bg-card border-border/30 hover:bg-muted/30 text-muted-foreground'
-                      }`}
-                      title={hasInflow ? `Received: ₹${amount.toLocaleString()}` : undefined}
-                    >
-                      {day}
-                      {hasInflow && (
-                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-slate-900 border border-border text-[9px] px-1.5 py-0.5 rounded text-white font-mono z-55 whitespace-nowrap">
-                          ₹{amount.toLocaleString()}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
 
           {/* Bottom Panel: Ledger history list table */}
           <div className="bg-card border border-border/50 rounded-2xl flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -598,6 +505,27 @@ export default function SideIncome() {
                   const d = new Date(e.expenseDate);
                   return e.linkedIncomeSource?.id === source.id && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
                 });
+
+                // Calculate upcoming projection if pending and monthly
+                let projectionInfo = null;
+                if (!isReceived && source.frequency === 'Monthly') {
+                  const today = new Date();
+                  const lastDate = source.dateReceived ? new Date(source.dateReceived) : new Date(now.getFullYear(), now.getMonth() - 1, 15);
+                  const nextDate = new Date(lastDate.getFullYear(), lastDate.getMonth() + 1, lastDate.getDate());
+                  const daysLeft = Math.ceil((nextDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                  projectionInfo = {
+                    nextDate: nextDate.toLocaleDateString(),
+                    daysLeft
+                  };
+                }
+
+                const channelTxns = creditTransactions.filter(e => e.linkedIncomeSource?.id === source.id);
+                const lastTxn = channelTxns.length > 0 
+                  ? [...channelTxns].sort((a, b) => new Date(b.expenseDate).getTime() - new Date(a.expenseDate).getTime())[0]
+                  : null;
+
+                const totalCollected = channelTxns.reduce((sum, e) => sum + e.amount, 0);
+
                 return (
                   <div key={source.id} className="p-3 rounded-lg border border-border/40 bg-card/65 hover:bg-muted/15 transition-all flex items-center justify-between group">
                     <div>
@@ -612,14 +540,19 @@ export default function SideIncome() {
                       <p className="text-[10px] text-muted-foreground mt-0.5 font-medium uppercase">
                         {source.frequency} • {source.ownerName}
                       </p>
+                      {projectionInfo && (
+                        <p className="text-[9px] text-amber-500 font-bold mt-1">
+                          Due: {projectionInfo.nextDate} ({projectionInfo.daysLeft} days left)
+                        </p>
+                      )}
                       <p className="text-[9px] text-muted-foreground font-mono mt-1">
-                        Last credit: {source.dateReceived ? new Date(source.dateReceived).toLocaleDateString() : 'Never'}
+                        Last credit: {lastTxn ? `₹${lastTxn.amount.toLocaleString()} on ${new Date(lastTxn.expenseDate).toLocaleDateString()}` : 'Never'}
                       </p>
                     </div>
 
                     <div className="text-right flex flex-col items-end gap-1.5">
                       <span className="text-xs font-mono font-bold text-green-500 tabular-nums">
-                        ₹{source.amount.toLocaleString()}
+                        ₹{totalCollected.toLocaleString()}
                       </span>
                       <div className="flex items-center gap-1.5">
                         <button
@@ -627,7 +560,7 @@ export default function SideIncome() {
                             setSelectedSourceId(source.id);
                             setReceiveForm(prev => ({
                               ...prev,
-                              amount: source.amount.toString()
+                              amount: '0'
                             }));
                             setIsReceiveOpen(true);
                           }}
@@ -649,56 +582,7 @@ export default function SideIncome() {
             </div>
           </div>
 
-          {/* Allocation Share Percentage Progress Bars */}
-          <div className="bg-card border border-border/50 rounded-xl p-4">
-            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3.5 flex items-center gap-1.5">
-              <PieChart className="h-4 w-4" /> Share of Expected monthly budget
-            </h3>
-            <div className="space-y-3 pt-1">
-              {incomes.filter(i => i.frequency === 'Monthly').map(source => {
-                const percent = expectedMonthly > 0 ? Math.round((source.amount / expectedMonthly) * 100) : 0;
-                return (
-                  <div key={source.id} className="text-xs">
-                    <div className="flex justify-between font-semibold mb-1">
-                      <span className="text-foreground">{source.sourceName}</span>
-                      <span className="text-muted-foreground font-mono">{percent}%</span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-1">
-                      <div className="bg-green-500 h-1 rounded-full" style={{ width: `${percent}%` }}></div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
 
-          {/* Projected Incoming collection schedule (30 days pipeline) */}
-          <div className="bg-card border border-border/50 rounded-xl p-4 flex-1">
-            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <TrendingUp className="h-4 w-4" /> Projected inflows (Next 30 Days)
-            </h3>
-            
-            <div className="space-y-2">
-              {upcomingInflows.length === 0 ? (
-                <p className="text-[10px] text-muted-foreground italic py-3 text-center">No projected monthly collections pending.</p>
-              ) : (
-                upcomingInflows.map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-center p-2 rounded-lg bg-muted/20 border border-border/20 text-xs">
-                    <div>
-                      <div className="font-semibold text-foreground">{item.sourceName}</div>
-                      <div className="text-[10px] text-muted-foreground">Due On: {item.nextDate}</div>
-                    </div>
-                    <div className="text-right">
-                      <span className="font-mono font-bold text-foreground">₹{item.amount.toLocaleString()}</span>
-                      <span className={`block text-[9px] font-bold ${item.daysLeft <= 3 ? 'text-red-500' : 'text-muted-foreground'}`}>
-                        {item.daysLeft} days left
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
 
         </div>
       </div>
@@ -717,21 +601,7 @@ export default function SideIncome() {
                 <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Owner Name</label>
                 <input required value={formData.ownerName} onChange={e => setFormData({...formData, ownerName: e.target.value})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary outline-none transition-all text-xs" placeholder="e.g. Self, Partner" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Expected Amount (₹)</label>
-                  <input required type="number" value={formData.amount || ''} onChange={e => setFormData({...formData, amount: parseFloat(e.target.value)})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary outline-none transition-all text-xs font-mono" />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Frequency</label>
-                  <select value={formData.frequency} onChange={e => setFormData({...formData, frequency: e.target.value})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary outline-none transition-all text-xs cursor-pointer">
-                    <option value="One-time">One-time</option>
-                    <option value="Monthly">Monthly</option>
-                    <option value="Quarterly">Quarterly</option>
-                    <option value="Yearly">Yearly</option>
-                  </select>
-                </div>
-              </div>
+              {/* Removed Expected Amount and Frequency fields */}
               <div className="flex justify-end gap-2 mt-6">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-xs text-muted-foreground hover:bg-muted rounded-lg font-semibold">Cancel</button>
                 <button type="submit" className="px-4 py-2 text-xs bg-primary text-white rounded-lg hover:bg-primary/90 font-bold transition-all">Save Channel</button>

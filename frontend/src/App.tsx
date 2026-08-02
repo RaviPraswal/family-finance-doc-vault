@@ -26,6 +26,7 @@ import Ledger from './pages/Ledger';
 import Expenses from './pages/Expenses';
 import Goals from './pages/Goals';
 import FamilyMembers from './pages/FamilyMembers';
+import Budgets from './pages/Budgets';
 
 // Protected Route wrapper
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
@@ -89,6 +90,7 @@ function App() {
             <Route path="projects" element={<Projects />} />
             <Route path="expenses" element={<Expenses />} />
             <Route path="goals" element={<Goals />} />
+            <Route path="budgets" element={<Budgets />} />
             <Route path="family" element={<FamilyMembers />} />
           </Route>
         </Routes>

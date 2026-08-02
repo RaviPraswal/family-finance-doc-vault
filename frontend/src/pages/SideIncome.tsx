@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
-import { Plus, Banknote, Trash2, Search, Download, Printer, Calendar, TrendingUp, BarChart3, PieChart } from 'lucide-react';
+import { Plus, Banknote, Trash2, Search, Download, Printer } from 'lucide-react';
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
 
 interface IncomeSource {
@@ -190,25 +190,6 @@ export default function SideIncome() {
     return expenses.filter(e => e.type === 'CREDIT' && e.madeAgainst === 'INCOME_SOURCE');
   }, [expenses]);
 
-  const receivedThisMonth = useMemo(() => {
-    return creditTransactions
-      .filter(e => {
-        const d = new Date(e.expenseDate);
-        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-      })
-      .reduce((sum, e) => sum + e.amount, 0);
-  }, [creditTransactions, currentMonth, currentYear]);
-
-  const expectedMonthly = useMemo(() => {
-    return incomes
-      .filter(i => i.frequency === 'Monthly')
-      .reduce((sum, i) => sum + i.amount, 0);
-  }, [incomes]);
-
-  const outstandingCollect = Math.max(0, expectedMonthly - receivedThisMonth);
-  const coverageRatio = expectedMonthly > 0 ? Math.round((receivedThisMonth / expectedMonthly) * 100) : 0;
-  const allTimeTotal = creditTransactions.reduce((sum, e) => sum + e.amount, 0);
-
   // 2. Filter & Sort Inflow History Statement Table
   const filteredTxns = useMemo(() => {
     return creditTransactions
@@ -227,69 +208,6 @@ export default function SideIncome() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedTxns = filteredTxns.slice(startIndex, startIndex + itemsPerPage);
   const totalPages = Math.ceil(filteredTxns.length / itemsPerPage);
-
-  // 3. Calendar Day Grid mapping side-inflow collections
-  const calendarDays = useMemo(() => {
-    const totalDays = new Date(currentYear, currentMonth + 1, 0).getDate();
-    const daysArr = [];
-    for (let day = 1; day <= totalDays; day++) {
-      const formattedDate = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const dayTxns = creditTransactions.filter(e => e.expenseDate === formattedDate);
-      const totalAmt = dayTxns.reduce((sum, e) => sum + e.amount, 0);
-      daysArr.push({ day, amount: totalAmt });
-    }
-    return daysArr;
-  }, [creditTransactions, currentMonth, currentYear]);
-
-  // 4. Monthly Trend (6 months history calculation)
-  const monthlyTrendData = useMemo(() => {
-    const trend = [];
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const m = d.getMonth();
-      const y = d.getFullYear();
-      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      
-      const total = creditTransactions
-        .filter(e => {
-          const date = new Date(e.expenseDate);
-          return date.getMonth() === m && date.getFullYear() === y;
-        })
-        .reduce((sum, e) => sum + e.amount, 0);
-      
-      trend.push({ monthStr: `${months[m]}`, amount: total });
-    }
-    return trend;
-  }, [creditTransactions, now]);
-
-  // Max value in trend for scale
-  const maxTrendVal = useMemo(() => {
-    const max = Math.max(...monthlyTrendData.map(t => t.amount));
-    return max > 0 ? max : 10000;
-  }, [monthlyTrendData]);
-
-  // 5. Projected Upcoming Inflows pipeline (30 Days window prediction)
-  const upcomingInflows = useMemo(() => {
-    const predicted = [];
-    const today = new Date();
-    for (const source of incomes) {
-      if (source.frequency === 'Monthly') {
-        const lastDate = source.dateReceived ? new Date(source.dateReceived) : new Date(now.getFullYear(), now.getMonth() - 1, 15);
-        const nextDate = new Date(lastDate.getFullYear(), lastDate.getMonth() + 1, lastDate.getDate());
-        
-        // check if nextDate is in future or today
-        if (nextDate >= today) {
-          predicted.push({
-            sourceName: source.sourceName,
-            amount: source.amount,
-            nextDate: nextDate.toLocaleDateString(),
-            daysLeft: Math.ceil((nextDate.getTime() - today.getTime()) / (1000 * 3600 * 24))
-          });
-        }
-      }
-    }
-    return predicted.sort((a, b) => a.daysLeft - b.daysLeft);
-  }, [incomes, now]);
 
   // Exporters
   const handleExportCSV = () => {

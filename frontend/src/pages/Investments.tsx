@@ -18,14 +18,16 @@ export default function Investments() {
   const confirm = useConfirmStore();
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
+  const [customAssetClasses, setCustomAssetClasses] = useState<{ id: string; name: string }[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAssetClassModalOpen, setIsAssetClassModalOpen] = useState(false);
+  const [newAssetClassName, setNewAssetClassName] = useState('');
   const [formData, setFormData] = useState<Partial<Investment>>({
     type: 'Mutual Fund',
     name: '',
     investedAmount: 0,
     currentValue: 0
   });
-  const [customType, setCustomType] = useState('');
 
   // Filter & Search States
   const [search, setSearch] = useState('');
@@ -44,6 +46,7 @@ export default function Investments() {
   useEffect(() => {
     fetchInvestments();
     fetchExpenses();
+    fetchCustomAssetClasses();
   }, []);
 
   const fetchInvestments = async () => {
@@ -64,24 +67,54 @@ export default function Investments() {
     }
   };
 
+  const fetchCustomAssetClasses = async () => {
+    try {
+      const data = await apiClient('/api/asset-classes');
+      setCustomAssetClasses(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const payload = {
-        ...formData,
-        type: formData.type === 'CUSTOM' ? customType : formData.type
-      };
       await apiClient('/api/investments', {
         method: 'POST',
-        body: JSON.stringify(payload)
+        body: JSON.stringify(formData)
       });
       setIsModalOpen(false);
       setFormData({ type: 'Mutual Fund', name: '', investedAmount: 0, currentValue: 0 });
-      setCustomType('');
       toast.success('Investment saved', 'Your investment record has been added successfully.');
       fetchInvestments();
     } catch (err: any) {
       toast.error('Failed to save investment', err.message || 'Could not save investment. Please try again.');
+    }
+  };
+
+  const handleAddAssetClass = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAssetClassName.trim()) return;
+    try {
+      await apiClient('/api/asset-classes', {
+        method: 'POST',
+        body: JSON.stringify({ name: newAssetClassName })
+      });
+      setNewAssetClassName('');
+      toast.success('Asset class added', 'Custom asset class created successfully.');
+      fetchCustomAssetClasses();
+    } catch (err: any) {
+      toast.error('Failed to add asset class', err.message || 'Could not add custom asset class.');
+    }
+  };
+
+  const handleDeleteAssetClass = async (id: string) => {
+    try {
+      await apiClient(`/api/asset-classes/${id}`, { method: 'DELETE' });
+      toast.success('Asset class deleted', 'The custom asset class has been removed.');
+      fetchCustomAssetClasses();
+    } catch (err: any) {
+      toast.error('Cannot delete asset class', err.message || 'Failed to delete asset class.');
     }
   };
 
@@ -188,8 +221,9 @@ export default function Investments() {
   const uniqueTypes = Array.from(new Set(investments.map(i => i.type)));
   const availableTypes = useMemo(() => {
     const defaultTypes = ['Mutual Fund', 'Stock / Equity', 'Gold', 'Fixed Deposit', 'Crypto'];
-    return Array.from(new Set([...defaultTypes, ...investments.map(i => i.type).filter(Boolean)]));
-  }, [investments]);
+    const customTypes = customAssetClasses.map(ac => ac.name);
+    return Array.from(new Set([...defaultTypes, ...customTypes, ...investments.map(i => i.type).filter(Boolean)]));
+  }, [investments, customAssetClasses]);
 
   // Export handlers
   const handleExportCSV = () => {
@@ -254,6 +288,12 @@ export default function Investments() {
             </button>
           </div>
 
+          <button
+            onClick={() => setIsAssetClassModalOpen(true)}
+            className="flex items-center gap-2 bg-muted text-muted-foreground hover:text-foreground border border-border/50 px-4 py-2 rounded-md hover:bg-muted/80 text-sm font-medium transition-colors"
+          >
+            Manage Asset Classes
+          </button>
           <button
             onClick={() => setIsModalOpen(true)}
             className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 text-sm font-medium"
@@ -773,15 +813,8 @@ export default function Investments() {
                   {availableTypes.map(type => (
                     <option key={type} value={type}>{type}</option>
                   ))}
-                  <option value="CUSTOM">Other / Custom Asset Class...</option>
                 </select>
               </div>
-              {formData.type === 'CUSTOM' && (
-                <div>
-                  <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Custom Asset Class Name</label>
-                  <input required value={customType} onChange={e => setCustomType(e.target.value)} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm" placeholder="e.g. Real Estate, PPF, NPS" />
-                </div>
-              )}
               <div>
                 <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Asset Name</label>
                 <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm" placeholder="e.g. Parag Parikh Flexi Cap Fund" />
@@ -797,10 +830,81 @@ export default function Investments() {
                 </div>
               </div>
               <div className="flex justify-end gap-2 mt-6">
-                <button type="button" onClick={() => { setIsModalOpen(false); setCustomType(''); }} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors">Cancel</button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors">Cancel</button>
                 <button type="submit" className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">Save Investment</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {isAssetClassModalOpen && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl flex flex-col max-h-[80vh]">
+            <div className="flex justify-between items-center mb-4 shrink-0">
+              <h2 className="text-lg font-semibold text-foreground">Manage Custom Asset Classes</h2>
+              <button 
+                type="button"
+                onClick={() => { setIsAssetClassModalOpen(false); setNewAssetClassName(''); }}
+                className="text-muted-foreground hover:text-foreground text-lg font-bold p-1"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <form onSubmit={handleAddAssetClass} className="space-y-3 mb-6 shrink-0">
+              <div>
+                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">New Asset Class Name</label>
+                <div className="flex gap-2">
+                  <input 
+                    required 
+                    value={newAssetClassName} 
+                    onChange={e => setNewAssetClassName(e.target.value)} 
+                    className="flex-1 p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm" 
+                    placeholder="e.g. Real Estate, PPF, NPS" 
+                  />
+                  <button 
+                    type="submit" 
+                    className="px-4 py-2.5 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-semibold shrink-0"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar border-t border-border/30 pt-4 min-h-0">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2.5">Configured Custom Asset Classes</h3>
+              {customAssetClasses.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic py-4 text-center">No custom asset classes configured yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {customAssetClasses.map(ac => (
+                    <div key={ac.id} className="flex justify-between items-center p-2.5 rounded-lg bg-background border border-border/40 hover:bg-muted/10 transition-colors">
+                      <span className="text-sm font-medium text-foreground">{ac.name}</span>
+                      <button 
+                        type="button"
+                        onClick={() => handleDeleteAssetClass(ac.id)} 
+                        className="text-muted-foreground hover:text-red-500 p-1 transition-colors"
+                        title="Delete Asset Class"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-border/30 pt-4 mt-4 flex justify-end shrink-0">
+              <button 
+                type="button"
+                onClick={() => { setIsAssetClassModalOpen(false); setNewAssetClassName(''); }}
+                className="px-4 py-2 text-sm bg-muted text-foreground hover:bg-muted/80 rounded-lg transition-colors font-semibold"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

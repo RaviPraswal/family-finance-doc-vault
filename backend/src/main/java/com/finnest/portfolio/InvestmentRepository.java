@@ -9,4 +9,5 @@ import java.util.UUID;
 @Repository
 public interface InvestmentRepository extends JpaRepository<Investment, UUID> {
     List<Investment> findAllByTenantIdOrderByCreatedAtDesc(UUID tenantId);
+    boolean existsByTypeAndTenantId(String type, UUID tenantId);
 }

@@ -443,7 +443,7 @@ export default function PeerLending() {
                                 : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
                           }`}
                         >
-                          {lending.settled ? 'Settled ✓' : isOverdue ? 'Overdue' : 'Pending'}
+                          {lending.settled ? 'Settled ✓' : isOverdue ? 'Settle (Overdue)' : 'Settle'}
                         </button>
                       </div>
                     </div>
@@ -642,7 +642,7 @@ export default function PeerLending() {
                                   : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
                             }`}
                           >
-                            {lending.settled ? 'Settled ✓' : isOverdue ? 'Overdue' : 'Pending'}
+                            {lending.settled ? 'Settled ✓' : isOverdue ? 'Settle (Overdue)' : 'Settle'}
                           </button>
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap text-right text-xs font-medium">
@@ -845,7 +845,7 @@ export default function PeerLending() {
                               : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
                         }`}
                       >
-                        {selectedLending.settled ? 'Settled ✓' : isLendingOverdue(selectedLending) ? 'Overdue' : 'Mark Settled'}
+                        {selectedLending.settled ? 'Settled ✓' : isLendingOverdue(selectedLending) ? 'Settle (Overdue)' : 'Settle Loan'}
                       </button>
                     </div>
                   </div>

@@ -7,7 +7,7 @@ import {
 import { apiClient } from '../api/client';
 import { 
   Landmark, TrendingUp, CreditCard, Target, Coins, 
-  Zap, AlertTriangle, Sparkles, Plus, ArrowRight 
+  Zap, AlertTriangle, Sparkles, Plus, ArrowRight, Calendar 
 } from 'lucide-react';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
@@ -50,13 +50,30 @@ export default function PortfolioOverview() {
     bankBalance: 0,
     investments: 0,
     loans: 0,
-    deposits: 0
+    deposits: 0,
+    chitFunds: 0
   });
 
   const [goals, setGoals] = useState<Goal[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
   const [insights, setInsights] = useState<Recommendation[]>([]);
+
+  // Detailed Investment Breakdown States
+  const [mutualFundsTotal, setMutualFundsTotal] = useState(0);
+  const [stocksTotal, setStocksTotal] = useState(0);
+  const [fdsTotal, setFdsTotal] = useState(0);
+  const [rdsTotal, setRdsTotal] = useState(0);
+  const [chitsTotal, setChitsTotal] = useState(0);
+  const [goldSilverTotal, setGoldSilverTotal] = useState(0);
+  const [otherInvestmentsTotal, setOtherInvestmentsTotal] = useState(0);
+
+  // Cash Flow & Projection States
+  const [monthlySalary, setMonthlySalary] = useState(0);
+  const [monthlySideIncome, setMonthlySideIncome] = useState(0);
+  const [monthlyExpensesRunRate, setMonthlyExpensesRunRate] = useState(0);
+  const [monthlyLoanEMIs, setMonthlyLoanEMIs] = useState(0);
+  const [monthlyChitOutflows, setMonthlyChitOutflows] = useState(0);
 
   useEffect(() => {
     fetchPortfolioData();
@@ -65,7 +82,7 @@ export default function PortfolioOverview() {
   const fetchPortfolioData = async () => {
     try {
       setLoading(true);
-      const [banks, invs, loans, deps, goalsData, expensesData, incomesData, insightsData] = await Promise.all([
+      const [banks, invs, loans, deps, goalsData, expensesData, incomesData, insightsData, chitsData] = await Promise.all([
         apiClient('/api/bankaccounts'),
         apiClient('/api/investments'),
         apiClient('/api/loans'),
@@ -73,7 +90,8 @@ export default function PortfolioOverview() {
         apiClient('/api/goals').catch(() => []),
         apiClient('/api/expenses').catch(() => []),
         apiClient('/api/incomesources').catch(() => []),
-        apiClient('/api/ai/recommendations').catch(() => [])
+        apiClient('/api/ai/recommendations').catch(() => []),
+        apiClient('/api/chitfunds').catch(() => [])
       ]);
 
       const bankBalance = banks.reduce((sum: number, b: any) => sum + (b.currentBalance || 0), 0);
@@ -88,14 +106,22 @@ export default function PortfolioOverview() {
         return sum + (d.principalAmount || 0);
       }, 0);
 
+      // Calculate Chit Funds paid value
+      const chitTotalVal = (chitsData || []).reduce((sum: number, c: any) => {
+        const paidInstallments = (c.durationMonths || 0) - (c.pendingInstallments || 0);
+        return sum + (paidInstallments * (c.monthlyInstallment || 0));
+      }, 0);
+
       setData({
         bankBalance,
         investments,
         loans: loanTotal,
-        deposits: depositTotal
+        deposits: depositTotal,
+        chitFunds: chitTotalVal
       });
 
       setGoals(goalsData || []);
+      
       // Sort expenses by date descending and take top 5
       const sortedExpenses = (expensesData || []).sort((a: any, b: any) => 
         new Date(b.expenseDate).getTime() - new Date(a.expenseDate).getTime()
@@ -104,6 +130,91 @@ export default function PortfolioOverview() {
 
       setIncomeSources(incomesData || []);
       setInsights(insightsData || []);
+
+      // Calculate Detailed Investments Breakdown
+      const mfTotal = invs.reduce((sum: number, i: any) => {
+        if (i.type === 'Mutual Fund' && !/gold|silver|etf|fof/i.test(i.name)) {
+          return sum + (i.currentValue || i.investedAmount || 0);
+        }
+        return sum;
+      }, 0);
+
+      const stTotal = invs.reduce((sum: number, i: any) => {
+        if (i.type === 'Stock / Equity') {
+          return sum + (i.currentValue || i.investedAmount || 0);
+        }
+        return sum;
+      }, 0);
+
+      const fTotal = deps.reduce((sum: number, d: any) => {
+        if (d.type === 'FD') {
+          return sum + (d.principalAmount || 0);
+        }
+        return sum;
+      }, 0);
+
+      const rTotal = deps.reduce((sum: number, d: any) => {
+        if (d.type === 'RD') {
+          return sum + (d.totalDeposited || d.principalAmount || 0);
+        }
+        return sum;
+      }, 0);
+
+      const gsTotal = invs.reduce((sum: number, i: any) => {
+        if (/gold|silver|etf|fof/i.test(i.name)) {
+          return sum + (i.currentValue || i.investedAmount || 0);
+        }
+        return sum;
+      }, 0);
+
+      const otTotal = invs.reduce((sum: number, i: any) => {
+        const isMF = i.type === 'Mutual Fund';
+        const isStock = i.type === 'Stock / Equity';
+        const isGoldSilver = /gold|silver|etf|fof/i.test(i.name);
+        if (!isMF && !isStock && !isGoldSilver) {
+          return sum + (i.currentValue || i.investedAmount || 0);
+        }
+        return sum;
+      }, 0);
+
+      setMutualFundsTotal(mfTotal);
+      setStocksTotal(stTotal);
+      setFdsTotal(fTotal);
+      setRdsTotal(rTotal);
+      setChitsTotal(chitTotalVal);
+      setGoldSilverTotal(gsTotal);
+      setOtherInvestmentsTotal(otTotal);
+
+      // Calculate Cash Flows
+      const salaryTx = (expensesData || []).find((e: any) => e.type === 'CREDIT' && e.category?.toLowerCase() === 'salary');
+      const salaryVal = salaryTx ? salaryTx.amount : 89706;
+      setMonthlySalary(salaryVal);
+
+      const sideInc = (incomesData || []).reduce((sum: number, inc: any) => sum + (inc.amount || 0), 0);
+      setMonthlySideIncome(sideInc);
+
+      const currentMonth = new Date().getMonth();
+      const currentYear = new Date().getFullYear();
+      const monthlyDeb = (expensesData || []).reduce((sum: number, e: any) => {
+        const expDate = new Date(e.expenseDate);
+        if (e.type === 'DEBIT' && expDate.getMonth() === currentMonth && expDate.getFullYear() === currentYear) {
+          return sum + (e.amount || 0);
+        }
+        return sum;
+      }, 0);
+      setMonthlyExpensesRunRate(monthlyDeb > 5000 ? monthlyDeb : 25000);
+
+      const emiVal = (loans || []).reduce((sum: number, l: any) => sum + (l.emiAmount || 0), 0);
+      setMonthlyLoanEMIs(emiVal);
+
+      const chitOut = (chitsData || []).reduce((sum: number, c: any) => {
+        if (c.pendingInstallments > 0) {
+          return sum + (c.monthlyInstallment || 0);
+        }
+        return sum;
+      }, 0);
+      setMonthlyChitOutflows(chitOut);
+
     } catch (err) {
       console.error('Failed to fetch portfolio overview cockpit data', err);
     } finally {
@@ -111,18 +222,29 @@ export default function PortfolioOverview() {
     }
   };
 
-  const netWorth = data.bankBalance + data.investments + data.deposits - data.loans;
+  const netWorth = data.bankBalance + data.investments + data.deposits + data.chitFunds - data.loans;
 
   const assetAllocationData = [
     { name: 'Bank Accounts', value: data.bankBalance },
     { name: 'Investments', value: data.investments },
     { name: 'Deposits (FD/RD)', value: data.deposits },
+    { name: 'Chit Funds', value: data.chitFunds }
   ].filter(d => d.value > 0);
 
   const liabilitiesData = [
-    { name: 'Assets', value: data.bankBalance + data.investments + data.deposits },
+    { name: 'Assets', value: data.bankBalance + data.investments + data.deposits + data.chitFunds },
     { name: 'Liabilities (Loans)', value: data.loans }
   ];
+
+  // Projections Calculations
+  const totalMonthlyInflow = monthlySalary + monthlySideIncome;
+  const totalMonthlyOutflow = monthlyExpensesRunRate + monthlyLoanEMIs + monthlyChitOutflows;
+  const netMonthlySavings = totalMonthlyInflow - totalMonthlyOutflow;
+
+  const currentMonthNum = new Date().getMonth();
+  const remainingMonths = 12 - (currentMonthNum + 1);
+  const projectedSavings = netMonthlySavings > 0 ? netMonthlySavings * remainingMonths : 0;
+  const projectedExpenses = totalMonthlyOutflow * remainingMonths;
 
   // Logic to identify high cash balance (NPA warning)
   // E.g., if liquid cash is > 30% of Net Worth or > ₹30,000, consider warning the user
@@ -166,12 +288,12 @@ export default function PortfolioOverview() {
           </div>
         </div>
 
-        {/* Assets (Investments + Deposits) */}
+        {/* Assets (Investments + Deposits + Chit Funds) */}
         <div className="bg-card rounded-xl shadow-sm border border-border p-5 flex items-center justify-between">
           <div>
             <p className="text-muted-foreground text-xs font-semibold mb-0.5 uppercase tracking-wider">Invested Assets</p>
-            <h3 className="text-xl font-bold text-foreground">₹{(data.investments + data.deposits).toLocaleString()}</h3>
-            <span className="text-[10px] text-muted-foreground mt-2 block">Investments & Deposits</span>
+            <h3 className="text-xl font-bold text-foreground">₹{(data.investments + data.deposits + data.chitFunds).toLocaleString()}</h3>
+            <span className="text-[10px] text-muted-foreground mt-2 block">Investments, Deposits & Chits</span>
           </div>
           <div className="h-10 w-10 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 shrink-0">
             <TrendingUp className="h-5 w-5" />
@@ -204,13 +326,13 @@ export default function PortfolioOverview() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={assetAllocationData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={45}
-                      outerRadius={70}
-                      paddingAngle={4}
-                      dataKey="value"
+                       data={assetAllocationData}
+                       cx="50%"
+                       cy="50%"
+                       innerRadius={45}
+                       outerRadius={70}
+                       paddingAngle={4}
+                       dataKey="value"
                     >
                       {assetAllocationData.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -266,6 +388,43 @@ export default function PortfolioOverview() {
               </ResponsiveContainer>
             </div>
           </div>
+
+          {/* Detailed Investments Breakdown */}
+          <div className="bg-card rounded-2xl shadow-sm border border-border p-5 space-y-4">
+            <h3 className="text-sm font-bold text-foreground uppercase tracking-wider border-b border-border/30 pb-2">Asset Classes & Investments</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center text-xs p-2.5 rounded-xl bg-background/20 border border-border/30">
+                <span className="text-muted-foreground font-medium">Mutual Funds (MF)</span>
+                <span className="font-bold text-foreground font-mono">₹{mutualFundsTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs p-2.5 rounded-xl bg-background/20 border border-border/30">
+                <span className="text-muted-foreground font-medium">Stocks & Equity</span>
+                <span className="font-bold text-foreground font-mono">₹{stocksTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs p-2.5 rounded-xl bg-background/20 border border-border/30">
+                <span className="text-muted-foreground font-medium">Fixed Deposits (FD)</span>
+                <span className="font-bold text-foreground font-mono">₹{fdsTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs p-2.5 rounded-xl bg-background/20 border border-border/30">
+                <span className="text-muted-foreground font-medium">Recurring Deposits (RD)</span>
+                <span className="font-bold text-foreground font-mono">₹{rdsTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs p-2.5 rounded-xl bg-background/20 border border-border/30">
+                <span className="text-muted-foreground font-medium">Chit Funds</span>
+                <span className="font-bold text-foreground font-mono">₹{chitsTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </div>
+              <div className="flex justify-between items-center text-xs p-2.5 rounded-xl bg-background/20 border border-border/30">
+                <span className="text-muted-foreground font-medium">Gold & Silver</span>
+                <span className="font-bold text-amber-500 font-mono">₹{goldSilverTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              </div>
+              {otherInvestmentsTotal > 0 && (
+                <div className="flex justify-between items-center text-xs p-2.5 rounded-xl bg-background/20 border border-border/30">
+                  <span className="text-muted-foreground font-medium">Other (Real Estate, etc.)</span>
+                  <span className="font-bold text-foreground font-mono">₹{otherInvestmentsTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* COLUMN 2: Savings Goals & AI wealth Insights */}
@@ -290,6 +449,19 @@ export default function PortfolioOverview() {
                 {goals.map(goal => {
                   const percent = Math.min(Math.round((goal.currentAmount / goal.targetAmount) * 100), 100);
                   const isHighPriority = goal.priority === 'HIGH';
+                  const targetRemaining = goal.targetAmount - goal.currentAmount;
+
+                  let predictedCompletion = '';
+                  if (targetRemaining <= 0) {
+                    predictedCompletion = 'Already Achieved ✓';
+                  } else if (netMonthlySavings <= 0) {
+                    predictedCompletion = 'Savings surplus required to forecast';
+                  } else {
+                    const monthsNeeded = targetRemaining / netMonthlySavings;
+                    const completionDate = new Date();
+                    completionDate.setMonth(completionDate.getMonth() + Math.ceil(monthsNeeded));
+                    predictedCompletion = completionDate.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+                  }
 
                   return (
                     <div key={goal.id} className="space-y-1.5 p-3 rounded-xl border border-border/40 bg-background/20">
@@ -320,12 +492,61 @@ export default function PortfolioOverview() {
                           <span>{percent}% Completed</span>
                           <span>Target: {new Date(goal.targetDate).toLocaleDateString()}</span>
                         </div>
+                        {targetRemaining > 0 && (
+                          <div className="flex justify-between text-[9px] text-primary/80 font-bold border-t border-border/20 pt-1.5 mt-1.5">
+                            <span>Predicted Completion:</span>
+                            <span className="font-mono">{predictedCompletion}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
                 })}
               </div>
             )}
+          </div>
+
+          {/* Monthly Cash Flow & Projections */}
+          <div className="bg-card rounded-2xl shadow-sm border border-border p-5 space-y-4">
+            <h3 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5 border-b border-border/30 pb-2">
+              <Calendar className="h-4 w-4 text-primary" /> Cash Flow & EOY Projections
+            </h3>
+
+            <div className="grid grid-cols-2 gap-4 bg-muted/25 p-3.5 rounded-xl">
+              <div>
+                <span className="text-[10px] text-muted-foreground block uppercase font-bold">Monthly Inflow</span>
+                <span className="text-sm font-bold text-emerald-600 font-mono">₹{totalMonthlyInflow.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                <span className="text-[9px] text-muted-foreground block font-medium mt-0.5">(Salary & Side Incomes)</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-muted-foreground block uppercase font-bold">Monthly Outflow</span>
+                <span className="text-sm font-bold text-red-500 font-mono">₹{totalMonthlyOutflow.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                <span className="text-[9px] text-muted-foreground block font-medium mt-0.5">(Exp + EMIs + Chits)</span>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex justify-between items-center text-xs p-2.5 rounded-xl bg-background/20 border border-border/30">
+                <span className="text-muted-foreground font-medium">Monthly Net Savings</span>
+                <span className={`font-bold font-mono ${netMonthlySavings >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                  ₹{netMonthlySavings.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              
+              <div className="border-t border-border/30 my-2 pt-2">
+                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Predictions by End of {new Date().getFullYear()}</h4>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center text-xs p-2.5 rounded-xl bg-primary/5 border border-primary/20">
+                    <span className="text-foreground font-medium">Forecasted EOY Savings</span>
+                    <span className="font-bold text-primary font-mono">₹{projectedSavings.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs p-2.5 rounded-xl bg-background/20 border border-border/30">
+                    <span className="text-muted-foreground font-medium">Forecasted EOY Expenses</span>
+                    <span className="font-bold text-foreground font-mono">₹{projectedExpenses.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* AI wealth insights Panel */}

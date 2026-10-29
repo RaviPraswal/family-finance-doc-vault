@@ -31,6 +31,8 @@ public class PeerLendingController {
     @PostMapping
     public ResponseEntity<PeerLending> create(@RequestBody PeerLending entity) {
         entity.setTenantId(UUID.fromString(TenantContext.getCurrentTenant()));
+        if (entity.getPrincipalAmount() == null) entity.setPrincipalAmount(entity.getAmount());
+        entity.setRepaidAmount(java.math.BigDecimal.ZERO);
         return ResponseEntity.ok(repository.save(entity));
     }
 
@@ -47,6 +49,9 @@ public class PeerLendingController {
         entity.setTenantId(existing.getTenantId());
         entity.setCreatedAt(existing.getCreatedAt());
         entity.setUserId(existing.getUserId());
+        // The edit form does not send repayment history; keep it.
+        if (entity.getPrincipalAmount() == null) entity.setPrincipalAmount(existing.getPrincipalAmount());
+        if (entity.getRepaidAmount().signum() == 0) entity.setRepaidAmount(existing.getRepaidAmount());
         return ResponseEntity.ok(repository.save(entity));
     }
 

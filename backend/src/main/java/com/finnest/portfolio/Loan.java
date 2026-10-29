@@ -95,4 +95,11 @@ public class Loan extends TenantBaseEntity {
     public void setRemainingTenure(Integer remainingTenure) {
         this.remainingTenure = remainingTenure;
     }
+
+    /** MONTHLY (default) or DAILY_365. See LoanMath. */
+    @jakarta.persistence.Column(length = 20)
+    private String interestMethod;
+
+    public String getInterestMethod() { return interestMethod == null ? LoanMath.MONTHLY : interestMethod; }
+    public void setInterestMethod(String interestMethod) { this.interestMethod = interestMethod; }
 }

@@ -34,7 +34,10 @@ public class LoanEventListener {
                 
                 // Update Outstanding Balance
                 if (loan.getOutstandingAmount() != null) {
-                    loan.setOutstandingAmount(loan.getOutstandingAmount().subtract(payment.getAmount()));
+                    // Only the principal part of the EMI reduces the loan.
+                    LoanMath.Split split = LoanMath.split(loan.getInterestMethod(), loan.getOutstandingAmount(), loan.getInterestRate(), payment.getAmount(),
+                            java.time.temporal.ChronoUnit.DAYS.between(payment.getDueDate().minusMonths(1), payment.getDueDate()));
+                    loan.setOutstandingAmount(loan.getOutstandingAmount().subtract(split.principal()));
                 }
 
                 // Update Remaining Tenure

@@ -21,6 +21,9 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
     @Query("SELECT e FROM Expense e WHERE e.linkedAccount.id = :bankAccountId")
     List<Expense> findAllByLinkedAccountId(@Param("bankAccountId") UUID bankAccountId);
 
+    /** The latest earlier payment against a loan, excluding the given expense (used for day-count interest). */
+    java.util.Optional<Expense> findFirstByLinkedLoanIdAndIdNotAndExpenseDateBeforeOrderByExpenseDateDesc(UUID loanId, UUID excludeId, java.time.LocalDate date);
+
     @Query("SELECT e FROM Expense e WHERE e.linkedCreditCard.id = :creditCardId")
     List<Expense> findAllByLinkedCreditCardId(@Param("creditCardId") UUID creditCardId);
 }

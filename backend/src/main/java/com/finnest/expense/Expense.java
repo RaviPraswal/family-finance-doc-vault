@@ -77,6 +77,19 @@ public class Expense extends TenantBaseEntity {
     @Column(columnDefinition = "TEXT")
     private String customFieldsData;
 
+    /** For a loan EMI: the part of this payment that reduced the loan. Kept so an edit or delete reverses exactly. */
+    @Column(precision = 15, scale = 2)
+    private java.math.BigDecimal loanPrincipalPortion;
+
+    /** For a loan EMI: the part of this payment that was interest. */
+    @Column(precision = 15, scale = 2)
+    private java.math.BigDecimal loanInterestPortion;
+
+    public java.math.BigDecimal getLoanPrincipalPortion() { return loanPrincipalPortion; }
+    public void setLoanPrincipalPortion(java.math.BigDecimal v) { this.loanPrincipalPortion = v; }
+    public java.math.BigDecimal getLoanInterestPortion() { return loanInterestPortion; }
+    public void setLoanInterestPortion(java.math.BigDecimal v) { this.loanInterestPortion = v; }
+
     public BigDecimal getAmount() {
         return amount;
     }

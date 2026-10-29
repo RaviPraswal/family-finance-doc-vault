@@ -178,6 +178,12 @@ public class ExpenseController {
             projectExpenseRepository.deleteAllByExpenseId(expense.getId());
         }
 
+        if (isAdd) {
+            // Portions are always recomputed; never trust values sent by the browser.
+            expense.setLoanPrincipalPortion(null);
+            expense.setLoanInterestPortion(null);
+        }
+
         java.math.BigDecimal amount = expense.getAmount();
         if (amount == null) return;
 
@@ -218,13 +224,22 @@ public class ExpenseController {
                 if (outstanding == null) outstanding = java.math.BigDecimal.ZERO;
                 if (isAdd) {
                     if (isDebit) {
-                        loan.setOutstandingAmount(outstanding.subtract(amount));
+                        // EMI paid: only the principal part reduces the loan; the rest is interest.
+                        long days = daysSincePreviousEmi(loan.getId(), expense);
+                        com.finnest.portfolio.LoanMath.Split split = com.finnest.portfolio.LoanMath.split(
+                                loan.getInterestMethod(), outstanding, loan.getInterestRate(), amount, days);
+                        expense.setLoanPrincipalPortion(split.principal());
+                        expense.setLoanInterestPortion(split.interest());
+                        loan.setOutstandingAmount(outstanding.subtract(split.principal()));
                     } else {
                         loan.setOutstandingAmount(outstanding.add(amount));
                     }
                 } else {
                     if (isDebit) {
-                        loan.setOutstandingAmount(outstanding.add(amount));
+                        // Reverse exactly what was applied. Older rows without a stored split used the full amount.
+                        java.math.BigDecimal applied = expense.getLoanPrincipalPortion() != null
+                                ? expense.getLoanPrincipalPortion() : amount;
+                        loan.setOutstandingAmount(outstanding.add(applied));
                     } else {
                         loan.setOutstandingAmount(outstanding.subtract(amount));
                     }
@@ -260,19 +275,27 @@ public class ExpenseController {
             if (lending != null) {
                 java.math.BigDecimal plAmount = lending.getAmount();
                 if (plAmount == null) plAmount = java.math.BigDecimal.ZERO;
+                if (lending.getPrincipalAmount() == null) {
+                    // First movement on an older record: remember what was owed before this change.
+                    lending.setPrincipalAmount(plAmount.add(lending.getRepaidAmount()));
+                }
                 boolean isTaken = "TAKEN".equalsIgnoreCase(lending.getType());
                 boolean reducesLending = (isTaken && isDebit) || (!isTaken && !isDebit);
                 if (isAdd) {
                     if (reducesLending) {
                         lending.setAmount(plAmount.subtract(amount));
+                        lending.setRepaidAmount(lending.getRepaidAmount().add(amount));
                     } else {
                         lending.setAmount(plAmount.add(amount));
+                        lending.setPrincipalAmount(lending.getPrincipalAmount().add(amount));
                     }
                 } else {
                     if (reducesLending) {
                         lending.setAmount(plAmount.add(amount));
+                        lending.setRepaidAmount(lending.getRepaidAmount().subtract(amount).max(java.math.BigDecimal.ZERO));
                     } else {
                         lending.setAmount(plAmount.subtract(amount));
+                        lending.setPrincipalAmount(lending.getPrincipalAmount().subtract(amount));
                     }
                 }
                 peerLendingRepository.save(lending);
@@ -401,5 +424,14 @@ public class ExpenseController {
                 expense.setLinkedCreditCard(card);
             }
         }
+    }
+
+    /** Days between this payment and the previous one on the same loan; 30 when there is no earlier payment. */
+    private long daysSincePreviousEmi(UUID loanId, Expense expense) {
+        if (expense.getExpenseDate() == null) return 30;
+        UUID self = expense.getId() != null ? expense.getId() : new UUID(0L, 0L);
+        return repository.findFirstByLinkedLoanIdAndIdNotAndExpenseDateBeforeOrderByExpenseDateDesc(loanId, self, expense.getExpenseDate())
+                .map(prev -> java.time.temporal.ChronoUnit.DAYS.between(prev.getExpenseDate(), expense.getExpenseDate()))
+                .orElse(30L);
     }
 }

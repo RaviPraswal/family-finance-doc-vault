@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
-import { useThemeStore } from './store/themeStore';
+import { useThemeStore, applySkin } from './store/themeStore';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -40,6 +40,11 @@ const ProtectedRoute = ({ children }: { children: ReactNode }) => {
 
 function App() {
   const theme = useThemeStore((state) => state.theme);
+  const skin = useThemeStore((state) => state.skin);
+
+  useEffect(() => {
+    applySkin(skin);
+  }, [skin]);
 
   useEffect(() => {
     if (theme === 'dark') {

@@ -1,0 +1,228 @@
+/*
+ * Liquid Glass skin.
+ * Every rule here is scoped under html.skin-liquid, so the Classic look is untouched
+ * whenever the skin is off. Light mode = "Pearl", dark mode = "Aurora night".
+ * Design reference: the "FinNest Liquid Glass" design canvas.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap');
+
+/* ---------- Tokens: Pearl (light) ---------- */
+html.skin-liquid {
+  --background: 216 63% 95%;
+  --foreground: 236 41% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 236 41% 15%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 236 41% 15%;
+  --primary: 234 76% 61%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 232 40% 92%;
+  --secondary-foreground: 236 41% 15%;
+  --muted: 232 40% 92%;
+  --muted-foreground: 233 24% 41%;
+  --accent: 189 86% 37%;
+  --accent-foreground: 0 0% 100%;
+  --border: 232 45% 88%;
+  --input: 232 30% 86%;
+  --ring: 189 86% 37%;
+  --radius: 1.25rem;
+
+  --lg-a1: #5161e8;
+  --lg-a2: #0e93b3;
+  --lg-a3: #7c4deb;
+  --lg-glass: rgba(255, 255, 255, 0.62);
+  --lg-glass2: rgba(255, 255, 255, 0.28);
+  --lg-edge: rgba(255, 255, 255, 0.85);
+  --lg-hi: rgba(255, 255, 255, 1);
+  --lg-shadow: rgba(76, 86, 170, 0.28);
+  --lg-track: rgba(40, 50, 110, 0.08);
+  --lg-bg1: #e8f0fb;
+  --lg-bg2: #e6e1fa;
+}
+
+/* ---------- Tokens: Aurora night (dark) ---------- */
+html.skin-liquid.dark {
+  --background: 229 64% 6%;
+  --foreground: 228 100% 97%;
+  --card: 229 50% 12%;
+  --card-foreground: 228 100% 97%;
+  --popover: 229 50% 12%;
+  --popover-foreground: 228 100% 97%;
+  --primary: 234 100% 74%;
+  --primary-foreground: 233 60% 12%;
+  --secondary: 230 35% 20%;
+  --secondary-foreground: 228 100% 97%;
+  --muted: 230 35% 20%;
+  --muted-foreground: 228 42% 77%;
+  --accent: 188 80% 62%;
+  --accent-foreground: 233 60% 12%;
+  --border: 230 32% 27%;
+  --input: 230 32% 30%;
+  --ring: 188 80% 62%;
+
+  --lg-a1: #7c8cff;
+  --lg-a2: #4fd8eb;
+  --lg-a3: #b58cff;
+  --lg-glass: rgba(255, 255, 255, 0.10);
+  --lg-glass2: rgba(255, 255, 255, 0.03);
+  --lg-edge: rgba(255, 255, 255, 0.16);
+  --lg-hi: rgba(255, 255, 255, 0.40);
+  --lg-shadow: rgba(2, 6, 23, 0.6);
+  --lg-track: rgba(255, 255, 255, 0.08);
+  --lg-bg1: #050918;
+  --lg-bg2: #0d1546;
+}
+
+/* ---------- Ground, type ---------- */
+html.skin-liquid body {
+  font-family: 'Manrope', system-ui, sans-serif;
+  background: radial-gradient(1000px 700px at 12% -10%, var(--lg-bg2), transparent 60%),
+    linear-gradient(160deg, var(--lg-bg1), var(--lg-bg2));
+  background-attachment: fixed;
+}
+html.skin-liquid h1,
+html.skin-liquid h2,
+html.skin-liquid h3,
+html.skin-liquid .tabular-nums {
+  font-family: 'Sora', 'Manrope', sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* Drifting colour light behind the glass (reuses the existing background layer). */
+html.skin-liquid .mesh-bg {
+  background: transparent;
+}
+html.skin-liquid .mesh-bg::before,
+html.skin-liquid .mesh-bg::after,
+html.skin-liquid .mesh-bg .mesh-blob {
+  filter: blur(20px);
+  opacity: 0.55;
+  animation: lg-drift 24s ease-in-out infinite alternate;
+}
+html.skin-liquid .mesh-bg::before {
+  background: radial-gradient(circle, var(--lg-a3) 0%, transparent 62%);
+}
+html.skin-liquid .mesh-bg::after {
+  background: radial-gradient(circle, var(--lg-a2) 0%, transparent 62%);
+  animation-duration: 29s;
+}
+html.skin-liquid .mesh-bg .mesh-blob {
+  background: radial-gradient(circle, var(--lg-a1) 0%, transparent 62%);
+  animation-duration: 21s;
+}
+/* A glossy floating sphere, like the reference shots. */
+html.skin-liquid body::after {
+  content: '';
+  position: fixed;
+  right: 7%;
+  top: 14%;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+  background: radial-gradient(circle at 32% 28%, #fff 0, rgba(255, 255, 255, 0.7) 8%, var(--lg-a2) 30%, var(--lg-a1) 62%, transparent 72%);
+  animation: lg-bob 9s ease-in-out infinite alternate;
+}
+
+/* ---------- Glass surfaces ---------- */
+html.skin-liquid .glass-panel,
+html.skin-liquid .bg-card,
+html.skin-liquid .bg-popover {
+  position: relative;
+  background: linear-gradient(140deg, var(--lg-glass), var(--lg-glass2)) !important;
+  backdrop-filter: blur(26px) saturate(170%);
+  -webkit-backdrop-filter: blur(26px) saturate(170%);
+  border-color: var(--lg-edge) !important;
+  box-shadow: inset 0 1px 0 var(--lg-hi), 0 28px 60px -30px var(--lg-shadow);
+}
+/* Soft specular sheen across the top-left of each pane. */
+html.skin-liquid .glass-panel::before,
+html.skin-liquid .bg-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 36%);
+  pointer-events: none;
+}
+html.skin-liquid .bg-card {
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s;
+}
+html.skin-liquid .bg-card:hover {
+  box-shadow: inset 0 1px 0 var(--lg-hi), 0 40px 70px -30px var(--lg-shadow);
+}
+/* Modals and overlays */
+html.skin-liquid .bg-background\/80,
+html.skin-liquid .bg-background\/90,
+html.skin-liquid .bg-background\/95 {
+  background: linear-gradient(140deg, var(--lg-glass), var(--lg-glass2)) !important;
+  backdrop-filter: blur(30px) saturate(170%);
+  -webkit-backdrop-filter: blur(30px) saturate(170%);
+}
+/* Wells inside panels: inputs, table stripes, chips */
+html.skin-liquid .bg-background,
+html.skin-liquid .bg-background\/50,
+html.skin-liquid .bg-muted,
+html.skin-liquid .bg-muted\/30,
+html.skin-liquid .bg-muted\/50 {
+  background-color: var(--lg-track) !important;
+}
+
+/* ---------- Shape ---------- */
+html.skin-liquid .rounded-2xl {
+  border-radius: 28px;
+}
+html.skin-liquid .rounded-xl {
+  border-radius: 18px;
+}
+html.skin-liquid .rounded-lg {
+  border-radius: 14px;
+}
+
+/* ---------- Actions ---------- */
+html.skin-liquid button.bg-primary,
+html.skin-liquid a.bg-primary {
+  color: #0b1030;
+  background-image: linear-gradient(120deg, var(--lg-a2), var(--lg-a1) 55%, var(--lg-a3));
+  box-shadow: 0 12px 30px -14px var(--lg-a1);
+}
+html.skin-liquid button.bg-primary:hover,
+html.skin-liquid a.bg-primary:hover {
+  filter: brightness(1.06);
+}
+html.skin-liquid input:focus,
+html.skin-liquid select:focus,
+html.skin-liquid textarea:focus {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--lg-a2) 22%, transparent);
+}
+
+/* ---------- Data ---------- */
+html.skin-liquid .dense-table th {
+  background: var(--lg-track);
+  letter-spacing: 0.06em;
+}
+html.skin-liquid .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--lg-a1) 45%, transparent);
+}
+
+/* ---------- Motion ---------- */
+@keyframes lg-drift {
+  to {
+    transform: translate(60px, -40px) scale(1.12);
+  }
+}
+@keyframes lg-bob {
+  to {
+    transform: translateY(-18px) rotate(8deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html.skin-liquid *,
+  html.skin-liquid *::before,
+  html.skin-liquid *::after,
+  html.skin-liquid body::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

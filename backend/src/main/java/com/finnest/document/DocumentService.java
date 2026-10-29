@@ -309,13 +309,8 @@ public class DocumentService {
         emailService.sendDocumentEmail(targetEmail, subject, body, filePath, document.getName());
     }
 
+    /** Another family's document is reported as not found, so its existence is not revealed. */
     public Document getDocument(UUID documentId) {
-        Document document = repository.findById(documentId)
-                .orElseThrow(() -> new RuntimeException("Document not found"));
-
-        if (!document.getTenantId().equals(UUID.fromString(TenantContext.getCurrentTenant()))) {
-            throw new RuntimeException("Unauthorized");
-        }
-        return document;
+        return com.finnest.common.TenantGuard.owned(repository.findById(documentId));
     }
 }

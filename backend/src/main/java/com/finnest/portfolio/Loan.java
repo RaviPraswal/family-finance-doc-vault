@@ -101,5 +101,8 @@ public class Loan extends TenantBaseEntity {
     private String interestMethod;
 
     public String getInterestMethod() { return interestMethod == null ? LoanMath.MONTHLY : interestMethod; }
-    public void setInterestMethod(String interestMethod) { this.interestMethod = interestMethod; }
+    /** Anything other than DAILY_365 is stored as MONTHLY, so a typo cannot silently change the maths. */
+    public void setInterestMethod(String interestMethod) {
+        this.interestMethod = LoanMath.DAILY_365.equalsIgnoreCase(interestMethod) ? LoanMath.DAILY_365 : LoanMath.MONTHLY;
+    }
 }

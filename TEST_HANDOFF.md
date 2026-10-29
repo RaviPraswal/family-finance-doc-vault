@@ -65,7 +65,7 @@ Typecheck and build must finish with no errors (a "chunks larger than 500 kB" wa
 
 ## 2b. Sprint 2 (money correctness) — on branch `feature/sprint2-money-correctness`
 
-Same commands. Expected totals: backend **25 tests** (12 above + 9 LoanMathTest + 4 MoneyCorrectnessTest), frontend **11 tests**.
+Same commands. Expected totals: backend **26 tests** (12 above + 9 LoanMathTest + 5 MoneyCorrectnessTest), frontend **11 tests**.
 
 | Test | Proves |
 | --- | --- |
@@ -73,6 +73,7 @@ Same commands. Expected totals: backend **25 tests** (12 above + 9 LoanMathTest 
 | MoneyCorrectnessTest.emiReducesPrincipalOnly | ₹16,581 EMI on ₹15 L at 10.5% reduces the loan by ₹3,456; delete restores ₹15 L |
 | MoneyCorrectnessTest.editingEmiResplits | Editing the EMI to ₹20,000 leaves ₹14,93,125 |
 | MoneyCorrectnessTest.dailyLoanUsesDaysSincePreviousEmi | Second EMI 31 days later charges ₹8,350.63 interest |
+| MoneyCorrectnessTest.editingDailyEmiDateUsesPreviousPayment | Moving the second EMI to day 35 charges ₹9,428.13, counted from the first EMI |
 | MoneyCorrectnessTest.udhaarKeepsPrincipal | ₹5,000 repaid on ₹20,000: outstanding 15,000, principal 20,000, repaid 5,000; delete reverses |
 | netWorth.test.ts (6) | Chit before/after prize, udhaar, card dues, deficit projection |
 
@@ -82,7 +83,7 @@ Copy this table filled in, plus the first 30 lines of any failure:
 
 | Suite | Passed | Failed | Notes |
 | --- | --- | --- | --- |
-| Backend (12, or 25 on Sprint 2) | | | |
+| Backend (12, or 26 on Sprint 2) | | | |
 | Frontend tests (5, or 11 on Sprint 2) | | | |
 | Frontend typecheck | | | |
 | Frontend build | | | |

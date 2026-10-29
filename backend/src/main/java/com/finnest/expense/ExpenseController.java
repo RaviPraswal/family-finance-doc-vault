@@ -142,13 +142,15 @@ public class ExpenseController {
             entity.setEditHistory(existing.getEditHistory());
         }
 
+        // Give the edited record its id first, so lookups (e.g. "previous EMI") never mistake it for another payment.
+        entity.setId(id);
+
         // 1. Reverse old transaction effect
         adjustLinkedEntityBalances(existing, false);
 
         // 2. Apply new transaction effect
         adjustLinkedEntityBalances(entity, true);
 
-        entity.setId(id);
         entity.setTenantId(existing.getTenantId());
         entity.setCreatedAt(existing.getCreatedAt());
         entity.setUserId(existing.getUserId());

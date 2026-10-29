@@ -92,6 +92,26 @@ class MoneyCorrectnessTest {
     }
 
     @Test
+    @DisplayName("Moving a daily-loan EMI to a later date counts days from the previous EMI, not from itself")
+    void editingDailyEmiDateUsesPreviousPayment() throws Exception {
+        String loanId = postJson("/api/loans", Map.of("lenderName", "Bank", "outstandingAmount", 1000000, "interestRate", 10.0,
+                "emiAmount", 25000, "interestMethod", "DAILY_365")).get("id").asText();
+        LocalDate first = LocalDate.of(2026, 7, 4);
+        Map<String, Object> e1 = expense(25000, "DEBIT", Map.of("linkedLoan", Map.of("id", loanId)));
+        e1.put("expenseDate", first.toString());
+        postJson("/api/expenses", e1);
+        Map<String, Object> e2 = expense(25000, "DEBIT", Map.of("linkedLoan", Map.of("id", loanId)));
+        e2.put("expenseDate", first.plusDays(31).toString());
+        String secondId = postJson("/api/expenses", e2).get("id").asText();
+
+        e2.put("expenseDate", first.plusDays(35).toString());
+        JsonNode edited = json.readTree(mvc.perform(auth(put("/api/expenses/" + secondId)).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(e2))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        // 35 days on 9,83,219.18 at 10% = 9,428.13 (the bug gave 4 days = 1,077.50)
+        assertThat(new BigDecimal(edited.get("loanInterestPortion").asText())).isEqualByComparingTo("9428.13");
+    }
+
+    @Test
     @DisplayName("Udhaar repayments are tracked; the original amount is kept")
     void udhaarKeepsPrincipal() throws Exception {
         String udhaarId = postJson("/api/peerlendings", Map.of("type", "GIVEN", "personName", "Ramesh", "amount", 20000)).get("id").asText();

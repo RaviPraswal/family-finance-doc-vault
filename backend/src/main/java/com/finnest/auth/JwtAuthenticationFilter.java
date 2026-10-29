@@ -36,13 +36,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
 
         final String authHeader = request.getHeader("Authorization");
+
+        try {
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+            authenticateAndContinue(request, response, filterChain, authHeader);
+        } finally {
+            // The family context comes only from the verified token and never outlives the request.
+            TenantContext.clear();
+        }
+    }
+
+    private void authenticateAndContinue(HttpServletRequest request, HttpServletResponse response,
+                                         FilterChain filterChain, String authHeader) throws ServletException, IOException {
         final String jwt;
         final String userEmail;
-
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            filterChain.doFilter(request, response);
-            return;
-        }
 
         try {
             jwt = authHeader.substring(7);

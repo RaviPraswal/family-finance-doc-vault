@@ -12,9 +12,18 @@ import java.util.UUID;
 public class DepositController {
 
     private final DepositRepository repository;
+    private final BankAccountRepository bankAccountRepository;
 
-    public DepositController(DepositRepository repository) {
+    public DepositController(DepositRepository repository, BankAccountRepository bankAccountRepository) {
         this.repository = repository;
+        this.bankAccountRepository = bankAccountRepository;
+    }
+
+    /** A linked bank account must belong to the same family. */
+    private void guardLinkedAccount(Deposit entity) {
+        if (entity.getLinkedAccount() != null && entity.getLinkedAccount().getId() != null) {
+            entity.setLinkedAccount(com.finnest.common.TenantGuard.owned(bankAccountRepository.findById(entity.getLinkedAccount().getId())));
+        }
     }
 
     @GetMapping
@@ -31,6 +40,7 @@ public class DepositController {
     @PostMapping
     public ResponseEntity<Deposit> create(@RequestBody Deposit entity) {
         entity.setTenantId(UUID.fromString(TenantContext.getCurrentTenant()));
+        guardLinkedAccount(entity);
         return ResponseEntity.ok(repository.save(entity));
     }
 
@@ -44,6 +54,7 @@ public class DepositController {
             throw new RuntimeException("Unauthorized");
         }
         entity.setId(id);
+        guardLinkedAccount(entity);
         entity.setTenantId(existing.getTenantId());
         entity.setCreatedAt(existing.getCreatedAt());
         entity.setUserId(existing.getUserId());

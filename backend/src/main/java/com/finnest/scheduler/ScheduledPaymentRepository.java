@@ -11,4 +11,5 @@ import java.util.UUID;
 public interface ScheduledPaymentRepository extends JpaRepository<ScheduledPayment, UUID> {
     List<ScheduledPayment> findByStatusAndDueDateLessThanEqual(ScheduledPaymentStatus status, LocalDate date);
     List<ScheduledPayment> findByBankAccountIdOrderByDueDateAsc(UUID bankAccountId);
+    List<ScheduledPayment> findAllByTenantIdAndStatusOrderByDueDateAsc(UUID tenantId, ScheduledPaymentStatus status);
 }

@@ -9,7 +9,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+/** Demo login for local development only. Never active unless the "dev" profile is on. */
 @Component
+@org.springframework.context.annotation.Profile("dev")
 public class DatabaseSeeder implements CommandLineRunner {
 
     private final UserRepository userRepository;

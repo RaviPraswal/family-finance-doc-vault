@@ -1,11 +1,15 @@
 package com.finnest.transaction;
 
+import com.finnest.common.TenantGuard;
 import com.finnest.scheduler.ScheduledPayment;
 import com.finnest.scheduler.ScheduledPaymentRepository;
+import com.finnest.scheduler.ScheduledPaymentStatus;
+import com.finnest.user.User;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -22,43 +26,31 @@ public class TransactionController {
     }
 
     @PostMapping("/process-scheduled/{paymentId}")
-    public ResponseEntity<?> processScheduledPaymentManually(@PathVariable UUID paymentId) {
-        // ... (existing code for this) ...
-        Optional<ScheduledPayment> paymentOpt = scheduledPaymentRepository.findById(paymentId);
-        if (paymentOpt.isEmpty()) {
-            return ResponseEntity.notFound().build();
+    public ResponseEntity<?> processScheduledPaymentManually(@PathVariable UUID paymentId,
+                                                             @AuthenticationPrincipal User user) {
+        ScheduledPayment payment = TenantGuard.owned(scheduledPaymentRepository.findById(paymentId));
+        if ("MEMBER".equals(user.getRole()) && !user.getId().equals(payment.getUserId())) {
+            throw new RuntimeException("Unauthorized");
         }
-
-        ScheduledPayment payment = paymentOpt.get();
-
-        // Ensure it hasn't been processed yet
-        if (payment.getStatus() == com.finnest.scheduler.ScheduledPaymentStatus.PROCESSED) {
+        if (payment.getStatus() == ScheduledPaymentStatus.PROCESSED) {
             return ResponseEntity.badRequest().body("Payment has already been processed.");
         }
 
-        try {
-            bankTransactionService.processScheduledPayment(payment);
-            
-            // Check if it failed during processing (e.g., insufficient funds)
-            if (payment.getStatus() == com.finnest.scheduler.ScheduledPaymentStatus.FAILED) {
-                return ResponseEntity.badRequest().body(payment.getFailureReason());
-            }
+        bankTransactionService.processScheduledPayment(payment);
 
-            return ResponseEntity.ok("Payment processed successfully.");
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().body("Failed to process payment: " + e.getMessage());
+        if (payment.getStatus() == ScheduledPaymentStatus.FAILED) {
+            return ResponseEntity.badRequest().body(payment.getFailureReason());
         }
+        return ResponseEntity.ok("Payment processed successfully.");
     }
 
     @GetMapping("/scheduled/pending")
-    public ResponseEntity<?> getPendingScheduledPayments() {
-        // Just return all pending for the mock/simplicity, 
-        // in real life we would filter by TenantId
-        java.util.List<ScheduledPayment> payments = scheduledPaymentRepository.findAll()
-            .stream()
-            .filter(p -> p.getStatus() == com.finnest.scheduler.ScheduledPaymentStatus.PENDING)
-            .sorted(java.util.Comparator.comparing(ScheduledPayment::getDueDate))
-            .toList();
+    public ResponseEntity<List<ScheduledPayment>> getPendingScheduledPayments(@AuthenticationPrincipal User user) {
+        List<ScheduledPayment> payments = scheduledPaymentRepository
+                .findAllByTenantIdAndStatusOrderByDueDateAsc(TenantGuard.currentTenant(), ScheduledPaymentStatus.PENDING);
+        if ("MEMBER".equals(user.getRole())) {
+            payments = payments.stream().filter(p -> user.getId().equals(p.getUserId())).toList();
+        }
         return ResponseEntity.ok(payments);
     }
 }

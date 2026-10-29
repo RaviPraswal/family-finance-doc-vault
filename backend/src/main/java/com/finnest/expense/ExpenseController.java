@@ -186,7 +186,7 @@ public class ExpenseController {
 
         // Adjust bank account
         if (expense.getLinkedAccount() != null && expense.getLinkedAccount().getId() != null) {
-            com.finnest.portfolio.BankAccount account = bankAccountRepository.findById(expense.getLinkedAccount().getId()).orElse(null);
+            com.finnest.portfolio.BankAccount account = com.finnest.common.TenantGuard.ownedOrNull(bankAccountRepository.findById(expense.getLinkedAccount().getId()));
             if (account != null) {
                 java.math.BigDecimal currentBalance = account.getCurrentBalance();
                 if (currentBalance == null) {
@@ -212,7 +212,7 @@ public class ExpenseController {
 
         // Adjust Loan
         if (expense.getLinkedLoan() != null && expense.getLinkedLoan().getId() != null) {
-            com.finnest.portfolio.Loan loan = loanRepository.findById(expense.getLinkedLoan().getId()).orElse(null);
+            com.finnest.portfolio.Loan loan = com.finnest.common.TenantGuard.ownedOrNull(loanRepository.findById(expense.getLinkedLoan().getId()));
             if (loan != null) {
                 java.math.BigDecimal outstanding = loan.getOutstandingAmount();
                 if (outstanding == null) outstanding = java.math.BigDecimal.ZERO;
@@ -236,7 +236,7 @@ public class ExpenseController {
 
         // Adjust Chit Fund
         if (expense.getLinkedChitFund() != null && expense.getLinkedChitFund().getId() != null) {
-            com.finnest.portfolio.ChitFund chit = chitFundRepository.findById(expense.getLinkedChitFund().getId()).orElse(null);
+            com.finnest.portfolio.ChitFund chit = com.finnest.common.TenantGuard.ownedOrNull(chitFundRepository.findById(expense.getLinkedChitFund().getId()));
             if (chit != null) {
                 Integer pending = chit.getPendingInstallments();
                 if (pending == null) pending = 0;
@@ -256,7 +256,7 @@ public class ExpenseController {
 
         // Adjust Peer Lending
         if (expense.getLinkedPeerLending() != null && expense.getLinkedPeerLending().getId() != null) {
-            com.finnest.portfolio.PeerLending lending = peerLendingRepository.findById(expense.getLinkedPeerLending().getId()).orElse(null);
+            com.finnest.portfolio.PeerLending lending = com.finnest.common.TenantGuard.ownedOrNull(peerLendingRepository.findById(expense.getLinkedPeerLending().getId()));
             if (lending != null) {
                 java.math.BigDecimal plAmount = lending.getAmount();
                 if (plAmount == null) plAmount = java.math.BigDecimal.ZERO;
@@ -282,7 +282,7 @@ public class ExpenseController {
 
         // Adjust Investment
         if (expense.getLinkedInvestment() != null && expense.getLinkedInvestment().getId() != null) {
-            com.finnest.portfolio.Investment investment = investmentRepository.findById(expense.getLinkedInvestment().getId()).orElse(null);
+            com.finnest.portfolio.Investment investment = com.finnest.common.TenantGuard.ownedOrNull(investmentRepository.findById(expense.getLinkedInvestment().getId()));
             if (investment != null) {
                 java.math.BigDecimal invested = investment.getInvestedAmount();
                 if (invested == null) invested = java.math.BigDecimal.ZERO;
@@ -306,7 +306,7 @@ public class ExpenseController {
 
         // Adjust Deposit
         if (expense.getLinkedDeposit() != null && expense.getLinkedDeposit().getId() != null) {
-            com.finnest.portfolio.Deposit deposit = depositRepository.findById(expense.getLinkedDeposit().getId()).orElse(null);
+            com.finnest.portfolio.Deposit deposit = com.finnest.common.TenantGuard.ownedOrNull(depositRepository.findById(expense.getLinkedDeposit().getId()));
             if (deposit != null) {
                 boolean isRD = "RD".equalsIgnoreCase(deposit.getType());
                 if (isRD) {
@@ -349,7 +349,7 @@ public class ExpenseController {
 
         // Adjust Project
         if (expense.getLinkedProject() != null && expense.getLinkedProject().getId() != null) {
-            com.finnest.portfolio.Project project = projectRepository.findById(expense.getLinkedProject().getId()).orElse(null);
+            com.finnest.portfolio.Project project = com.finnest.common.TenantGuard.ownedOrNull(projectRepository.findById(expense.getLinkedProject().getId()));
             if (project != null) {
                 if (isAdd) {
                     com.finnest.portfolio.ProjectExpense pe = new com.finnest.portfolio.ProjectExpense();
@@ -369,7 +369,7 @@ public class ExpenseController {
 
         // Adjust Income Source
         if (expense.getLinkedIncomeSource() != null && expense.getLinkedIncomeSource().getId() != null) {
-            com.finnest.portfolio.IncomeSource income = incomeSourceRepository.findById(expense.getLinkedIncomeSource().getId()).orElse(null);
+            com.finnest.portfolio.IncomeSource income = com.finnest.common.TenantGuard.ownedOrNull(incomeSourceRepository.findById(expense.getLinkedIncomeSource().getId()));
             if (income != null) {
                 java.math.BigDecimal currentAmount = income.getAmount();
                 if (currentAmount == null) currentAmount = java.math.BigDecimal.ZERO;
@@ -396,7 +396,7 @@ public class ExpenseController {
 
         // Adjust Credit Card
         if (expense.getLinkedCreditCard() != null && expense.getLinkedCreditCard().getId() != null) {
-            com.finnest.portfolio.CreditCard card = creditCardRepository.findById(expense.getLinkedCreditCard().getId()).orElse(null);
+            com.finnest.portfolio.CreditCard card = com.finnest.common.TenantGuard.ownedOrNull(creditCardRepository.findById(expense.getLinkedCreditCard().getId()));
             if (card != null) {
                 expense.setLinkedCreditCard(card);
             }

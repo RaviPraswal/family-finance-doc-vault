@@ -13,9 +13,12 @@ export default function Ledger() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isParsing, setIsParsing] = useState(false);
   const [parsedSchedule, setParsedSchedule] = useState<any>(null);
+  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
+  const [scheduleAccountId, setScheduleAccountId] = useState('');
 
   useEffect(() => {
     fetchPayments();
+    apiClient('/api/bankaccounts').then((data) => setBankAccounts(Array.isArray(data) ? data : [])).catch(() => setBankAccounts([]));
   }, []);
 
   const fetchPayments = async () => {
@@ -132,10 +135,26 @@ export default function Ledger() {
                     <p><span className="text-muted-foreground">Institution:</span> {parsedSchedule.institutionName}</p>
                     <p><span className="text-muted-foreground">Installments Found:</span> {parsedSchedule.installments?.length}</p>
                   </div>
+                  <label className="block mt-4 text-xs font-bold text-muted-foreground uppercase" htmlFor="schedule-account">Pay from bank account</label>
+                  <select
+                    id="schedule-account"
+                    value={scheduleAccountId}
+                    onChange={(e) => setScheduleAccountId(e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">Select an account</option>
+                    {bankAccounts.map((a) => (
+                      <option key={a.id} value={a.id}>{a.bankName || a.name} {a.accountNumber ? `••${String(a.accountNumber).slice(-4)}` : ''}</option>
+                    ))}
+                  </select>
                   <button 
                     onClick={async () => {
                       try {
-                        await apiClient('/api/ai/save-schedule', {
+                        if (!scheduleAccountId) {
+                          toast.error('Choose an account', 'Select which bank account these payments come from.');
+                          return;
+                        }
+                        await apiClient(`/api/ai/save-schedule?bankAccountId=${encodeURIComponent(scheduleAccountId)}`, {
                           method: 'POST',
                           body: JSON.stringify(parsedSchedule)
                         });

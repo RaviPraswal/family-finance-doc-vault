@@ -23,6 +23,26 @@ public class JwtService {
     @Value("${jwt.expiration}")
     private long jwtExpiration;
 
+    /** Fails startup when JWT_SECRET is missing or too short, instead of silently using a weak key. */
+    @jakarta.annotation.PostConstruct
+    void validateSecret() {
+        if (secretKey == null || secretKey.isBlank()) {
+            throw new IllegalStateException("JWT_SECRET is not set. Generate one with: openssl rand -base64 48");
+        }
+        byte[] keyBytes;
+        try {
+            keyBytes = Decoders.BASE64.decode(secretKey);
+        } catch (RuntimeException e) {
+            throw new IllegalStateException("JWT_SECRET must be Base64 encoded (openssl rand -base64 48)", e);
+        }
+        if (keyBytes.length < 32) {
+            throw new IllegalStateException("JWT_SECRET must decode to at least 32 bytes (openssl rand -base64 48)");
+        }
+        if (secretKey.startsWith("404E635266556A586E32")) {
+            throw new IllegalStateException("JWT_SECRET is the public sample key that was committed to GitHub. Generate a new one.");
+        }
+    }
+
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }

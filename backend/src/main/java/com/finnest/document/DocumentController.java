@@ -131,9 +131,13 @@ public class DocumentController {
     }
 
     @GetMapping("/{id}/thumbnail")
-    public ResponseEntity<Resource> getThumbnail(@PathVariable UUID id) {
+    public ResponseEntity<Resource> getThumbnail(@PathVariable UUID id, @AuthenticationPrincipal User user) {
+        checkDocAccess(id, user);
         Resource resource = service.loadThumbnailAsResource(id);
-        
+        if (resource == null) {
+            return ResponseEntity.notFound().build();
+        }
+
         return ResponseEntity.ok()
                 .contentType(MediaType.IMAGE_PNG)
                 .body(resource);

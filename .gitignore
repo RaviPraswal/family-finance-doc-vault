@@ -26,3 +26,12 @@ Thumbs.db
 
 # Secrets
 backend/src/main/resources/application-secrets.yml
+
+# Personal finance workbooks and exports (real account data)
+*.xlsx
+*.xls
+*.csv
+!frontend/**/*.csv
+
+# Local upload storage
+uploads/

@@ -33,12 +33,13 @@ public class DocumentService {
     public DocumentService(DocumentRepository repository, 
                            DocumentVersionRepository versionRepository,
                            com.finnest.ai.AiExtractionService aiExtractionService,
-                           com.finnest.notification.EmailService emailService) {
+                           com.finnest.notification.EmailService emailService,
+                           @org.springframework.beans.factory.annotation.Value("${app.storage.path:uploads}") String storagePath) {
         this.repository = repository;
         this.versionRepository = versionRepository;
         this.aiExtractionService = aiExtractionService;
         this.emailService = emailService;
-        this.fileStorageLocation = Paths.get("uploads").toAbsolutePath().normalize();
+        this.fileStorageLocation = Paths.get(storagePath).toAbsolutePath().normalize();
 
         try {
             Files.createDirectories(this.fileStorageLocation);
@@ -48,7 +49,25 @@ public class DocumentService {
         }
     }
 
+    private static final java.util.Set<String> ALLOWED_TYPES =
+            java.util.Set.of("application/pdf", "image/png", "image/jpeg", "image/webp");
+
+    /** Detects the real type from the file bytes only (ignoring the name and the browser's claim) and rejects anything else. */
+    private String detectAllowedType(MultipartFile file) {
+        try (java.io.InputStream in = file.getInputStream()) {
+            String detected = new org.apache.tika.Tika().detect(in);
+            if (!ALLOWED_TYPES.contains(detected)) {
+                throw new com.finnest.common.UnsupportedFileTypeException(
+                        "Only PDF, PNG, JPEG and WEBP files can be uploaded (this file is " + detected + ").");
+            }
+            return detected;
+        } catch (IOException e) {
+            throw new RuntimeException("Could not read the uploaded file", e);
+        }
+    }
+
     public Document storeFile(MultipartFile file, String category, String description, List<String> tags, String associatedEntityType, UUID associatedEntityId, User user) {
+        String detectedType = detectAllowedType(file);
         String originalFileName = file.getOriginalFilename() == null ? "unknown" : file.getOriginalFilename();
         String fileName = UUID.randomUUID().toString() + "_" + originalFileName.replaceAll("[^a-zA-Z0-9.-]", "_");
 
@@ -58,7 +77,7 @@ public class DocumentService {
 
             Document document = new Document();
             document.setName(originalFileName);
-            document.setType(file.getContentType());
+            document.setType(detectedType);
             document.setSize(file.getSize());
             document.setCategory(category);
             document.setDescription(description);
@@ -95,6 +114,7 @@ public class DocumentService {
             throw new RuntimeException("Unauthorized");
         }
 
+        String detectedType = detectAllowedType(file);
         String originalFileName = file.getOriginalFilename() == null ? "unknown" : file.getOriginalFilename();
         String fileName = UUID.randomUUID().toString() + "_" + originalFileName.replaceAll("[^a-zA-Z0-9.-]", "_");
 
@@ -105,7 +125,7 @@ public class DocumentService {
             int nextVersion = document.getVersions().size() + 1;
             
             document.setName(originalFileName); // Update name if different
-            document.setType(file.getContentType());
+            document.setType(detectedType);
             document.setSize(file.getSize());
             document.setFilePath(fileName);
             document.setUpdatedAt(java.time.LocalDateTime.now());

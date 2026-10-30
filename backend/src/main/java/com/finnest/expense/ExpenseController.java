@@ -142,13 +142,15 @@ public class ExpenseController {
             entity.setEditHistory(existing.getEditHistory());
         }
 
+        // Give the edited record its id first, so lookups (e.g. "previous EMI") never mistake it for another payment.
+        entity.setId(id);
+
         // 1. Reverse old transaction effect
         adjustLinkedEntityBalances(existing, false);
 
         // 2. Apply new transaction effect
         adjustLinkedEntityBalances(entity, true);
 
-        entity.setId(id);
         entity.setTenantId(existing.getTenantId());
         entity.setCreatedAt(existing.getCreatedAt());
         entity.setUserId(existing.getUserId());
@@ -178,6 +180,12 @@ public class ExpenseController {
             projectExpenseRepository.deleteAllByExpenseId(expense.getId());
         }
 
+        if (isAdd) {
+            // Portions are always recomputed; never trust values sent by the browser.
+            expense.setLoanPrincipalPortion(null);
+            expense.setLoanInterestPortion(null);
+        }
+
         java.math.BigDecimal amount = expense.getAmount();
         if (amount == null) return;
 
@@ -186,7 +194,7 @@ public class ExpenseController {
 
         // Adjust bank account
         if (expense.getLinkedAccount() != null && expense.getLinkedAccount().getId() != null) {
-            com.finnest.portfolio.BankAccount account = bankAccountRepository.findById(expense.getLinkedAccount().getId()).orElse(null);
+            com.finnest.portfolio.BankAccount account = com.finnest.common.TenantGuard.ownedOrNull(bankAccountRepository.findById(expense.getLinkedAccount().getId()));
             if (account != null) {
                 java.math.BigDecimal currentBalance = account.getCurrentBalance();
                 if (currentBalance == null) {
@@ -212,19 +220,28 @@ public class ExpenseController {
 
         // Adjust Loan
         if (expense.getLinkedLoan() != null && expense.getLinkedLoan().getId() != null) {
-            com.finnest.portfolio.Loan loan = loanRepository.findById(expense.getLinkedLoan().getId()).orElse(null);
+            com.finnest.portfolio.Loan loan = com.finnest.common.TenantGuard.ownedOrNull(loanRepository.findById(expense.getLinkedLoan().getId()));
             if (loan != null) {
                 java.math.BigDecimal outstanding = loan.getOutstandingAmount();
                 if (outstanding == null) outstanding = java.math.BigDecimal.ZERO;
                 if (isAdd) {
                     if (isDebit) {
-                        loan.setOutstandingAmount(outstanding.subtract(amount));
+                        // EMI paid: only the principal part reduces the loan; the rest is interest.
+                        long days = daysSincePreviousEmi(loan.getId(), expense);
+                        com.finnest.portfolio.LoanMath.Split split = com.finnest.portfolio.LoanMath.split(
+                                loan.getInterestMethod(), outstanding, loan.getInterestRate(), amount, days);
+                        expense.setLoanPrincipalPortion(split.principal());
+                        expense.setLoanInterestPortion(split.interest());
+                        loan.setOutstandingAmount(outstanding.subtract(split.principal()));
                     } else {
                         loan.setOutstandingAmount(outstanding.add(amount));
                     }
                 } else {
                     if (isDebit) {
-                        loan.setOutstandingAmount(outstanding.add(amount));
+                        // Reverse exactly what was applied. Older rows without a stored split used the full amount.
+                        java.math.BigDecimal applied = expense.getLoanPrincipalPortion() != null
+                                ? expense.getLoanPrincipalPortion() : amount;
+                        loan.setOutstandingAmount(outstanding.add(applied));
                     } else {
                         loan.setOutstandingAmount(outstanding.subtract(amount));
                     }
@@ -236,7 +253,7 @@ public class ExpenseController {
 
         // Adjust Chit Fund
         if (expense.getLinkedChitFund() != null && expense.getLinkedChitFund().getId() != null) {
-            com.finnest.portfolio.ChitFund chit = chitFundRepository.findById(expense.getLinkedChitFund().getId()).orElse(null);
+            com.finnest.portfolio.ChitFund chit = com.finnest.common.TenantGuard.ownedOrNull(chitFundRepository.findById(expense.getLinkedChitFund().getId()));
             if (chit != null) {
                 Integer pending = chit.getPendingInstallments();
                 if (pending == null) pending = 0;
@@ -256,23 +273,31 @@ public class ExpenseController {
 
         // Adjust Peer Lending
         if (expense.getLinkedPeerLending() != null && expense.getLinkedPeerLending().getId() != null) {
-            com.finnest.portfolio.PeerLending lending = peerLendingRepository.findById(expense.getLinkedPeerLending().getId()).orElse(null);
+            com.finnest.portfolio.PeerLending lending = com.finnest.common.TenantGuard.ownedOrNull(peerLendingRepository.findById(expense.getLinkedPeerLending().getId()));
             if (lending != null) {
                 java.math.BigDecimal plAmount = lending.getAmount();
                 if (plAmount == null) plAmount = java.math.BigDecimal.ZERO;
+                if (lending.getPrincipalAmount() == null) {
+                    // First movement on an older record: remember what was owed before this change.
+                    lending.setPrincipalAmount(plAmount.add(lending.getRepaidAmount()));
+                }
                 boolean isTaken = "TAKEN".equalsIgnoreCase(lending.getType());
                 boolean reducesLending = (isTaken && isDebit) || (!isTaken && !isDebit);
                 if (isAdd) {
                     if (reducesLending) {
                         lending.setAmount(plAmount.subtract(amount));
+                        lending.setRepaidAmount(lending.getRepaidAmount().add(amount));
                     } else {
                         lending.setAmount(plAmount.add(amount));
+                        lending.setPrincipalAmount(lending.getPrincipalAmount().add(amount));
                     }
                 } else {
                     if (reducesLending) {
                         lending.setAmount(plAmount.add(amount));
+                        lending.setRepaidAmount(lending.getRepaidAmount().subtract(amount).max(java.math.BigDecimal.ZERO));
                     } else {
                         lending.setAmount(plAmount.subtract(amount));
+                        lending.setPrincipalAmount(lending.getPrincipalAmount().subtract(amount));
                     }
                 }
                 peerLendingRepository.save(lending);
@@ -282,7 +307,7 @@ public class ExpenseController {
 
         // Adjust Investment
         if (expense.getLinkedInvestment() != null && expense.getLinkedInvestment().getId() != null) {
-            com.finnest.portfolio.Investment investment = investmentRepository.findById(expense.getLinkedInvestment().getId()).orElse(null);
+            com.finnest.portfolio.Investment investment = com.finnest.common.TenantGuard.ownedOrNull(investmentRepository.findById(expense.getLinkedInvestment().getId()));
             if (investment != null) {
                 java.math.BigDecimal invested = investment.getInvestedAmount();
                 if (invested == null) invested = java.math.BigDecimal.ZERO;
@@ -306,7 +331,7 @@ public class ExpenseController {
 
         // Adjust Deposit
         if (expense.getLinkedDeposit() != null && expense.getLinkedDeposit().getId() != null) {
-            com.finnest.portfolio.Deposit deposit = depositRepository.findById(expense.getLinkedDeposit().getId()).orElse(null);
+            com.finnest.portfolio.Deposit deposit = com.finnest.common.TenantGuard.ownedOrNull(depositRepository.findById(expense.getLinkedDeposit().getId()));
             if (deposit != null) {
                 boolean isRD = "RD".equalsIgnoreCase(deposit.getType());
                 if (isRD) {
@@ -349,7 +374,7 @@ public class ExpenseController {
 
         // Adjust Project
         if (expense.getLinkedProject() != null && expense.getLinkedProject().getId() != null) {
-            com.finnest.portfolio.Project project = projectRepository.findById(expense.getLinkedProject().getId()).orElse(null);
+            com.finnest.portfolio.Project project = com.finnest.common.TenantGuard.ownedOrNull(projectRepository.findById(expense.getLinkedProject().getId()));
             if (project != null) {
                 if (isAdd) {
                     com.finnest.portfolio.ProjectExpense pe = new com.finnest.portfolio.ProjectExpense();
@@ -369,7 +394,7 @@ public class ExpenseController {
 
         // Adjust Income Source
         if (expense.getLinkedIncomeSource() != null && expense.getLinkedIncomeSource().getId() != null) {
-            com.finnest.portfolio.IncomeSource income = incomeSourceRepository.findById(expense.getLinkedIncomeSource().getId()).orElse(null);
+            com.finnest.portfolio.IncomeSource income = com.finnest.common.TenantGuard.ownedOrNull(incomeSourceRepository.findById(expense.getLinkedIncomeSource().getId()));
             if (income != null) {
                 java.math.BigDecimal currentAmount = income.getAmount();
                 if (currentAmount == null) currentAmount = java.math.BigDecimal.ZERO;
@@ -396,10 +421,19 @@ public class ExpenseController {
 
         // Adjust Credit Card
         if (expense.getLinkedCreditCard() != null && expense.getLinkedCreditCard().getId() != null) {
-            com.finnest.portfolio.CreditCard card = creditCardRepository.findById(expense.getLinkedCreditCard().getId()).orElse(null);
+            com.finnest.portfolio.CreditCard card = com.finnest.common.TenantGuard.ownedOrNull(creditCardRepository.findById(expense.getLinkedCreditCard().getId()));
             if (card != null) {
                 expense.setLinkedCreditCard(card);
             }
         }
+    }
+
+    /** Days between this payment and the previous one on the same loan; 30 when there is no earlier payment. */
+    private long daysSincePreviousEmi(UUID loanId, Expense expense) {
+        if (expense.getExpenseDate() == null) return 30;
+        UUID self = expense.getId() != null ? expense.getId() : new UUID(0L, 0L);
+        return repository.findFirstByLinkedLoanIdAndIdNotAndExpenseDateBeforeOrderByExpenseDateDesc(loanId, self, expense.getExpenseDate())
+                .map(prev -> java.time.temporal.ChronoUnit.DAYS.between(prev.getExpenseDate(), expense.getExpenseDate()))
+                .orElse(30L);
     }
 }

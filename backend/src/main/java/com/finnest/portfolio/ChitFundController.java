@@ -12,9 +12,18 @@ import java.util.UUID;
 public class ChitFundController {
 
     private final ChitFundRepository repository;
+    private final BankAccountRepository bankAccountRepository;
 
-    public ChitFundController(ChitFundRepository repository) {
+    public ChitFundController(ChitFundRepository repository, BankAccountRepository bankAccountRepository) {
         this.repository = repository;
+        this.bankAccountRepository = bankAccountRepository;
+    }
+
+    /** A linked bank account must belong to the same family. */
+    private void guardLinkedAccount(ChitFund entity) {
+        if (entity.getLinkedAccount() != null && entity.getLinkedAccount().getId() != null) {
+            entity.setLinkedAccount(com.finnest.common.TenantGuard.owned(bankAccountRepository.findById(entity.getLinkedAccount().getId())));
+        }
     }
 
     @GetMapping
@@ -31,6 +40,7 @@ public class ChitFundController {
     @PostMapping
     public ResponseEntity<ChitFund> create(@RequestBody ChitFund entity) {
         entity.setTenantId(UUID.fromString(TenantContext.getCurrentTenant()));
+        guardLinkedAccount(entity);
         return ResponseEntity.ok(repository.save(entity));
     }
 
@@ -44,6 +54,7 @@ public class ChitFundController {
             throw new RuntimeException("Unauthorized");
         }
         entity.setId(id);
+        guardLinkedAccount(entity);
         entity.setTenantId(existing.getTenantId());
         entity.setCreatedAt(existing.getCreatedAt());
         entity.setUserId(existing.getUserId());

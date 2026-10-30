@@ -22,7 +22,10 @@ import java.util.UUID;
 public final class CommitmentPlanner {
 
     private static final ObjectMapper JSON = new ObjectMapper();
-    private static final DateTimeFormatter MONTH_ABBR = DateTimeFormatter.ofPattern("MMM", Locale.ENGLISH);
+    /** "Oct", "OCT" and "oct" all read as October. */
+    private static final DateTimeFormatter MONTH_ABBR = new java.time.format.DateTimeFormatterBuilder()
+            .parseCaseInsensitive().appendPattern("MMM").toFormatter(Locale.ENGLISH);
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CommitmentPlanner.class);
     private static final String CHIT_UNPAID = "Open / Pending";
 
     private CommitmentPlanner() {}
@@ -87,8 +90,7 @@ public final class CommitmentPlanner {
     static BigDecimal chitDue(ChitFund chit, YearMonth month, YearMonth currentMonth) {
         String schedule = chit.getPaymentSchedule();
         if (schedule == null || schedule.isBlank()) {
-            boolean pending = chit.getPendingInstallments() == null || chit.getPendingInstallments() > 0;
-            return pending && chit.getMonthlyInstallment() != null ? chit.getMonthlyInstallment() : BigDecimal.ZERO;
+            return plainInstallment(chit);
         }
         BigDecimal due = BigDecimal.ZERO;
         try {
@@ -100,9 +102,16 @@ public final class CommitmentPlanner {
                 if (counts) due = due.add(row.path("actualAmount").decimalValue());
             }
         } catch (Exception e) {
-            throw new IllegalStateException("Unreadable payment schedule for chit " + chit.getId(), e);
+            // One badly typed row must not break the whole month plan: fall back to the plain installment.
+            log.warn("Unreadable payment schedule for chit {}; using the monthly installment instead", chit.getId(), e);
+            return plainInstallment(chit);
         }
         return due;
+    }
+
+    private static BigDecimal plainInstallment(ChitFund chit) {
+        boolean pending = chit.getPendingInstallments() == null || chit.getPendingInstallments() > 0;
+        return pending && chit.getMonthlyInstallment() != null ? chit.getMonthlyInstallment() : BigDecimal.ZERO;
     }
 
     private static String source(Commitment c) {

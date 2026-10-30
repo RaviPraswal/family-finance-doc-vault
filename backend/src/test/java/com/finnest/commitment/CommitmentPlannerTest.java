@@ -102,4 +102,25 @@ class CommitmentPlannerTest {
         assertEquals(EntryKind.INCOME, EntryKind.of("MANUAL_ENTRY", "CREDIT", "Salary", true));
         assertEquals(EntryKind.EXPENSE, EntryKind.of(null, "DEBIT", "Fuel / Petrol", true));
     }
+
+    @Test
+    void chitMonthNamesAreReadInAnyCase() {
+        ChitFund chit = new ChitFund();
+        chit.setPaymentSchedule("""
+                [{"calendarMonth":"OCT","calendarYear":2026,"actualAmount":11650,"status":"Open / Pending"}]""");
+        Commitment line = c("Chit C", Group.MUST_PAY, "0", Frequency.MONTHLY);
+        line.setLinkedChitFund(chit);
+        assertEquals(0, new BigDecimal("11650").compareTo(CommitmentPlanner.amountFor(line, OCT, OCT)));
+    }
+
+    @Test
+    void unreadableChitScheduleFallsBackToMonthlyInstallment() {
+        ChitFund chit = new ChitFund();
+        chit.setMonthlyInstallment(new BigDecimal("10000"));
+        chit.setPendingInstallments(5);
+        chit.setPaymentSchedule("not json");
+        Commitment line = c("Chit B", Group.MUST_PAY, "0", Frequency.MONTHLY);
+        line.setLinkedChitFund(chit);
+        assertEquals(0, new BigDecimal("10000").compareTo(CommitmentPlanner.amountFor(line, OCT, OCT)));
+    }
 }

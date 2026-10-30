@@ -81,30 +81,22 @@ public class CommitmentController {
         return list;
     }
 
+    /** Another family's commitment is reported as not found, like every other record (see TenantGuard). */
     private Commitment owned(UUID id, User user) {
-        Commitment existing = repository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Commitment not found"));
-        if (!existing.getTenantId().equals(UUID.fromString(TenantContext.getCurrentTenant()))
-                || ("MEMBER".equals(user.getRole()) && !user.getId().equals(existing.getUserId()))) {
+        Commitment existing = com.finnest.common.TenantGuard.owned(repository.findById(id));
+        if ("MEMBER".equals(user.getRole()) && !user.getId().equals(existing.getUserId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Unauthorized");
         }
         return existing;
     }
 
-    /** Links arrive as {id} stubs from the client; load them and refuse another tenant's records. */
+    /** Links arrive as {id} stubs from the client; load them and refuse another family's records (404). */
     private void resolveLinks(Commitment c) {
-        UUID tenant = UUID.fromString(TenantContext.getCurrentTenant());
         if (c.getLinkedLoan() != null) {
-            var loan = loanRepository.findById(c.getLinkedLoan().getId())
-                    .filter(l -> tenant.equals(l.getTenantId()))
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown loan"));
-            c.setLinkedLoan(loan);
+            c.setLinkedLoan(com.finnest.common.TenantGuard.owned(loanRepository.findById(c.getLinkedLoan().getId())));
         }
         if (c.getLinkedChitFund() != null) {
-            var chit = chitFundRepository.findById(c.getLinkedChitFund().getId())
-                    .filter(f -> tenant.equals(f.getTenantId()))
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown chit fund"));
-            c.setLinkedChitFund(chit);
+            c.setLinkedChitFund(com.finnest.common.TenantGuard.owned(chitFundRepository.findById(c.getLinkedChitFund().getId())));
         }
     }
 

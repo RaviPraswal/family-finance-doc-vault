@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import AuthImage from '../components/AuthImage';
 import { useAuthStore } from '../store/authStore';
 import { apiClient } from '../api/client';
 import { useNavigate } from 'react-router-dom';
@@ -426,16 +427,15 @@ export default function Dashboard() {
                 <li key={doc.id} className={`relative p-4 hover:bg-muted/50 transition-colors flex items-center justify-between group ${getExpiryStyles(doc.expiryDate)}`}>
                   {getExpiryIndicator(doc.expiryDate)}
                   <div className="flex items-center gap-4 flex-1 pr-4 min-w-0 z-10">
-                    <div className="h-16 w-16 bg-muted rounded-md border border-border overflow-hidden shrink-0 flex items-center justify-center relative cursor-pointer" onClick={() => setPreviewDocument({id: doc.id, name: doc.name, type: doc.type})}>
+                    <div id={`thumb-${doc.id}`} className="h-16 w-16 bg-muted rounded-md border border-border overflow-hidden shrink-0 flex items-center justify-center relative cursor-pointer" onClick={() => setPreviewDocument({id: doc.id, name: doc.name, type: doc.type})}>
                       {/* Using the image as a background to handle object-cover easily */}
-                      <img 
+                      <AuthImage
                         src={`/api/documents/${doc.id}/thumbnail`}
-                        alt=""
                         className="h-full w-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          e.currentTarget.parentElement?.classList.add('bg-primary/10');
-                          e.currentTarget.parentElement?.querySelector('svg')?.classList.remove('hidden');
+                        onError={() => {
+                          const el = document.getElementById(`thumb-${doc.id}`);
+                          el?.classList.add('bg-primary/10');
+                          el?.querySelector('svg')?.classList.remove('hidden');
                         }}
                       />
                       <FileText className="h-8 w-8 text-primary hidden absolute" />

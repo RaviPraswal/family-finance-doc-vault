@@ -15,7 +15,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: ${SHOW_SQL:false}
     properties:
       hibernate:
         format_sql: false
@@ -47,6 +47,11 @@ server:
   port: ${PORT:8080}
 
 jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+  secret: ${JWT_SECRET:}
   expiration: 900000 # 15 minutes
   refresh-expiration: 2592000000 # 30 days
+
+app:
+  storage:
+    # Point this at a persistent disk in production (e.g. a Render disk mount). Local default: ./uploads
+    path: ${FILE_STORAGE_PATH:uploads}

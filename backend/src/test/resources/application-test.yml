@@ -1,0 +1,13 @@
+# Test-only settings. The JWT secret below is random and used only by the automated tests.
+jwt:
+  secret: tJHDQM2BsO1ZPubkVce7XxxFAIC785zLpgqwUgTAiNKbdZYgFyz4tEM/ipESy1WI
+spring:
+  ai:
+    openai:
+      api-key: test-key-not-used
+  mail:
+    username: test@example.com
+    password: not-used
+app:
+  storage:
+    path: target/test-uploads

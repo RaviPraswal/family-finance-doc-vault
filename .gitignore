@@ -27,5 +27,15 @@ Thumbs.db
 # Secrets
 backend/src/main/resources/application-secrets.yml
 
-# Personal finance workbooks (real account data) - never commit
+# Personal finance workbooks and exports (real account data)
 *.xlsx
+*.xls
+*.csv
+!frontend/**/*.csv
+
+# Local upload storage
+uploads/
+
+# Bank statement exports (real account data)
+sbi_*
+*statement*.json

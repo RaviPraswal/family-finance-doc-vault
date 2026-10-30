@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { chitPosition, netWorthOf, projectNetWorth } from '../lib/netWorth';
 import { Link } from 'react-router-dom';
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
@@ -81,6 +82,8 @@ export default function PortfolioOverview() {
   const [deposits, setDeposits] = useState<any[]>([]);
   const [loans, setLoans] = useState<any[]>([]);
   const [chitFunds, setChitFunds] = useState<any[]>([]);
+  const [creditCards, setCreditCards] = useState<any[]>([]);
+  const [peerLendings, setPeerLendings] = useState<any[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
   const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
@@ -95,7 +98,7 @@ export default function PortfolioOverview() {
       const withTimeout = (p: Promise<any>, ms = 5000) =>
         Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error('timeout')), ms))]);
 
-      const [banks, invs, lns, deps, gls, exps, incs, insRes, chits] = await Promise.all([
+      const [banks, invs, lns, deps, gls, exps, incs, insRes, chits, cards, peers] = await Promise.all([
         withTimeout(apiClient('/api/bankaccounts')).catch(() => []),
         withTimeout(apiClient('/api/investments')).catch(() => []),
         withTimeout(apiClient('/api/loans')).catch(() => []),
@@ -105,6 +108,8 @@ export default function PortfolioOverview() {
         withTimeout(apiClient('/api/incomesources')).catch(() => []),
         withTimeout(apiClient('/api/ai/recommendations'), 3000).catch(() => []),
         withTimeout(apiClient('/api/chitfunds')).catch(() => []),
+        withTimeout(apiClient('/api/creditcards')).catch(() => []),
+        withTimeout(apiClient('/api/peerlendings')).catch(() => []),
       ]);
 
       setBankAccounts(Array.isArray(banks) ? banks : []);
@@ -116,6 +121,8 @@ export default function PortfolioOverview() {
       setIncomeSources(Array.isArray(incs) ? incs : []);
       setInsights(Array.isArray(insRes) ? insRes : []);
       setChitFunds(Array.isArray(chits) ? chits : []);
+      setCreditCards(Array.isArray(cards) ? cards : []);
+      setPeerLendings(Array.isArray(peers) ? peers : []);
     } catch (e) {
       console.error('Dashboard fetch failed', e);
     } finally {
@@ -163,11 +170,8 @@ export default function PortfolioOverview() {
     const rds = deposits.filter(d => d.type === 'RD')
       .reduce((s, d) => s + (d.totalDeposited || d.principalAmount || 0), 0);
 
-    // Chit funds: paid installments value
-    const chits = chitFunds.reduce((s, c) => {
-      const paid = (c.durationMonths || 0) - (c.pendingInstallments || 0);
-      return s + paid * (c.monthlyInstallment || 0);
-    }, 0);
+    // Chit funds: paid-in value before the prize; nothing after it (owed installments are a liability).
+    const chits = chitFunds.reduce((s, c) => s + chitPosition(c).asset, 0);
 
     return { mf, gold, silver, stocks, fds, rds, chits, other };
   }, [investments, deposits, chitFunds]);
@@ -182,7 +186,16 @@ export default function PortfolioOverview() {
     [loans]
   );
 
-  const netWorth = bankBalance + totalInvested - totalLoans;
+  const position = useMemo(() => netWorthOf({
+    bankBalance,
+    investmentsExChits: totalInvested - investmentBreakdown.chits,
+    chits: chitFunds,
+    loanOutstanding: totalLoans,
+    cardOutstanding: creditCards.reduce((s, c) => s + Math.max(0, c.currentOutstanding || 0), 0),
+    udhaar: peerLendings,
+  }), [bankBalance, totalInvested, investmentBreakdown, chitFunds, totalLoans, creditCards, peerLendings]);
+
+  const netWorth = position.netWorth;
 
   /** ③ 3-Month average cash flow engine */
   const cashFlow = useMemo(() => {
@@ -259,9 +272,9 @@ export default function PortfolioOverview() {
   const projection = useMemo(() => {
     const now = new Date();
     const monthsRemaining = 12 - (now.getMonth() + 1); // months left after this month
-    const projectedSavings = Math.max(0, cashFlow.netSurplus * monthsRemaining);
+    // A deficit is projected as a decline, not hidden as zero.
+    const { projected: projectedNetWorth, change: projectedSavings } = projectNetWorth(netWorth, cashFlow.netSurplus, monthsRemaining);
     const projectedExpenses = cashFlow.totalOutflow * monthsRemaining;
-    const projectedNetWorth = netWorth + projectedSavings;
     return { monthsRemaining, projectedSavings, projectedExpenses, projectedNetWorth };
   }, [cashFlow, netWorth]);
 
@@ -483,7 +496,7 @@ export default function PortfolioOverview() {
 
             <div className="flex justify-between items-center border-t border-border/30 pt-2 mt-1">
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Total Portfolio</span>
-              <span className="text-sm font-bold text-foreground font-mono">{fmt(netWorth + totalLoans)}</span>
+              <span className="text-sm font-bold text-foreground font-mono">{fmt(position.assets)}</span>
             </div>
           </div>
         </div>
@@ -574,8 +587,8 @@ export default function PortfolioOverview() {
             <div className="grid grid-cols-1 gap-3">
               <div className="p-3 rounded-xl bg-emerald-500/8 border border-emerald-500/20 flex justify-between items-center">
                 <div>
-                  <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Savings Added</p>
-                  <p className="text-lg font-bold text-emerald-600 font-mono">{fmt(projection.projectedSavings)}</p>
+                  <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">{projection.projectedSavings < 0 ? 'Shortfall' : 'Savings Added'}</p>
+                  <p className={`text-lg font-bold font-mono ${projection.projectedSavings < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>{fmt(projection.projectedSavings)}</p>
                 </div>
                 <TrendingUp className="h-8 w-8 text-emerald-500/30" />
               </div>

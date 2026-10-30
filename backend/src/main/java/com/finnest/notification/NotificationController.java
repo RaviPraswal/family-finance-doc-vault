@@ -32,11 +32,10 @@ public class NotificationController {
 
     @PutMapping("/{id}/read")
     public ResponseEntity<?> markAsRead(@PathVariable UUID id) {
-        return repository.findById(id).map(notification -> {
-            notification.setRead(true);
-            repository.save(notification);
-            return ResponseEntity.ok().build();
-        }).orElse(ResponseEntity.notFound().build());
+        var notification = com.finnest.common.TenantGuard.owned(repository.findById(id));
+        notification.setRead(true);
+        repository.save(notification);
+        return ResponseEntity.ok().build();
     }
 
     @PutMapping("/read-all")

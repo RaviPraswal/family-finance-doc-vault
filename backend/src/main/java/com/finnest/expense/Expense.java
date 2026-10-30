@@ -77,6 +77,21 @@ public class Expense extends TenantBaseEntity {
     @Column(columnDefinition = "TEXT")
     private String customFieldsData;
 
+    // Derived on every save so no writer can leave it stale; clients may read but not set it.
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private EntryKind kind;
+
+    @PrePersist
+    @PreUpdate
+    void deriveKind() {
+        kind = EntryKind.of(madeAgainst, type, category, linkedAccount != null);
+    }
+
+    public EntryKind getKind() {
+        return kind;
+    }
+
     public BigDecimal getAmount() {
         return amount;
     }

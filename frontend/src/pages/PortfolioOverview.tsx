@@ -31,6 +31,7 @@ interface Expense {
   description: string;
   expenseDate: string;
   type: 'DEBIT' | 'CREDIT';
+  kind?: string;
 }
 
 interface IncomeSource {
@@ -68,15 +69,6 @@ function avgAcrossMonths(map: Map<string, number>): number {
   if (map.size === 0) return 0;
   const total = Array.from(map.values()).reduce((a, b) => a + b, 0);
   return total / map.size;
-}
-
-// Categories to EXCLUDE from "living expenses" (they are savings/investment outflows)
-const SAVINGS_CATS = ['investment', 'loan', 'emi', 'chit', 'fd', 'rd', 'saving',
-  'transfer', 'deposit', 'insurance premium', 'mutual fund', 'sip'];
-
-function isSavingsCat(cat: string) {
-  const lc = (cat || '').toLowerCase();
-  return SAVINGS_CATS.some(s => lc.includes(s));
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -208,7 +200,7 @@ export default function PortfolioOverview() {
       if (e.type === 'CREDIT' && (e.category || '').toLowerCase() === 'salary') {
         salaryByMonth.set(key, (salaryByMonth.get(key) || 0) + (e.amount || 0));
       }
-      if (e.type === 'DEBIT' && !isSavingsCat(e.category)) {
+      if (e.type === 'DEBIT' && e.kind === 'EXPENSE') {
         debitByMonth.set(key, (debitByMonth.get(key) || 0) + (e.amount || 0));
       }
     });

@@ -25,6 +25,11 @@ public class GlobalExceptionHandler {
                 .body("Database integrity violation: " + (msg != null ? msg : exc.getMessage()));
     }
 
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public ResponseEntity<String> handleResponseStatus(org.springframework.web.server.ResponseStatusException exc) {
+        return ResponseEntity.status(exc.getStatusCode()).body(exc.getReason());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<String> handleGeneralException(Exception exc) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

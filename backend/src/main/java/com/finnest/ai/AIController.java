@@ -41,12 +41,8 @@ public class AIController {
             return ResponseEntity.badRequest().build();
         }
 
-        try {
-            ParsedScheduleResponse response = documentParsingService.parseScheduleDocument(file.getResource());
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
-        }
+        // Failures reach GlobalExceptionHandler, which logs them with a reference id.
+        return ResponseEntity.ok(documentParsingService.parseScheduleDocument(file.getResource()));
     }
 
     /**

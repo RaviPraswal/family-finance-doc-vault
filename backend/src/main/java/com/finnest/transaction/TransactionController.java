@@ -35,6 +35,9 @@ public class TransactionController {
         if (payment.getStatus() == ScheduledPaymentStatus.PROCESSED) {
             return ResponseEntity.badRequest().body("Payment has already been processed.");
         }
+        if (payment.getStatus() == ScheduledPaymentStatus.CANCELLED) {
+            return ResponseEntity.badRequest().body("This payment was cancelled.");
+        }
 
         bankTransactionService.processScheduledPayment(payment);
 

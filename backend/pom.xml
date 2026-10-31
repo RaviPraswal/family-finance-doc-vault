@@ -137,6 +137,12 @@
 
 	<dependencyManagement>
 		<dependencies>
+			<!-- Tika 2.9 needs commons-compress 1.26+; Testcontainers would otherwise pull 1.24 onto the test classpath. -->
+			<dependency>
+				<groupId>org.apache.commons</groupId>
+				<artifactId>commons-compress</artifactId>
+				<version>1.26.2</version>
+			</dependency>
 			<dependency>
 				<groupId>org.springframework.ai</groupId>
 				<artifactId>spring-ai-bom</artifactId>

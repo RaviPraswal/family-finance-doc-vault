@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { overdueUdhaar } from '../lib/alerts';
 import AuthImage from '../components/AuthImage';
 import { useAuthStore } from '../store/authStore';
 import { apiClient } from '../api/client';
@@ -217,22 +218,7 @@ export default function Dashboard() {
     });
 
     // 2. Overdue Peer Lendings (Udhaar)
-    peerLendings.forEach(p => {
-      if (p.dueDate && p.amount > 0) {
-        const due = new Date(p.dueDate);
-        due.setHours(0, 0, 0, 0);
-        if (due < today) {
-          alerts.push({
-            type: 'OVERDUE',
-            urgency: 1,
-            title: `Overdue Udhaar: ${p.personName}`,
-            message: `${p.type === 'TAKEN' ? 'Pay back' : 'Collect'} ₹${p.amount.toLocaleString()} - was due on ${due.toLocaleDateString()}.`,
-            actionLabel: 'View Udhaar',
-            actionPath: '/peer-lending'
-          });
-        }
-      }
-    });
+    alerts.push(...overdueUdhaar(peerLendings, today));
 
     // 3. Overdue Loan EMIs (Active loans where current month's EMI is unpaid past 5th day)
     loans.forEach(l => {

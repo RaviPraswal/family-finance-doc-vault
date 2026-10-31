@@ -75,7 +75,7 @@ class Sprint3SecurityTest {
     @DisplayName("S3-02: B cannot read the almirah location or custody log of A's document")
     void physicalVaultReadsAreFamilyScoped() throws Exception {
         String docA = uploadPng(tokenA);
-        postJson("/api/physical-documents/" + docA + "/assign", tokenA, Map.of("almirahId", "Main Almirah", "shelf", "Shelf 1", "isOriginalPresent", true));
+        postJson("/api/physical-documents/" + docA + "/assign", tokenA, Map.of("almirahId", "Main Almirah", "shelf", "Shelf 1", "originalPresent", true));
 
         mvc.perform(auth(get("/api/physical-documents/" + docA), tokenB)).andExpect(status().isNotFound());
         mvc.perform(auth(get("/api/physical-documents/" + docA + "/logs"), tokenB)).andExpect(status().isNotFound());

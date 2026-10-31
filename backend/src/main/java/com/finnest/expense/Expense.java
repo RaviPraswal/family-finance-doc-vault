@@ -77,6 +77,50 @@ public class Expense extends TenantBaseEntity {
     @Column(columnDefinition = "TEXT")
     private String customFieldsData;
 
+    // Derived on every save so no writer can leave it stale; clients may read but not set it.
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private EntryKind kind;
+
+    @PrePersist
+    @PreUpdate
+    void deriveKind() {
+        kind = kindFromLinks();
+        if (kind == null) {
+            kind = EntryKind.of(madeAgainst, type, category, linkedAccount != null);
+        }
+    }
+
+    /**
+     * What a row is linked to says more than its category text: an EMI typed as "EMI" or
+     * "Home loan" is still a loan payment. Returns null when no link decides it.
+     */
+    private EntryKind kindFromLinks() {
+        boolean debit = !"CREDIT".equalsIgnoreCase(type);
+        if (linkedPeerLending != null) return EntryKind.LENDING;
+        if (linkedLoan != null) return debit ? EntryKind.LOAN_PAYMENT : EntryKind.TRANSFER; // a disbursal is borrowed, not earned
+        if (linkedInvestment != null || linkedDeposit != null || linkedChitFund != null) return EntryKind.INVESTMENT;
+        if (linkedCreditCard != null && linkedAccount != null) return EntryKind.TRANSFER;  // paying the card bill
+        return null;
+    }
+
+    public EntryKind getKind() {
+        return kind;
+    }
+
+    /** For a loan EMI: the part of this payment that reduced the loan. Kept so an edit or delete reverses exactly. */
+    @Column(precision = 15, scale = 2)
+    private java.math.BigDecimal loanPrincipalPortion;
+
+    /** For a loan EMI: the part of this payment that was interest. */
+    @Column(precision = 15, scale = 2)
+    private java.math.BigDecimal loanInterestPortion;
+
+    public java.math.BigDecimal getLoanPrincipalPortion() { return loanPrincipalPortion; }
+    public void setLoanPrincipalPortion(java.math.BigDecimal v) { this.loanPrincipalPortion = v; }
+    public java.math.BigDecimal getLoanInterestPortion() { return loanInterestPortion; }
+    public void setLoanInterestPortion(java.math.BigDecimal v) { this.loanInterestPortion = v; }
+
     public BigDecimal getAmount() {
         return amount;
     }

@@ -185,6 +185,24 @@ class FamilyIsolationTest {
         assertThat(body).doesNotContain("Exception").doesNotContain("java.");
     }
 
+    @Test
+    @DisplayName("Commitments: B cannot see, edit, or link A's records")
+    void commitmentsAreFamilyScoped() throws Exception {
+        String loanA = postJson("/api/loans", tokenA, Map.of("lenderName", "A Lender", "outstandingAmount", 500000, "emiAmount", 16581)).get("id").asText();
+        String rentA = postJson("/api/commitments", tokenA, Map.of("name", "Rent", "group", "MUST_PAY", "amount", 15000, "frequency", "MONTHLY")).get("id").asText();
+
+        assertThat(getJson("/api/commitments", tokenB).toString()).doesNotContain(rentA);
+        mvc.perform(auth(put("/api/commitments/" + rentA), tokenB).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"hacked\",\"group\":\"MUST_PAY\",\"amount\":1,\"frequency\":\"MONTHLY\"}"))
+                .andExpect(status().isNotFound());
+        mvc.perform(auth(post("/api/commitments"), tokenB).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(Map.of("name", "EMI", "group", "MUST_PAY", "frequency", "MONTHLY", "linkedLoan", Map.of("id", loanA)))))
+                .andExpect(status().isNotFound());
+
+        // A's own plan includes the rent
+        assertThat(getJson("/api/commitments/plan", tokenA).get("mustPay").decimalValue()).isEqualByComparingTo("15000");
+    }
+
     // ---------- helpers ----------
 
     private String register(String family, String email) throws Exception {

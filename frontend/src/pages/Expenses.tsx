@@ -66,6 +66,7 @@ interface Expense {
   description: string;
   type: string;
   madeAgainst: string;
+  kind?: 'INCOME' | 'EXPENSE' | 'INVESTMENT' | 'LOAN_PAYMENT' | 'LENDING' | 'TRANSFER';
   linkedAccount?: BankAccount;
   linkedLoan?: Loan;
   linkedChitFund?: ChitFund;
@@ -414,6 +415,11 @@ export default function Expenses() {
 
   const netCashflow = totalCreditsThisMonth - totalDebitsThisMonth;
 
+  // Real consumption: excludes SIPs/RD/chits, EMIs, udhaar and self-transfers that debits include.
+  const spentThisMonth = currentMonthTransactions
+    .filter(e => e.kind === 'EXPENSE')
+    .reduce((sum, e) => sum + (e.type === 'CREDIT' ? -e.amount : e.amount), 0);
+
   const uniqueCategories = Array.from(new Set(expenses.map(e => e.category)));
 
   // Exporters
@@ -733,7 +739,7 @@ export default function Expenses() {
                       'Salary', 'Side Income', 'Groceries', 'Rent', 'Utilities', 
                       'Fuel / Petrol', 'Travel / Toll', 'Taxes / ITR', 'Loan EMI', 
                       'Chit Fund Installment', 'Peer Lending (Udhaar)', 'Investment', 
-                      'Insurance', 'Medical', 'Food / Dining', 'Electronics', 'Others'
+                      'Insurance', 'Medical', 'Food / Dining', 'Electronics', 'Self Transfer', 'Others'
                     ])).map((c, i) => (
                       <option key={i} value={c} />
                     ))}
@@ -802,6 +808,12 @@ export default function Expenses() {
             <div className="glass-panel p-4 rounded-xl border border-border/50 bg-gradient-to-br from-red-500/5 to-transparent">
               <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Outflow (Debits) This Month</span>
               <p className="text-base font-mono font-bold text-red-500 mt-1">₹{totalDebitsThisMonth.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+            </div>
+
+            <div className="glass-panel p-4 rounded-xl border border-border/50 bg-gradient-to-br from-orange-500/5 to-transparent">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Actually Spent This Month</span>
+              <p className="text-base font-mono font-bold text-orange-500 mt-1">₹{spentThisMonth.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+              <span className="text-[10px] text-muted-foreground">Excludes investments, EMIs, udhaar and transfers</span>
             </div>
 
             <div className={`glass-panel p-4 rounded-xl border border-border/50 bg-gradient-to-br ${netCashflow >= 0 ? 'from-green-500/5' : 'from-red-500/5'} to-transparent`}>

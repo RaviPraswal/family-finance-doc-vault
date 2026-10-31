@@ -35,3 +35,7 @@ backend/src/main/resources/application-secrets.yml
 
 # Local upload storage
 uploads/
+
+# Bank statement exports (real account data)
+sbi_*
+*statement*.json

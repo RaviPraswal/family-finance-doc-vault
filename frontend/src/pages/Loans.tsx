@@ -14,6 +14,7 @@ interface Loan {
   outstandingAmount: number;
   emiAmount: number;
   interestRate: number;
+  interestMethod?: string;
 }
 
 export default function Loans() {
@@ -29,7 +30,8 @@ export default function Loans() {
     principalAmount: 0,
     outstandingAmount: 0,
     emiAmount: 0,
-    interestRate: 0
+    interestRate: 0,
+    interestMethod: 'MONTHLY'
   });
 
   // Filter States
@@ -78,7 +80,7 @@ export default function Loans() {
         body: JSON.stringify(formData)
       });
       setIsModalOpen(false);
-      setFormData({ lenderName: '', loanType: 'Home Loan', borrowerName: '', principalAmount: 0, outstandingAmount: 0, emiAmount: 0, interestRate: 0 });
+      setFormData({ lenderName: '', loanType: 'Home Loan', borrowerName: '', principalAmount: 0, outstandingAmount: 0, emiAmount: 0, interestRate: 0, interestMethod: 'MONTHLY' });
       toast.success('Loan saved', 'Loan record has been added successfully.');
       fetchLoans();
     } catch (err: any) {
@@ -843,6 +845,13 @@ export default function Loans() {
                 <div>
                   <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Interest Rate (%)</label>
                   <input required type="number" step="0.01" value={formData.interestRate || ''} onChange={e => setFormData({...formData, interestRate: parseFloat(e.target.value)})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm" placeholder="e.g. 8.5" />
+                </div>
+                <div className="col-span-full">
+                  <label htmlFor="interestMethod" className="block text-xs font-bold text-muted-foreground uppercase mb-1">How the bank charges interest</label>
+                  <select id="interestMethod" value={formData.interestMethod || 'MONTHLY'} onChange={e => setFormData({...formData, interestMethod: e.target.value})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm">
+                    <option value="MONTHLY">Monthly: rate ÷ 12 (most banks)</option>
+                    <option value="DAILY_365">Daily: actual days ÷ 365 (check your schedule, e.g. IndusInd)</option>
+                  </select>
                 </div>
               </div>
               <div className="flex justify-end gap-2 mt-6">

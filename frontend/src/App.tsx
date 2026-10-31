@@ -28,6 +28,7 @@ import Goals from './pages/Goals';
 import FamilyMembers from './pages/FamilyMembers';
 import Budgets from './pages/Budgets';
 import QuickLogger from './pages/QuickLogger';
+import Commitments from './pages/Commitments';
 
 // Protected Route wrapper
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
@@ -99,6 +100,7 @@ function App() {
             <Route path="budgets" element={<Budgets />} />
             <Route path="family" element={<FamilyMembers />} />
             <Route path="quick-logger" element={<QuickLogger />} />
+            <Route path="commitments" element={<Commitments />} />
             <Route path="vault" element={<Dashboard />} />
           </Route>
         </Routes>

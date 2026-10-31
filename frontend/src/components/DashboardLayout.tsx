@@ -14,6 +14,7 @@ import {
   Clock,
   Percent,
   Zap,
+  CalendarClock,
   Droplets
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
@@ -25,6 +26,7 @@ const navigation = [
   { name: 'Physical Almirah', href: '/dashboard/physical-vault', icon: Landmark },
   { name: 'Ledger & AI Scheduler', href: '/dashboard/ledger', icon: Clock },
   { name: 'Quick Logger', href: '/dashboard/quick-logger', icon: Zap },
+  { name: 'Monthly Commitments', href: '/dashboard/commitments', icon: CalendarClock },
 
   { name: 'Bank Accounts', href: '/dashboard/bank-accounts', icon: Landmark },
   { name: 'Credit Cards', href: '/dashboard/credit-cards', icon: CreditCard },

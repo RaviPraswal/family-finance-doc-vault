@@ -17,6 +17,19 @@ public class PeerLending extends TenantBaseEntity {
     private LocalDate expectedReturnDate;
     private Boolean settled = false;
 
+    /** What was originally lent or borrowed (plus any top-ups). "amount" stays the amount still outstanding. */
+    @jakarta.persistence.Column(precision = 15, scale = 2)
+    private BigDecimal principalAmount;
+
+    /** Total repaid so far. */
+    @jakarta.persistence.Column(precision = 15, scale = 2)
+    private BigDecimal repaidAmount;
+
+    public BigDecimal getPrincipalAmount() { return principalAmount; }
+    public void setPrincipalAmount(BigDecimal principalAmount) { this.principalAmount = principalAmount; }
+    public BigDecimal getRepaidAmount() { return repaidAmount == null ? BigDecimal.ZERO : repaidAmount; }
+    public void setRepaidAmount(BigDecimal repaidAmount) { this.repaidAmount = repaidAmount; }
+
     public String getType() { return type; }
     public void setType(String type) { this.type = type; }
     public String getPersonName() { return personName; }

@@ -62,6 +62,11 @@ public class GlobalExceptionHandler {
         return serverError(exc);
     }
 
+    @ExceptionHandler(org.springframework.web.server.ResponseStatusException.class)
+    public ResponseEntity<String> handleResponseStatus(org.springframework.web.server.ResponseStatusException exc) {
+        return ResponseEntity.status(exc.getStatusCode()).body(exc.getReason());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<String> handleGeneralException(Exception exc) {
         return serverError(exc);

@@ -14,7 +14,8 @@ import {
   Clock,
   Percent,
   Zap,
-  CalendarClock
+  CalendarClock,
+  Droplets
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore } from '../store/themeStore';
@@ -46,7 +47,7 @@ export default function DashboardLayout() {
   const location = useLocation();
   const logout = useAuthStore((state) => state.logout);
   const currentUser = useAuthStore((state) => state.user);
-  const { theme, toggleTheme } = useThemeStore();
+  const { theme, toggleTheme, skin, toggleSkin } = useThemeStore();
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -111,6 +112,15 @@ export default function DashboardLayout() {
               <><Moon className="mr-3 h-5 w-5" /> Dark Mode</>
             )}
           </button>
+
+          <button
+            onClick={toggleSkin}
+            aria-pressed={skin === 'liquid'}
+            className="flex items-center w-full px-3 py-2 text-sm font-medium text-foreground rounded-xl hover:bg-muted/50 transition-colors"
+          >
+            <Droplets className="mr-3 h-5 w-5" />
+            {skin === 'liquid' ? 'Classic look' : 'Liquid Glass'}
+          </button>
           
           <button
             onClick={logout}
@@ -142,6 +152,14 @@ export default function DashboardLayout() {
             )}
             <button onClick={toggleTheme} className="p-2 text-foreground">
                {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
+            <button
+              onClick={toggleSkin}
+              aria-pressed={skin === 'liquid'}
+              aria-label={skin === 'liquid' ? 'Switch to classic look' : 'Switch to Liquid Glass'}
+              className="p-2 text-foreground"
+            >
+              <Droplets className="h-5 w-5" />
             </button>
             <button onClick={logout} className="text-sm text-destructive font-medium">Logout</button>
           </div>

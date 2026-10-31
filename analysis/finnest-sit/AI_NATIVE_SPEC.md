@@ -884,3 +884,27 @@ Slices Bank, MF, FD/RD, Chits, Gold/Silver, Other (stocks + other); zero slices 
 ### BR-AI-01 — Advisor and schedule parser
 Advisor: all family goals and projects (no MEMBER filter) are sent with the rules "priority-aware reallocation; goals with current ≥ target reroute contributions; warn on many HIGH items"; type ∈ REALLOCATION/WARNING/OPTIMIZATION. Parse-schedule: empty file → 400.
 SUSPECT: the schedule parser never attaches the uploaded file (media line commented out), so the model sees no document; the prompt's type names MUTUAL_FUND_SIP/OTHER don't exist in ReferenceType (SIP_INVESTMENT, ...). Source: B/ai/AdvisorController.java:28-37; B/ai/FinancialAdvisorService.java:25-66; B/ai/DocumentParsingService.java:22-52; B/ai/AIController.java:38-50; B/transaction/ReferenceType.java:3-12
+
+## 7. Sprint 3 resolutions (31 Oct 2026)
+
+These SUSPECT rules now describe fixed behaviour; each fix has a test that failed first (see TESTING_SPRINT3.md).
+
+| Rule | Now | Test |
+| --- | --- | --- |
+| BR-BUD-10 | Deleting another family's budget returns 404 | Sprint3SecurityTest.budgetDeleteIsFamilyScoped |
+| BR-VAULT-07, BR-DOC-11 | Vault location/log and document details are family- and member-scoped | physicalVaultReadsAreFamilyScoped, memberCannotReadOwnersDocument |
+| BR-TEN-09 | Roles OWNER/MEMBER only; last owner cannot be demoted | unknownRoleIsRefused, lastOwnerCannotBeDemoted |
+| BR-AUTH-10, BR-AUTH-14 | Session capped at 30 days; 403 does not log out | sessionCannotBeExtendedForever, apiClient.test.ts |
+| BR-BANK-02, BR-SCH-04, BR-LOAN-10 | Ledger payments post a ledger entry; one balance source for display and checks | ledgerEmiBecomesExpense, ledgerPaymentChecksShownBalance |
+| BR-CHIT-05 | Chit installment paid from the Ledger is counted once | ledgerChitInstallmentCountsOnce |
+| BR-TXN-12 | Amount must be greater than zero | amountsMustBePositive |
+| BR-LOAN-02 | Rates are a percent; V2 migrates old fraction rows | lowRateStaysPercent, LoanMathTest.rateIsAlwaysAPercent |
+| BR-BUD-02, BR-BUD-11 | Budgets count EXPENSE entries only; obligations PENDING only | budgetCountsOnlySpending, obligationsCountOnlyPending |
+| BR-BUD-08, BR-BUD-09 | Alerts from a daily 09:00 job; emails to owners only | budgetSummaryHasNoSideEffects, alertJobNotifiesOnceAndEmailsOwners |
+| BR-NW-05, 08, 09, 11 | Exclusive buckets; divide by 3; side income once; closed loans/matured RDs excluded | cockpit.test.ts |
+| BR-AI-01 | Parser sends PDF text or the image; app type names | parserSendsTheDocument |
+| BR-DOC-06, BR-DOC-07 | Versions max+1; newest-version delete re-points the document | versionNumbersAreNeverReused, deletingLatestVersionKeepsDocumentDownloadable |
+| BR-SCH-03 | Cancelled payments refused (failed ones may be retried after a top-up) | cancelledPaymentCannotBePaid |
+| BR-VAULT-03 | No double check-out | cannotCheckOutTwice |
+| BR-UDH-06 | Overdue udhaar alert reads expectedReturnDate, skips settled | alerts.test.ts |
+| interfaces risks 3, 6, 7, 15 | Create ignores client id/userId; numbers masked; script secrets in env vars; status allow-list | createIgnoresClientId, numbersAreMasked |

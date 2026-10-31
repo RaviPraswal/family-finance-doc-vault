@@ -1,8 +1,18 @@
 import { create } from 'zustand';
 
 type Theme = 'light' | 'dark';
-/** The visual style. "classic" is the original look; "liquid" is Liquid Glass. Independent of light/dark. */
-export type Skin = 'classic' | 'liquid';
+/**
+ * The visual style, independent of light/dark: "classic" is the original look, "liquid" is Liquid Glass,
+ * "royal" is royal blue, purple and magenta glass (Sprint 4).
+ */
+export type Skin = 'classic' | 'liquid' | 'royal';
+export const SKINS: Skin[] = ['classic', 'liquid', 'royal'];
+export const SKIN_LABELS: Record<Skin, string> = { classic: 'Classic', liquid: 'Liquid Glass', royal: 'Royal' };
+
+/** The skin after this one, for a single "change look" button. */
+export function nextSkin(skin: Skin): Skin {
+  return SKINS[(SKINS.indexOf(skin) + 1) % SKINS.length];
+}
 
 interface ThemeState {
   theme: Theme;
@@ -13,9 +23,10 @@ interface ThemeState {
   setSkin: (skin: Skin) => void;
 }
 
-function readSkin(): Skin {
+export function readSkin(): Skin {
   try {
-    return localStorage.getItem('skin') === 'liquid' ? 'liquid' : 'classic';
+    const saved = localStorage.getItem('skin') as Skin | null;
+    return saved && SKINS.includes(saved) ? saved : 'classic';
   } catch {
     return 'classic';
   }
@@ -29,9 +40,10 @@ function saveSkin(skin: Skin) {
   }
 }
 
-/** Adds or removes the class that switches every Liquid Glass style on. Classic styles are never changed. */
+/** Sets the one class that switches a skin's styles on (skin-liquid or skin-royal). Classic has none. */
 export function applySkin(skin: Skin, root: HTMLElement = document.documentElement) {
   root.classList.toggle('skin-liquid', skin === 'liquid');
+  root.classList.toggle('skin-royal', skin === 'royal');
 }
 
 export const useThemeStore = create<ThemeState>((set) => ({
@@ -49,7 +61,7 @@ export const useThemeStore = create<ThemeState>((set) => ({
   },
   toggleSkin: () =>
     set((state) => {
-      const next: Skin = state.skin === 'liquid' ? 'classic' : 'liquid';
+      const next = nextSkin(state.skin);
       saveSkin(next);
       return { skin: next };
     }),

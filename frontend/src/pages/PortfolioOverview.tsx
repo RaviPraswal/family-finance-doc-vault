@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { chitPosition, netWorthOf, projectNetWorth } from '../lib/netWorth';
+import { dotLevels, weeklyNet } from '../lib/dotMatrix';
+import DotMatrix from '../components/DotMatrix';
+import MoneyMapCard from '../components/MoneyMapCard';
+import type { MapHolding, MapMember } from '../lib/moneyMap';
 import { averageOverThreeMonths, monthlyIncome, fixedOutflows, investmentBuckets } from '../lib/cockpit';
 import { Link } from 'react-router-dom';
 import {
@@ -82,6 +86,8 @@ export default function PortfolioOverview() {
   const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
   const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
   const [insights, setInsights] = useState<Recommendation[]>([]);
+  const [members, setMembers] = useState<MapMember[]>([]);
+  const [familyName, setFamilyName] = useState('Family');
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   useEffect(() => { fetchAll(); }, []);
@@ -92,7 +98,7 @@ export default function PortfolioOverview() {
       const withTimeout = (p: Promise<any>, ms = 5000) =>
         Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error('timeout')), ms))]);
 
-      const [banks, invs, lns, deps, gls, exps, incs, insRes, chits, cards, peers] = await Promise.all([
+      const [banks, invs, lns, deps, gls, exps, incs, insRes, chits, cards, peers, fam, profile] = await Promise.all([
         withTimeout(apiClient('/api/bankaccounts')).catch(() => []),
         withTimeout(apiClient('/api/investments')).catch(() => []),
         withTimeout(apiClient('/api/loans')).catch(() => []),
@@ -104,6 +110,8 @@ export default function PortfolioOverview() {
         withTimeout(apiClient('/api/chitfunds')).catch(() => []),
         withTimeout(apiClient('/api/creditcards')).catch(() => []),
         withTimeout(apiClient('/api/peerlendings')).catch(() => []),
+        withTimeout(apiClient('/api/family-members')).catch(() => []),
+        withTimeout(apiClient('/api/family-members/profile')).catch(() => null),
       ]);
 
       setBankAccounts(Array.isArray(banks) ? banks : []);
@@ -117,6 +125,8 @@ export default function PortfolioOverview() {
       setChitFunds(Array.isArray(chits) ? chits : []);
       setCreditCards(Array.isArray(cards) ? cards : []);
       setPeerLendings(Array.isArray(peers) ? peers : []);
+      setMembers(Array.isArray(fam) ? fam : []);
+      if (profile?.familyName) setFamilyName(profile.familyName);
     } catch (e) {
       console.error('Dashboard fetch failed', e);
     } finally {
@@ -125,6 +135,18 @@ export default function PortfolioOverview() {
   };
 
   // ── Computed values (all via useMemo) ─────────────────────────────────────
+
+  /** Weekly money in minus out for the last 24 weeks, as dot-matrix column heights. */
+  const weeklyTrend = useMemo(() => dotLevels(weeklyNet(allExpenses, 24)), [allExpenses]);
+
+  /** Everything a member holds, for the money map. */
+  const holdings = useMemo<MapHolding[]>(() => [
+    ...bankAccounts.map((b) => ({ id: b.id, userId: b.userId, label: b.bankName || b.name || 'Account', kind: 'account' as const })),
+    ...loans.map((l) => ({ id: l.id, userId: l.userId, label: l.lenderName || 'Loan', kind: 'loan' as const })),
+    ...investments.map((i) => ({ id: i.id, userId: i.userId, label: i.name || i.type || 'Investment', kind: 'investment' as const })),
+    ...creditCards.map((c) => ({ id: c.id, userId: c.userId, label: c.cardName || c.bankName || 'Card', kind: 'card' as const })),
+    ...chitFunds.map((c) => ({ id: c.id, userId: c.userId, label: c.organizerName || 'Chit', kind: 'chit' as const })),
+  ], [bankAccounts, loans, investments, creditCards, chitFunds]);
 
   /** ① Bank balance */
   const bankBalance = useMemo(
@@ -312,11 +334,14 @@ export default function PortfolioOverview() {
       {/* ── Top 4-card summary ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Net Worth */}
-        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-lg p-5 text-white relative overflow-hidden col-span-2 lg:col-span-1">
+        <div className="rg-hero bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-lg p-5 text-white relative overflow-hidden col-span-2 lg:col-span-1">
           <div className="relative z-10">
             <p className="text-indigo-100 text-xs font-semibold uppercase tracking-wider mb-1">Total Net Worth</p>
             <h2 className="text-2xl font-bold font-mono">{fmt(netWorth)}</h2>
             <span className="text-[10px] text-indigo-200 mt-1 block">Assets − Liabilities</span>
+            <div className="mt-3">
+              <DotMatrix levels={weeklyTrend} color="#FFFFFF" offColor="rgba(255,255,255,.22)" label="Weekly money in minus out, last 24 weeks" />
+            </div>
           </div>
           <TrendingUp className="absolute -right-4 -bottom-4 h-28 w-28 text-white/10" />
         </div>
@@ -361,6 +386,11 @@ export default function PortfolioOverview() {
       </div>
 
       {/* ── 3-Column main layout ────────────────────────────────────────────── */}
+      {/* ── Family money map ───────────────────────────────────────────────── */}
+      {(members.length > 0 || holdings.length > 0) && (
+        <MoneyMapCard familyName={familyName} members={members} holdings={holdings} />
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
         {/* ═══════════ COLUMN 1: Asset breakdown ════════════════════════════ */}

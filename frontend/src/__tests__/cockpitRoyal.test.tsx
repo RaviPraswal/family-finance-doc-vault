@@ -6,6 +6,7 @@ const apiClient = vi.fn();
 vi.mock('../api/client', () => ({ apiClient: (...args: unknown[]) => apiClient(...args) }));
 
 import PortfolioOverview from '../pages/PortfolioOverview';
+import { useThemeStore } from '../store/themeStore';
 
 const recent = (daysAgo: number) => new Date(Date.now() - daysAgo * 86400000).toISOString().slice(0, 10);
 
@@ -26,6 +27,7 @@ describe('Cockpit: money map and dot charts', () => {
   beforeEach(() => {
     apiClient.mockReset();
     apiClient.mockImplementation((url: string) => Promise.resolve(data[url] ?? []));
+    useThemeStore.setState({ skin: 'royal' });
   });
 
   const renderCockpit = () => render(<MemoryRouter><PortfolioOverview /></MemoryRouter>);
@@ -52,5 +54,19 @@ describe('Cockpit: money map and dot charts', () => {
     renderCockpit();
     const label = await screen.findByText(/total net worth/i);
     expect(label.closest('.rg-hero')).not.toBeNull();
+  });
+
+  it('leaves the existing looks unchanged: no map and no dot chart in Classic or Liquid Glass', async () => {
+    for (const skin of ['classic', 'liquid'] as const) {
+      useThemeStore.setState({ skin });
+      const { unmount } = renderCockpit();
+      await screen.findByText(/total net worth/i);
+      await waitFor(() => expect(apiClient).toHaveBeenCalledWith('/api/expenses'));
+      expect(screen.queryByRole('img', { name: /who holds what/i })).toBeNull();
+      expect(screen.queryByRole('img', { name: /weekly money in minus out/i })).toBeNull();
+      expect(apiClient).not.toHaveBeenCalledWith('/api/family-members');
+      unmount();
+      apiClient.mockClear();
+    }
   });
 });

@@ -4,6 +4,7 @@ import { dotLevels, weeklyNet } from '../lib/dotMatrix';
 import DotMatrix from '../components/DotMatrix';
 import MoneyMapCard from '../components/MoneyMapCard';
 import type { MapHolding, MapMember } from '../lib/moneyMap';
+import { useThemeStore } from '../store/themeStore';
 import { averageOverThreeMonths, monthlyIncome, fixedOutflows, investmentBuckets } from '../lib/cockpit';
 import { Link } from 'react-router-dom';
 import {
@@ -88,9 +89,22 @@ export default function PortfolioOverview() {
   const [insights, setInsights] = useState<Recommendation[]>([]);
   const [members, setMembers] = useState<MapMember[]>([]);
   const [familyName, setFamilyName] = useState('Family');
+  // The money map and dot charts belong to the Royal look only; Classic and Liquid Glass stay as they were.
+  const royal = useThemeStore((state) => state.skin) === 'royal';
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   useEffect(() => { fetchAll(); }, []);
+
+  useEffect(() => {
+    if (!royal) return;
+    Promise.all([
+      apiClient('/api/family-members').catch(() => []),
+      apiClient('/api/family-members/profile').catch(() => null),
+    ]).then(([fam, profile]) => {
+      setMembers(Array.isArray(fam) ? fam : []);
+      if (profile?.familyName) setFamilyName(profile.familyName);
+    });
+  }, [royal]);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -98,7 +112,7 @@ export default function PortfolioOverview() {
       const withTimeout = (p: Promise<any>, ms = 5000) =>
         Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error('timeout')), ms))]);
 
-      const [banks, invs, lns, deps, gls, exps, incs, insRes, chits, cards, peers, fam, profile] = await Promise.all([
+      const [banks, invs, lns, deps, gls, exps, incs, insRes, chits, cards, peers] = await Promise.all([
         withTimeout(apiClient('/api/bankaccounts')).catch(() => []),
         withTimeout(apiClient('/api/investments')).catch(() => []),
         withTimeout(apiClient('/api/loans')).catch(() => []),
@@ -110,8 +124,6 @@ export default function PortfolioOverview() {
         withTimeout(apiClient('/api/chitfunds')).catch(() => []),
         withTimeout(apiClient('/api/creditcards')).catch(() => []),
         withTimeout(apiClient('/api/peerlendings')).catch(() => []),
-        withTimeout(apiClient('/api/family-members')).catch(() => []),
-        withTimeout(apiClient('/api/family-members/profile')).catch(() => null),
       ]);
 
       setBankAccounts(Array.isArray(banks) ? banks : []);
@@ -125,8 +137,6 @@ export default function PortfolioOverview() {
       setChitFunds(Array.isArray(chits) ? chits : []);
       setCreditCards(Array.isArray(cards) ? cards : []);
       setPeerLendings(Array.isArray(peers) ? peers : []);
-      setMembers(Array.isArray(fam) ? fam : []);
-      if (profile?.familyName) setFamilyName(profile.familyName);
     } catch (e) {
       console.error('Dashboard fetch failed', e);
     } finally {
@@ -339,9 +349,9 @@ export default function PortfolioOverview() {
             <p className="text-indigo-100 text-xs font-semibold uppercase tracking-wider mb-1">Total Net Worth</p>
             <h2 className="text-2xl font-bold font-mono">{fmt(netWorth)}</h2>
             <span className="text-[10px] text-indigo-200 mt-1 block">Assets − Liabilities</span>
-            <div className="mt-3">
+            {royal && <div className="mt-3">
               <DotMatrix levels={weeklyTrend} color="#FFFFFF" offColor="rgba(255,255,255,.22)" label="Weekly money in minus out, last 24 weeks" />
-            </div>
+            </div>}
           </div>
           <TrendingUp className="absolute -right-4 -bottom-4 h-28 w-28 text-white/10" />
         </div>
@@ -387,7 +397,7 @@ export default function PortfolioOverview() {
 
       {/* ── 3-Column main layout ────────────────────────────────────────────── */}
       {/* ── Family money map ───────────────────────────────────────────────── */}
-      {(members.length > 0 || holdings.length > 0) && (
+      {royal && (members.length > 0 || holdings.length > 0) && (
         <MoneyMapCard familyName={familyName} members={members} holdings={holdings} />
       )}
 

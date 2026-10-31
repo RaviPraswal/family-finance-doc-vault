@@ -199,7 +199,7 @@ public class BudgetService {
     }
 
     public void deleteBudget(UUID id) {
-        budgetRepository.deleteById(id);
+        budgetRepository.delete(com.finnest.common.TenantGuard.owned(budgetRepository.findById(id)));
     }
 
     public RecurringObligationsResponse getRecurringObligations(String monthStr) {

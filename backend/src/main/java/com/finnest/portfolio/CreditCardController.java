@@ -92,6 +92,9 @@ public class CreditCardController {
         entity.setTenantId(existing.getTenantId());
         entity.setCreatedAt(existing.getCreatedAt());
         entity.setUserId(existing.getUserId());
+        if (entity.getCardNumber() == null || com.finnest.common.MaskedNumberSerializer.isMasked(entity.getCardNumber())) {
+            entity.setCardNumber(existing.getCardNumber());
+        }
         CreditCard saved = repository.save(entity);
         calculateAndSetCurrentOutstanding(saved);
         return ResponseEntity.ok(saved);

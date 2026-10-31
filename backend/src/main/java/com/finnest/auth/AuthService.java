@@ -120,10 +120,17 @@ public class AuthService {
      * Called by the frontend when the user clicks "Extend Session" before expiry.
      * Spring Security has already validated the current token before this is reached.
      */
-    public AuthResponse refresh(org.springframework.security.core.userdetails.UserDetails userDetails) {
+    public AuthResponse refresh(org.springframework.security.core.userdetails.UserDetails userDetails, String currentToken) {
+        if (userDetails == null || currentToken == null) {
+            throw new org.springframework.security.authentication.InsufficientAuthenticationException("Login required");
+        }
+        java.time.Instant sessionStart = jwtService.sessionStart(currentToken);
+        if (jwtService.isSessionTooOld(sessionStart)) {
+            throw new org.springframework.security.authentication.CredentialsExpiredException("Session is older than the maximum; log in again");
+        }
         User user = userRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        String newToken = jwtService.generateToken(user);
+                .orElseThrow(() -> new org.springframework.security.authentication.InsufficientAuthenticationException("Login required"));
+        String newToken = jwtService.generateToken(user, sessionStart);
         return new AuthResponse(newToken);
     }
 }

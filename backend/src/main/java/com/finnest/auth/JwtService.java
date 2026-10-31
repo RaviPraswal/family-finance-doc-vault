@@ -23,6 +23,10 @@ public class JwtService {
     @Value("${jwt.expiration}")
     private long jwtExpiration;
 
+    /** Longest a login session may be kept alive by refreshing (default 30 days). */
+    @Value("${jwt.refresh-expiration:2592000000}")
+    private long maxSessionMillis;
+
     /** Fails startup when JWT_SECRET is missing or too short, instead of silently using a weak key. */
     @jakarta.annotation.PostConstruct
     void validateSecret() {
@@ -53,7 +57,13 @@ public class JwtService {
     }
 
     public String generateToken(UserDetails userDetails) {
+        return generateToken(userDetails, java.time.Instant.now());
+    }
+
+    /** A token for a session that began at {@code sessionStart}; refreshing keeps the original start. */
+    public String generateToken(UserDetails userDetails, java.time.Instant sessionStart) {
         Map<String, Object> extraClaims = new HashMap<>();
+        extraClaims.put("sessionStart", sessionStart.getEpochSecond());
         if (userDetails instanceof com.finnest.user.User) {
             com.finnest.user.User user = (com.finnest.user.User) userDetails;
             extraClaims.put("id", user.getId().toString());
@@ -75,6 +85,20 @@ public class JwtService {
                 .expiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(getSignInKey())
                 .compact();
+    }
+
+    /** When the login session behind this token began; tokens issued before Sprint 3 fall back to their issue time. */
+    public java.time.Instant sessionStart(String token) {
+        Claims claims = extractAllClaims(token);
+        Object start = claims.get("sessionStart");
+        if (start instanceof Number n) {
+            return java.time.Instant.ofEpochSecond(n.longValue());
+        }
+        return claims.getIssuedAt().toInstant();
+    }
+
+    public boolean isSessionTooOld(java.time.Instant sessionStart) {
+        return sessionStart.plusMillis(maxSessionMillis).isBefore(java.time.Instant.now());
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {

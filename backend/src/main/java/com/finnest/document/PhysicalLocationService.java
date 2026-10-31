@@ -24,6 +24,7 @@ public class PhysicalLocationService {
     }
 
     public Optional<PhysicalLocation> getPhysicalLocation(UUID documentId) {
+        com.finnest.common.TenantGuard.owned(documentRepository.findById(documentId));
         return locationRepository.findByDocumentId(documentId);
     }
 
@@ -143,6 +144,7 @@ public class PhysicalLocationService {
     }
 
     public List<PhysicalDocumentLog> getLogs(UUID documentId) {
+        com.finnest.common.TenantGuard.owned(documentRepository.findById(documentId));
         return logRepository.findAllByDocumentIdOrderByCreatedAtDesc(documentId);
     }
 

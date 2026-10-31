@@ -12,6 +12,7 @@ public class BankAccount extends TenantBaseEntity {
 
     private String bankName;
     private String accountHolderName;
+    @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.finnest.common.MaskedNumberSerializer.class)
     private String accountNumber;
     private String accountType; // Savings, Current, Salary
     private BigDecimal currentBalance;

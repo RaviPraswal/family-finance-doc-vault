@@ -144,7 +144,8 @@ public class DocumentController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Document> getDocument(@PathVariable UUID id) {
+    public ResponseEntity<Document> getDocument(@PathVariable UUID id, @AuthenticationPrincipal User user) {
+        checkDocAccess(id, user);
         return ResponseEntity.ok(service.getDocument(id));
     }
  

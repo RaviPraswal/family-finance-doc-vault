@@ -81,6 +81,9 @@ public class BankAccountController {
         entity.setTenantId(existing.getTenantId());
         entity.setCreatedAt(existing.getCreatedAt());
         entity.setUserId(existing.getUserId());
+        if (entity.getAccountNumber() == null || com.finnest.common.MaskedNumberSerializer.isMasked(entity.getAccountNumber())) {
+            entity.setAccountNumber(existing.getAccountNumber());
+        }
         BankAccount saved = repository.save(entity);
         calculateAndSetCurrentBalance(saved);
         return ResponseEntity.ok(saved);

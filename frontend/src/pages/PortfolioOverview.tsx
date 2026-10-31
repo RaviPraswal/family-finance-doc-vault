@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { chitPosition, netWorthOf, projectNetWorth } from '../lib/netWorth';
+import { averageOverThreeMonths, monthlyIncome, fixedOutflows, investmentBuckets } from '../lib/cockpit';
 import { Link } from 'react-router-dom';
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
@@ -63,13 +64,6 @@ function last3MonthKeys(): string[] {
     keys.push(`${d.getFullYear()}-${d.getMonth()}`);
   }
   return keys;
-}
-
-/** Returns average value across months found in the map */
-function avgAcrossMonths(map: Map<string, number>): number {
-  if (map.size === 0) return 0;
-  const total = Array.from(map.values()).reduce((a, b) => a + b, 0);
-  return total / map.size;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -140,29 +134,7 @@ export default function PortfolioOverview() {
 
   /** ② Investments breakdown by asset class */
   const investmentBreakdown = useMemo(() => {
-    const mf = investments.filter(i =>
-      (i.type === 'Mutual Fund' || i.type === 'SIP') && !/gold|silver|etf|fof/i.test(i.name || '')
-    ).reduce((s, i) => s + (i.currentValue || i.investedAmount || 0), 0);
-
-    const gold = investments.filter(i =>
-      /gold/i.test(i.name || '') || /gold/i.test(i.type || '')
-    ).reduce((s, i) => s + (i.currentValue || i.investedAmount || 0), 0);
-
-    const silver = investments.filter(i =>
-      /silver/i.test(i.name || '') || /silver/i.test(i.type || '')
-    ).reduce((s, i) => s + (i.currentValue || i.investedAmount || 0), 0);
-
-    const stocks = investments.filter(i =>
-      (i.type === 'Stock' || i.type === 'Stock / Equity' || i.type === 'Equity') &&
-      !/gold|silver/i.test(i.name || '')
-    ).reduce((s, i) => s + (i.currentValue || i.investedAmount || 0), 0);
-
-    const other = investments.filter(i => {
-      const t = (i.type || '').toLowerCase();
-      const n = (i.name || '').toLowerCase();
-      return !['mutual fund', 'sip', 'stock', 'stock / equity', 'equity'].includes(t) &&
-        !/gold|silver|etf|fof/i.test(n);
-    }).reduce((s, i) => s + (i.currentValue || i.investedAmount || 0), 0);
+    const { mf, gold, silver, stocks, other } = investmentBuckets(investments);
 
     const fds = deposits.filter(d => d.type === 'FD')
       .reduce((s, d) => s + (d.principalAmount || 0), 0);
@@ -218,36 +190,12 @@ export default function PortfolioOverview() {
       }
     });
 
-    let avgSalary = avgAcrossMonths(salaryByMonth);
+    const { salary: avgSalary, side: sideIncome } = monthlyIncome(incomeSources, averageOverThreeMonths(salaryByMonth));
 
-    // Fallback: Monthly income sources
-    if (avgSalary === 0) {
-      avgSalary = incomeSources
-        .filter(i => i.frequency === 'Monthly' || (i.sourceName || '').toLowerCase().includes('salary'))
-        .reduce((s, i) => s + (i.amount || 0), 0);
-    }
-
-    // Side income: non-salary income sources (monthly average — divide yearly by 12)
-    const sideIncome = incomeSources
-      .filter(i => !(i.sourceName || '').toLowerCase().includes('salary') && i.frequency !== 'Monthly')
-      .reduce((s, i) => {
-        const amt = i.amount || 0;
-        if (i.frequency === 'Yearly') return s + amt / 12;
-        if (i.frequency === 'One-time') return s + 0;
-        return s + amt; // Assume monthly
-      }, 0) +
-      incomeSources
-        .filter(i => i.frequency === 'Monthly' && !(i.sourceName || '').toLowerCase().includes('salary'))
-        .reduce((s, i) => s + (i.amount || 0), 0);
-
-    const avgLivingExpenses = avgAcrossMonths(debitByMonth);
+    const avgLivingExpenses = averageOverThreeMonths(debitByMonth);
 
     // Fixed monthly outflows
-    const totalEMI = loans.reduce((s, l) => s + (l.emiAmount || 0), 0);
-    const totalRD = deposits.filter(d => d.type === 'RD')
-      .reduce((s, d) => s + (d.monthlyDepositAmount || 0), 0);
-    const totalChit = chitFunds.filter(c => (c.pendingInstallments || 0) > 0)
-      .reduce((s, c) => s + (c.monthlyInstallment || 0), 0);
+    const { emi: totalEMI, rd: totalRD, chit: totalChit } = fixedOutflows(loans, deposits, chitFunds);
     const totalSavingsOutflows = totalRD + totalChit;
 
     const totalInflow = avgSalary + sideIncome;

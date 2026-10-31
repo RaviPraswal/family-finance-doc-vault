@@ -32,11 +32,7 @@ public class ChitFundEventListener {
             if (chitOpt.isPresent()) {
                 ChitFund chit = chitOpt.get();
                 
-                // Update Pending Installments
-                if (chit.getPendingInstallments() != null && chit.getPendingInstallments() > 0) {
-                    chit.setPendingInstallments(chit.getPendingInstallments() - 1);
-                }
-
+                // Pending installments were already reduced by the ledger entry (S3-10).
                 chitFundRepository.save(chit);
 
                 // If chit is not finished, schedule the next installment

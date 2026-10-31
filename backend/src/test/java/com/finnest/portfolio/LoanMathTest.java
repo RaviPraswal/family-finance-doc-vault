@@ -71,9 +71,10 @@ class LoanMathTest {
     }
 
     @Test
-    void rateStoredAsFractionIsReadAsPercent() {
-        assertThat(LoanMath.normalizeRate(0.105)).isEqualTo(10.5);
+    void rateIsAlwaysAPercent() {
+        // Sprint 3 (S3-11): rates are entered and stored as percent; old fraction rows are migrated by V2.
+        assertThat(LoanMath.normalizeRate(0.5)).isEqualTo(0.5);
         assertThat(LoanMath.normalizeRate(10.5)).isEqualTo(10.5);
-        assertThat(LoanMath.split(rs("1500000"), 0.105, rs("16581")).interest()).isEqualByComparingTo("13125.00");
+        assertThat(LoanMath.split(rs("100000"), 0.5, rs("1000")).interest()).isEqualByComparingTo("41.67");
     }
 }

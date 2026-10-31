@@ -53,7 +53,7 @@ public class BudgetService {
         // 1. Get all expenses for this tenant in this month
         List<Expense> expenses = expenseRepository.findByTenantIdAndExpenseDateBetween(tenantId, start, end);
         Map<String, BigDecimal> expensesByCategory = expenses.stream()
-                .filter(e -> "DEBIT".equalsIgnoreCase(e.getType()))
+                .filter(e -> "DEBIT".equalsIgnoreCase(e.getType()) && e.getKind() == com.finnest.expense.EntryKind.EXPENSE)
                 .collect(Collectors.groupingBy(
                         Expense::getCategory,
                         Collectors.reducing(BigDecimal.ZERO, Expense::getAmount, BigDecimal::add)
@@ -98,7 +98,8 @@ public class BudgetService {
                     // Get previous month's expenses
                     List<Expense> prevExpenses = expenseRepository.findByTenantIdAndExpenseDateBetween(tenantId, prevMonth.atDay(1), prevMonth.atEndOfMonth());
                     BigDecimal prevSpent = prevExpenses.stream()
-                            .filter(e -> category.equalsIgnoreCase(e.getCategory()) && "DEBIT".equalsIgnoreCase(e.getType()))
+                            .filter(e -> category.equalsIgnoreCase(e.getCategory()) && "DEBIT".equalsIgnoreCase(e.getType())
+                                    && e.getKind() == com.finnest.expense.EntryKind.EXPENSE)
                             .map(Expense::getAmount)
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
                     
@@ -131,10 +132,8 @@ public class BudgetService {
             if (effectiveLimit.compareTo(BigDecimal.ZERO) > 0) {
                 if (spent.compareTo(effectiveLimit) > 0) {
                     summary.setAlert("🚨 Budget exceeded! You've spent ₹" + spent + " of ₹" + effectiveLimit + " (" + percentage + "%).");
-                    triggerBudgetNotification(tenantId, category, monthStr, spent, effectiveLimit, true, emailAlert);
                 } else if (percentage.compareTo(new BigDecimal(80)) >= 0) {
                     summary.setAlert("⚠️ Alert: You've spent ₹" + spent + " of ₹" + effectiveLimit + " (" + percentage + "%). Only ₹" + effectiveLimit.subtract(spent) + " left.");
-                    triggerBudgetNotification(tenantId, category, monthStr, spent, effectiveLimit, false, emailAlert);
                 }
             }
             
@@ -142,6 +141,31 @@ public class BudgetService {
         }
 
         return summaries;
+    }
+
+    /** Creates budget alerts for one family and month; called by the daily BudgetAlertJob, never by a page view. */
+    public void sendBudgetAlerts(UUID tenantId, String monthStr) {
+        String previous = TenantContext.getCurrentTenant();
+        TenantContext.setCurrentTenant(tenantId.toString());
+        try {
+            for (BudgetSummaryResponse s : getBudgetSummary(monthStr)) {
+                BigDecimal effectiveLimit = s.getLimitAmount().add(s.getRolloverAmount());
+                if (s.getAlert() != null && effectiveLimit.signum() > 0) {
+                    boolean exceeded = s.getSpentAmount().compareTo(effectiveLimit) > 0;
+                    triggerBudgetNotification(tenantId, s.getCategory(), monthStr, s.getSpentAmount(), effectiveLimit, exceeded, s.isEmailAlert());
+                }
+            }
+        } finally {
+            if (previous == null) TenantContext.clear(); else TenantContext.setCurrentTenant(previous);
+        }
+    }
+
+    /** Families that have at least one budget in the month. */
+    public java.util.Set<UUID> tenantsWithBudgets(String monthStr) {
+        return budgetRepository.findAll().stream()
+                .filter(b -> monthStr.equals(b.getMonth()))
+                .map(Budget::getTenantId)
+                .collect(Collectors.toSet());
     }
 
     private void triggerBudgetNotification(UUID tenantId, String category, String month, BigDecimal spent, BigDecimal limit, boolean exceeded, boolean emailAlert) {
@@ -160,9 +184,9 @@ public class BudgetService {
             notificationRepository.save(n);
 
             if (emailAlert) {
-                // Find all Admin/Co-Owner users of this tenant and email them
+                // Email the family's owners only
                 List<User> users = userRepository.findAll().stream()
-                        .filter(u -> tenantId.equals(u.getTenantId()))
+                        .filter(u -> tenantId.equals(u.getTenantId()) && "OWNER".equals(u.getRole()))
                         .collect(Collectors.toList());
                 for (User user : users) {
                     emailService.sendEmail(
@@ -209,7 +233,8 @@ public class BudgetService {
         LocalDate end = targetMonth.atEndOfMonth();
 
         List<ScheduledPayment> obligations = scheduledPaymentRepository.findAll().stream()
-                .filter(p -> tenantId.equals(p.getTenantId()) && 
+                .filter(p -> tenantId.equals(p.getTenantId()) &&
+                             p.getStatus() == com.finnest.scheduler.ScheduledPaymentStatus.PENDING && 
                              !p.getDueDate().isBefore(start) && 
                              !p.getDueDate().isAfter(end))
                 .collect(Collectors.toList());

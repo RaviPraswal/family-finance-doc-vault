@@ -19,10 +19,10 @@ public final class LoanMath {
     /** Interest is charged on the actual days since the last payment, over a 365-day year (e.g. IndusInd). */
     public static final String DAILY_365 = "DAILY_365";
 
-    /** Accepts 9.99 or 0.0999 for 9.99% (spreadsheets often store rates as fractions). */
+    /** Rates are a percent per year (0.5 means 0.5%). Rows saved as fractions before Sprint 3 are migrated by V2. */
     public static double normalizeRate(Double annualRatePercent) {
         if (annualRatePercent == null || annualRatePercent <= 0) return 0;
-        return annualRatePercent < 1 ? annualRatePercent * 100 : annualRatePercent;
+        return annualRatePercent;
     }
 
     /** How one payment divides between interest and principal. */

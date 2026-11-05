@@ -75,6 +75,7 @@ public class ExpenseController {
     @PostMapping
     @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<Expense> create(@RequestBody Expense entity) {
+        requirePositiveAmount(entity);
         entity.setTenantId(UUID.fromString(TenantContext.getCurrentTenant()));
 
         // Adjust balances of linked bank accounts and entities
@@ -86,6 +87,7 @@ public class ExpenseController {
     @PutMapping("/{id}")
     @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<Expense> update(@PathVariable UUID id, @RequestBody Expense entity, @org.springframework.security.core.annotation.AuthenticationPrincipal com.finnest.user.User user) {
+        requirePositiveAmount(entity);
         Expense existing = repository.findById(id).orElseThrow();
         if (!existing.getTenantId().equals(UUID.fromString(TenantContext.getCurrentTenant()))) {
             throw new RuntimeException("Unauthorized");
@@ -173,6 +175,13 @@ public class ExpenseController {
 
         repository.delete(existing);
         return ResponseEntity.ok().build();
+    }
+
+    private static void requirePositiveAmount(Expense expense) {
+        if (expense.getAmount() == null || expense.getAmount().signum() <= 0) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "Amount must be greater than zero. Use CREDIT or DEBIT for direction.");
+        }
     }
 
     private void adjustLinkedEntityBalances(Expense expense, boolean isAdd) {

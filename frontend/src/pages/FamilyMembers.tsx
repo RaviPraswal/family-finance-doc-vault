@@ -127,7 +127,7 @@ export default function FamilyMembers() {
   };
 
   return (
-    <div className="h-full flex flex-col space-y-6">
+    <div className="min-h-full flex flex-col space-y-6">
       
       {/* Header */}
       <div className="flex justify-between items-center">

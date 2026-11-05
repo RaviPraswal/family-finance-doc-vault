@@ -246,7 +246,7 @@ export default function PeerLending() {
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="min-h-full flex flex-col">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Udhaar (Given & Taken)</h1>

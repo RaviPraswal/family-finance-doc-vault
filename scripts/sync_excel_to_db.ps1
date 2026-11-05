@@ -10,7 +10,13 @@ param (
 )
 
 $psqlPath  = "C:\Program Files\PostgreSQL\17\bin\psql.exe"
-$env:PGPASSWORD = 'finnest_password'
+# Database password, user email and bank account come from environment variables (never commit them):
+#   setx PGPASSWORD <db password>   setx FINNEST_SYNC_EMAIL <login email>   setx FINNEST_SYNC_ACCOUNT <account number>
+foreach ($v in 'PGPASSWORD','FINNEST_SYNC_EMAIL','FINNEST_SYNC_ACCOUNT') {
+    if (-not [Environment]::GetEnvironmentVariable($v)) { Write-Host "Set the $v environment variable first." -ForegroundColor Red; exit 1 }
+}
+$syncEmail   = $env:FINNEST_SYNC_EMAIL -replace "'", "''"
+$syncAccount = $env:FINNEST_SYNC_ACCOUNT -replace "'", "''"
 $pgArgs    = @('-h','localhost','-p','5435','-U','finnest','-d','finnest_db')
 
 Write-Host "========================================================" -ForegroundColor DarkCyan
@@ -31,17 +37,17 @@ if (-not $ExcelPath) {
 
 Write-Host "Target Excel File: $ExcelPath" -ForegroundColor Yellow
 
-# Get tenant and user IDs for sample.ravikumar@gmail.com
-$userInfo = & $psqlPath @pgArgs -t -A -F '|' -c "SELECT id, tenant_id FROM users WHERE email = 'sample.ravikumar@gmail.com' LIMIT 1"
+# Get tenant and user IDs for the sync user
+$userInfo = & $psqlPath @pgArgs -t -A -F '|' -c "SELECT id, tenant_id FROM users WHERE email = '$syncEmail' LIMIT 1"
 if (-not $userInfo) {
-    Write-Host "User sample.ravikumar@gmail.com not found in SIT database!" -ForegroundColor Red
+    Write-Host "User $env:FINNEST_SYNC_EMAIL not found in SIT database!" -ForegroundColor Red
     exit 1
 }
 $userId   = ($userInfo -split '\|')[0]
 $tenantId = ($userInfo -split '\|')[1]
 
 # Get Axis Bank account ID
-$axisAccountId = & $psqlPath @pgArgs -t -A -c "SELECT id FROM bank_accounts WHERE account_number = '924010064712381' LIMIT 1"
+$axisAccountId = & $psqlPath @pgArgs -t -A -c "SELECT id FROM bank_accounts WHERE account_number = '$syncAccount' LIMIT 1"
 
 # Get Gaon Home project ID
 $gaonProjectId = & $psqlPath @pgArgs -t -A -c "SELECT id FROM projects WHERE tenant_id = '$tenantId' AND LOWER(name) LIKE '%gaon%' LIMIT 1"
@@ -131,7 +137,8 @@ try {
 
     # Sync Status if updated in cell B4
     $statusVal = [string]$ws2.Cells.Item(4, 2).Value2
-    if ($statusVal) {
+    $statusVal = if ($statusVal) { $statusVal.Trim().ToUpper() -replace ' ', '_' } else { '' }
+    if ($statusVal -match '^(IN_PROGRESS|COMPLETED)$') {
         & $psqlPath @pgArgs -c "UPDATE projects SET status = '$statusVal', updated_at = NOW() WHERE id = '$gaonProjectId';" | Out-Null
     }
 

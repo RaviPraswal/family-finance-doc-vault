@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '../api/client';
+import LoanScheduleTable from '../components/LoanScheduleTable';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
 import { Plus, CreditCard, Trash2, Search, Download, Printer, FileText } from 'lucide-react';
@@ -15,6 +16,13 @@ interface Loan {
   emiAmount: number;
   interestRate: number;
   interestMethod?: string;
+  /** Sprint 5: what the EMI schedule needs. */
+  tenureMonths?: number | null;
+  firstEmiDate?: string | null;
+  disbursementDate?: string | null;
+  paidInstallmentsOpening?: number | null;
+  foreclosureRate?: number | null;
+  foreclosureLockInMonths?: number | null;
 }
 
 export default function Loans() {
@@ -228,7 +236,7 @@ export default function Loans() {
       l.lenderName,
       l.loanType,
       l.borrowerName,
-      `₹${l.principalAmount.toLocaleString()}`,
+      `₹${(l.principalAmount ?? 0).toLocaleString()}`,
       `₹${l.outstandingAmount.toLocaleString()}`,
       `₹${l.emiAmount.toLocaleString()}`,
       `${l.interestRate}%`,
@@ -238,7 +246,7 @@ export default function Loans() {
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="min-h-full flex flex-col">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Loans & EMI</h1>
@@ -369,7 +377,7 @@ export default function Loans() {
         <div className="space-y-6 flex-1 flex flex-col min-h-0">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto pr-1">
             {paginatedLoans.map((loan) => {
-              const progress = ((loan.principalAmount - loan.outstandingAmount) / loan.principalAmount) * 100;
+              const progress = loan.principalAmount ? ((loan.principalAmount - (loan.outstandingAmount ?? 0)) / loan.principalAmount) * 100 : 0;
               const emiStatus = getLoanEmiStatus(loan);
               return (
                 <div key={loan.id} className="bg-card p-4 rounded-xl shadow-sm border border-border/50 flex flex-col justify-between hover:shadow-md transition-shadow">
@@ -402,7 +410,7 @@ export default function Loans() {
                     <div className="space-y-1.5 text-xs">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Principal:</span>
-                        <span className="font-medium text-foreground font-mono tabular-nums">₹{loan.principalAmount.toLocaleString()}</span>
+                        <span className="font-medium text-foreground font-mono tabular-nums">₹{(loan.principalAmount ?? 0).toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Outstanding:</span>
@@ -565,7 +573,7 @@ export default function Loans() {
                           <span className="text-muted-foreground block text-[10px]">{loan.borrowerName}</span>
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap font-mono font-bold text-foreground text-sm tabular-nums">
-                          ₹{loan.principalAmount.toLocaleString()}
+                          ₹{(loan.principalAmount ?? 0).toLocaleString()}
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap font-mono font-bold text-red-500 text-sm tabular-nums">
                           ₹{loan.outstandingAmount.toLocaleString()}
@@ -751,7 +759,7 @@ export default function Loans() {
                   <div className="grid grid-cols-3 gap-4 bg-muted/30 p-3 rounded-xl">
                     <div>
                       <span className="text-[10px] text-muted-foreground block uppercase">Principal Amount</span>
-                      <span className="text-xs font-semibold text-foreground font-mono tabular-nums">₹{selectedLoan.principalAmount.toLocaleString()}</span>
+                      <span className="text-xs font-semibold text-foreground font-mono tabular-nums">₹{(selectedLoan.principalAmount ?? 0).toLocaleString()}</span>
                     </div>
                     <div>
                       <span className="text-[10px] text-muted-foreground block uppercase">Outstanding Balance</span>
@@ -807,9 +815,42 @@ export default function Loans() {
         </div>
       )}
 
+      {/* ── Full EMI schedule of the selected loan (Sprint 5) ─────────────────── */}
+      {selectedLoan && (
+        <section aria-labelledby="emi-schedule-title" className="mt-6 bg-card border border-border rounded-2xl p-4 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="emi-schedule-title" className="text-base font-bold text-foreground">EMI schedule</h2>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              Loan
+              <select value={selectedLoan.id} onChange={(e) => setSelectedLoanId(e.target.value)} className="p-2 rounded-lg bg-background text-foreground border border-border text-sm">
+                {loans.map((l) => <option key={l.id} value={l.id}>{l.lenderName}</option>)}
+              </select>
+            </label>
+          </div>
+          <LoanScheduleTable
+            loanId={selectedLoan.id}
+            entries={expenses}
+            loan={{
+              lenderName: selectedLoan.lenderName,
+              outstanding: selectedLoan.outstandingAmount ?? 0,
+              principal: selectedLoan.principalAmount ?? 0,
+              ratePercent: selectedLoan.interestRate ?? 0,
+              emi: selectedLoan.emiAmount ?? 0,
+              tenureMonths: selectedLoan.tenureMonths ?? 0,
+              firstEmiDate: selectedLoan.firstEmiDate,
+              disbursementDate: selectedLoan.disbursementDate,
+              method: selectedLoan.interestMethod,
+              foreclosureRate: selectedLoan.foreclosureRate,
+              foreclosureLockInMonths: selectedLoan.foreclosureLockInMonths,
+              paidInstallmentsOpening: selectedLoan.paidInstallmentsOpening,
+            }}
+          />
+        </section>
+      )}
+
       {isModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl">
+          <div className="bg-card border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-semibold text-foreground mb-4">Add Loan</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -854,6 +895,33 @@ export default function Loans() {
                   </select>
                 </div>
               </div>
+              <fieldset className="grid grid-cols-2 gap-4 border-t border-border/50 pt-4">
+                <legend className="text-xs font-bold text-muted-foreground uppercase">EMI schedule (from your loan statement)</legend>
+                <div>
+                  <label htmlFor="tenureMonths" className="block text-xs font-bold text-muted-foreground uppercase mb-1">Tenure (months)</label>
+                  <input id="tenureMonths" type="number" min="1" value={formData.tenureMonths ?? ''} onChange={e => setFormData({...formData, tenureMonths: e.target.value ? parseInt(e.target.value) : null})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border outline-none text-sm" />
+                </div>
+                <div>
+                  <label htmlFor="firstEmiDate" className="block text-xs font-bold text-muted-foreground uppercase mb-1">First EMI date</label>
+                  <input id="firstEmiDate" type="date" value={formData.firstEmiDate ?? ''} onChange={e => setFormData({...formData, firstEmiDate: e.target.value || null})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border outline-none text-sm" />
+                </div>
+                <div>
+                  <label htmlFor="disbursementDate" className="block text-xs font-bold text-muted-foreground uppercase mb-1">Disbursement date</label>
+                  <input id="disbursementDate" type="date" value={formData.disbursementDate ?? ''} onChange={e => setFormData({...formData, disbursementDate: e.target.value || null})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border outline-none text-sm" />
+                </div>
+                <div>
+                  <label htmlFor="paidOpening" className="block text-xs font-bold text-muted-foreground uppercase mb-1">EMIs paid before FinNest</label>
+                  <input id="paidOpening" type="number" min="0" value={formData.paidInstallmentsOpening ?? ''} onChange={e => setFormData({...formData, paidInstallmentsOpening: e.target.value ? parseInt(e.target.value) : null})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border outline-none text-sm" />
+                </div>
+                <div>
+                  <label htmlFor="foreclosureRate" className="block text-xs font-bold text-muted-foreground uppercase mb-1">Foreclosure charge (%)</label>
+                  <input id="foreclosureRate" type="number" step="0.01" min="0" value={formData.foreclosureRate ?? ''} onChange={e => setFormData({...formData, foreclosureRate: e.target.value ? parseFloat(e.target.value) : null})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border outline-none text-sm" />
+                </div>
+                <div>
+                  <label htmlFor="lockIn" className="block text-xs font-bold text-muted-foreground uppercase mb-1">Foreclosure lock-in (EMIs)</label>
+                  <input id="lockIn" type="number" min="0" value={formData.foreclosureLockInMonths ?? ''} onChange={e => setFormData({...formData, foreclosureLockInMonths: e.target.value ? parseInt(e.target.value) : null})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border outline-none text-sm" />
+                </div>
+              </fieldset>
               <div className="flex justify-end gap-2 mt-6">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors">Cancel</button>
                 <button type="submit" className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">Save Loan</button>

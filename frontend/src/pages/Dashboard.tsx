@@ -54,10 +54,6 @@ export default function Dashboard() {
   const token = useAuthStore((state) => state.token);
 
   // States for Alert aggregation
-  const [bankAccounts, setBankAccounts] = useState<any[]>([]);
-  const [loans, setLoans] = useState<any[]>([]);
-  const [peerLendings, setPeerLendings] = useState<any[]>([]);
-  const [expenses, setExpenses] = useState<any[]>([]);
 
   const fetchDocuments = async () => {
     try {
@@ -77,31 +73,12 @@ export default function Dashboard() {
     }
   };
 
-  const fetchAlertData = async () => {
-    try {
-      const [banksData, loansData, peersData, expensesData] = await Promise.all([
-        apiClient('/api/bankaccounts'),
-        apiClient('/api/loans'),
-        apiClient('/api/peerlendings'),
-        apiClient('/api/expenses')
-      ]);
-      setBankAccounts(banksData);
-      setLoans(loansData);
-      setPeerLendings(peersData);
-      setExpenses(expensesData);
-    } catch (err) {
-      console.error('Failed to fetch alert data', err);
-    }
-  };
-
   useEffect(() => {
     fetchDocuments();
     fetchNotifications();
-    fetchAlertData();
     const interval = setInterval(() => {
       fetchDocuments();
       fetchNotifications();
-      fetchAlertData();
     }, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -216,64 +193,7 @@ export default function Dashboard() {
       }
     });
 
-    // 2. Overdue Peer Lendings (Udhaar)
-    peerLendings.forEach(p => {
-      if (p.dueDate && p.amount > 0) {
-        const due = new Date(p.dueDate);
-        due.setHours(0, 0, 0, 0);
-        if (due < today) {
-          alerts.push({
-            type: 'OVERDUE',
-            urgency: 1,
-            title: `Overdue Udhaar: ${p.personName}`,
-            message: `${p.type === 'TAKEN' ? 'Pay back' : 'Collect'} ₹${p.amount.toLocaleString()} - was due on ${due.toLocaleDateString()}.`,
-            actionLabel: 'View Udhaar',
-            actionPath: '/peer-lending'
-          });
-        }
-      }
-    });
-
-    // 3. Overdue Loan EMIs (Active loans where current month's EMI is unpaid past 5th day)
-    loans.forEach(l => {
-      const outstanding = l.outstandingAmount ?? 0;
-      if (outstanding > 0) {
-        const currentMonth = today.getMonth();
-        const currentYear = today.getFullYear();
-        
-        const currentMonthPayments = expenses.filter(e => 
-          e.linkedLoan?.id === l.id && 
-          new Date(e.expenseDate).getMonth() === currentMonth &&
-          new Date(e.expenseDate).getFullYear() === currentYear
-        );
-
-        if (currentMonthPayments.length === 0 && today.getDate() > 5) {
-          alerts.push({
-            type: 'OVERDUE',
-            urgency: 1,
-            title: `Overdue EMI: ${l.lenderName}`,
-            message: `EMI payment of ₹${(l.emiAmount ?? 0).toLocaleString()} is pending past the monthly due date.`,
-            actionLabel: 'Manage Loans',
-            actionPath: '/loans'
-          });
-        }
-      }
-    });
-
-    // 4. Low Bank Balances (Less than ₹5,000 threshold)
-    bankAccounts.forEach(b => {
-      const balance = b.currentBalance ?? 0;
-      if (balance < 5000) {
-        alerts.push({
-          type: 'LOW_BALANCE',
-          urgency: 3,
-          title: `Low Balance: ${b.bankName}`,
-          message: `Liquid balance is critical: ₹${balance.toLocaleString()} (minimum threshold ₹5,000).`,
-          actionLabel: 'Bank Accounts',
-          actionPath: '/bank-accounts'
-        });
-      }
-    });
+    // Money alerts (udhaar, EMIs, low balances) live on the cockpit's "Needs attention" panel (Sprint 5).
 
     return alerts.sort((a, b) => a.urgency - b.urgency).slice(0, 5);
   };
@@ -291,7 +211,7 @@ export default function Dashboard() {
   });
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="min-h-full flex flex-col">
       <header className="flex-none bg-card border-b border-border rounded-t-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-primary">FinNest Dashboard</h1>
@@ -359,14 +279,14 @@ export default function Dashboard() {
               <ShieldAlert className="h-24 w-24 text-red-500" />
             </div>
             <div className="flex items-center gap-2 text-red-500 font-bold text-xs uppercase tracking-wider mb-3">
-              <AlertTriangle className="h-4 w-4 animate-pulse" /> Critical Family Finance Alerts
+              <AlertTriangle className="h-4 w-4 animate-pulse" /> Documents needing attention
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {criticalAlerts.map((alert, idx) => (
                 <div 
                   key={idx} 
                   className="bg-card/65 backdrop-blur-sm border border-border/80 p-3 rounded-xl hover:border-primary/45 transition-colors cursor-pointer flex flex-col justify-between"
-                  onClick={() => navigate(alert.actionPath)}
+                  onClick={() => navigate('/dashboard' + alert.actionPath)}
                 >
                   <div>
                     <div className="flex justify-between items-start gap-1">

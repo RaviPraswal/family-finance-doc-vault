@@ -19,6 +19,30 @@ public class Loan extends TenantBaseEntity {
     private Double interestRate;
     private Integer remainingTenure; // In months
 
+    // Sprint 5 (S5-03): what the EMI schedule is built from, as printed on the bank's loan statement.
+    private Integer tenureMonths;
+    private java.time.LocalDate firstEmiDate;
+    private java.time.LocalDate disbursementDate;
+    /** EMIs already paid before the family started recording them in FinNest. */
+    private Integer paidInstallmentsOpening;
+    /** Foreclosure charge, percent of the outstanding principal. */
+    private Double foreclosureRate;
+    /** EMIs that must be paid before the loan can be closed early. */
+    private Integer foreclosureLockInMonths;
+
+    public Integer getTenureMonths() { return tenureMonths; }
+    public void setTenureMonths(Integer tenureMonths) { this.tenureMonths = tenureMonths; }
+    public java.time.LocalDate getFirstEmiDate() { return firstEmiDate; }
+    public void setFirstEmiDate(java.time.LocalDate firstEmiDate) { this.firstEmiDate = firstEmiDate; }
+    public java.time.LocalDate getDisbursementDate() { return disbursementDate; }
+    public void setDisbursementDate(java.time.LocalDate disbursementDate) { this.disbursementDate = disbursementDate; }
+    public Integer getPaidInstallmentsOpening() { return paidInstallmentsOpening; }
+    public void setPaidInstallmentsOpening(Integer paidInstallmentsOpening) { this.paidInstallmentsOpening = paidInstallmentsOpening; }
+    public Double getForeclosureRate() { return foreclosureRate; }
+    public void setForeclosureRate(Double foreclosureRate) { this.foreclosureRate = foreclosureRate; }
+    public Integer getForeclosureLockInMonths() { return foreclosureLockInMonths; }
+    public void setForeclosureLockInMonths(Integer foreclosureLockInMonths) { this.foreclosureLockInMonths = foreclosureLockInMonths; }
+
     @com.fasterxml.jackson.annotation.JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     @jakarta.persistence.ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
     @jakarta.persistence.JoinColumn(name = "linked_bank_account_id")

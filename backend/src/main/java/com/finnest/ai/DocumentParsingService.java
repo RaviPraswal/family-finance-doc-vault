@@ -11,9 +11,19 @@ import java.io.IOException;
 public class DocumentParsingService {
 
     private final ChatClient chatClient;
+    private final DocumentParser documentParser;
 
-    public DocumentParsingService(ChatClient.Builder chatClientBuilder) {
+    public DocumentParsingService(ChatClient.Builder chatClientBuilder, DocumentParser documentParser) {
         this.chatClient = chatClientBuilder.build();
+        this.documentParser = documentParser;
+    }
+
+    private static String contentType(Resource resource) {
+        try (java.io.InputStream in = resource.getInputStream()) {
+            return new org.apache.tika.Tika().detect(in, resource.getFilename());
+        } catch (IOException e) {
+            return "application/octet-stream";
+        }
     }
 
     public ParsedScheduleResponse parseScheduleDocument(Resource documentResource) {
@@ -25,10 +35,10 @@ public class DocumentParsingService {
             
             Map the schedule type to one of these ReferenceType enums:
             - LOAN_EMI
-            - MUTUAL_FUND_SIP
+            - SIP_INVESTMENT
             - RECURRING_DEPOSIT
             - CHIT_INSTALLMENT
-            - OTHER
+            - MANUAL_ENTRY (anything else)
             
             Extract the institution name, a brief description, and the list of scheduled installments (amount and due date).
             
@@ -38,16 +48,28 @@ public class DocumentParsingService {
         String formatInstructions = converter.getFormat();
 
         try {
-            // Note: If using Gemini Vision, Spring AI supports passing Media (byte[], mimetype) in the prompt.
-            // For simplicity, assuming the text has been extracted, or we pass it as a UserMessage with Media attached.
-            String responseStr = chatClient.prompt()
-                    .system(systemPrompt)
-                    .user(u -> u.text("Extract the payment schedule from the attached document. \n" + formatInstructions)
-                            // If dealing with PDFs/Images directly:
-                            // .media(MimeTypeUtils.IMAGE_PNG, documentResource)
-                    )
-                    .call()
-                    .content();
+            // Images go to the model as pictures; PDFs as their extracted text (S3-15).
+            String mime = contentType(documentResource);
+            String responseStr;
+            if (mime.startsWith("image/")) {
+                responseStr = chatClient.prompt()
+                        .system(systemPrompt)
+                        .user(u -> u.text("Extract the payment schedule from the attached image.\n" + formatInstructions)
+                                .media(org.springframework.util.MimeTypeUtils.parseMimeType(mime), documentResource))
+                        .call()
+                        .content();
+            } else {
+                String text;
+                try (java.io.InputStream in = documentResource.getInputStream()) {
+                    text = documentParser.extractText(in);
+                }
+                responseStr = chatClient.prompt()
+                        .system(systemPrompt)
+                        .user("Extract the payment schedule from this document.\n" + formatInstructions
+                                + "\n\nDOCUMENT TEXT:\n" + text)
+                        .call()
+                        .content();
+            }
 
             return converter.convert(responseStr);
         } catch (Exception e) {

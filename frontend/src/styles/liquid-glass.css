@@ -4,7 +4,15 @@
  * whenever the skin is off. Light mode = "Pearl", dark mode = "Aurora night".
  * Design reference: the "FinNest Liquid Glass" design canvas.
  */
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap');
+/* Fonts are bundled with the app (Sprint 5): no request to Google Fonts. */
+@import '@fontsource/sora/400.css';
+@import '@fontsource/sora/500.css';
+@import '@fontsource/sora/600.css';
+@import '@fontsource/sora/700.css';
+@import '@fontsource/manrope/400.css';
+@import '@fontsource/manrope/500.css';
+@import '@fontsource/manrope/600.css';
+@import '@fontsource/manrope/700.css';
 
 /* ---------- Tokens: Pearl (light) ---------- */
 html.skin-liquid {

@@ -18,7 +18,7 @@ import {
   Droplets
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
-import { useThemeStore } from '../store/themeStore';
+import { useThemeStore, SKIN_LABELS, nextSkin } from '../store/themeStore';
 
 const navigation = [
   { name: 'Portfolio Overview', href: '/dashboard', icon: TrendingUp },
@@ -115,11 +115,12 @@ export default function DashboardLayout() {
 
           <button
             onClick={toggleSkin}
-            aria-pressed={skin === 'liquid'}
+            aria-label={`Look: ${SKIN_LABELS[skin]}. Switch to ${SKIN_LABELS[nextSkin(skin)]}`}
+            title={`Switch to ${SKIN_LABELS[nextSkin(skin)]}`}
             className="flex items-center w-full px-3 py-2 text-sm font-medium text-foreground rounded-xl hover:bg-muted/50 transition-colors"
           >
             <Droplets className="mr-3 h-5 w-5" />
-            {skin === 'liquid' ? 'Classic look' : 'Liquid Glass'}
+            Look: {SKIN_LABELS[skin]}
           </button>
           
           <button
@@ -155,8 +156,7 @@ export default function DashboardLayout() {
             </button>
             <button
               onClick={toggleSkin}
-              aria-pressed={skin === 'liquid'}
-              aria-label={skin === 'liquid' ? 'Switch to classic look' : 'Switch to Liquid Glass'}
+              aria-label={`Look: ${SKIN_LABELS[skin]}. Switch to ${SKIN_LABELS[nextSkin(skin)]}`}
               className="p-2 text-foreground"
             >
               <Droplets className="h-5 w-5" />

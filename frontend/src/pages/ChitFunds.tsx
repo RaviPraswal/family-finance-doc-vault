@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import ChitScheduleTable from '../components/ChitScheduleTable';
+import { markPaidThrough } from '../lib/chitSchedule';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
-import { Plus, Users, Trash2, Search, Download, Printer, ChevronDown, ChevronUp, FileText, Calendar, Wallet } from 'lucide-react';
+import { Plus, Users, Trash2, Search, Download, Printer, ChevronDown, ChevronUp, FileText, Wallet } from 'lucide-react';
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
 
 interface ChitFund {
@@ -136,15 +138,24 @@ export default function ChitFunds() {
     }
   };
 
+  const scheduleOf = (cf: ChitFund): ScheduleRow[] => cf.paymentSchedule
+    ? (JSON.parse(cf.paymentSchedule) as ScheduleRow[])
+    : generateDefaultSchedule(cf.durationMonths || 20, cf.totalValue || 300000, cf.startDate || new Date().toISOString().split('T')[0]);
+
   const handleStatusChange = async (cf: ChitFund, rowIndex: number, newStatus: 'Paid & Closed' | 'Allotted' | 'Open / Pending') => {
+    const updatedSchedule = [...scheduleOf(cf)];
+    updatedSchedule[rowIndex] = { ...updatedSchedule[rowIndex], status: newStatus };
+    await saveSchedule(cf, updatedSchedule, `Installment status changed to ${newStatus}.`);
+  };
+
+  /** Catch up several months at once: every pending month up to this one becomes paid (Sprint 5). */
+  const handlePaidThrough = async (cf: ChitFund, srNo: number) => {
+    const updated = markPaidThrough(scheduleOf(cf), srNo) as ScheduleRow[];
+    await saveSchedule(cf, updated, `Months 1 to ${srNo} are marked paid.`);
+  };
+
+  const saveSchedule = async (cf: ChitFund, updatedSchedule: ScheduleRow[], message: string) => {
     try {
-      const currentSchedule = cf.paymentSchedule
-        ? (JSON.parse(cf.paymentSchedule) as ScheduleRow[])
-        : generateDefaultSchedule(cf.durationMonths || 20, cf.totalValue || 300000, cf.startDate || new Date().toISOString().split('T')[0]);
-      
-      const updatedSchedule = [...currentSchedule];
-      updatedSchedule[rowIndex] = { ...updatedSchedule[rowIndex], status: newStatus };
-      
       const isAllotted = updatedSchedule.some(r => r.status === 'Allotted');
       const winningRow = updatedSchedule.find(r => r.status === 'Allotted');
       const commission = cf.totalValue * 0.05;
@@ -170,7 +181,7 @@ export default function ChitFunds() {
         body: JSON.stringify(payload),
       });
       
-      toast.success('Status updated', `Installment status changed to ${newStatus}.`);
+      toast.success('Schedule updated', message);
       fetchChitFunds();
     } catch (err: any) {
       toast.error('Failed to update status', err.message || 'Could not update status.');
@@ -401,7 +412,7 @@ export default function ChitFunds() {
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="min-h-full flex flex-col">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground font-sans">Chit Funds Manager</h1>
@@ -577,7 +588,7 @@ export default function ChitFunds() {
         </div>
       ) : (
         /* High-Density Dense Table View with Nested Expandable Statement Schedules (Default) */
-        <div className="space-y-4 h-[calc(100vh-16rem)] flex flex-col min-h-0">
+        <div className="space-y-4 flex flex-col">
           <div className="bg-card rounded-2xl shadow-sm border border-border/50 overflow-hidden flex-1 flex flex-col min-h-0">
             <div className="overflow-auto custom-scrollbar flex-1">
               <table className="min-w-full divide-y divide-border dense-table">
@@ -680,63 +691,17 @@ export default function ChitFunds() {
                             <td colSpan={9} className="px-6 py-4 border-l-2 border-primary">
                               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                                 {/* Left side schedule statement */}
-                                <div className="lg:col-span-7 space-y-3">
-                                  <div className="flex justify-between items-center pb-2 border-b border-border/30">
-                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                                      <Calendar className="h-3.5 w-3.5" /> Payment installment cycles schedule statement
-                                    </h4>
-                                    <span className="text-[10px] text-muted-foreground italic">Change status triggers real-time progress calculations</span>
-                                  </div>
-
-                                  <div className="border border-border/50 rounded-xl overflow-hidden shadow-xs max-h-[300px] overflow-y-auto custom-scrollbar">
-                                    <table className="min-w-full divide-y divide-border text-xs text-foreground dense-table">
-                                      <thead className="bg-muted/40 sticky top-0">
-                                        <tr>
-                                          <th className="px-3 py-2 text-left font-bold text-muted-foreground uppercase tracking-wider w-8">Cycle</th>
-                                          <th className="px-3 py-2 text-left font-bold text-muted-foreground uppercase tracking-wider">Target Month</th>
-                                          <th className="px-3 py-2 text-left font-bold text-muted-foreground uppercase tracking-wider">Installment Value</th>
-                                          <th className="px-3 py-2 text-left font-bold text-muted-foreground uppercase tracking-wider">Bidding Dividend Value</th>
-                                          <th className="px-3 py-2 text-left font-bold text-muted-foreground uppercase tracking-wider">Payment Status</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-border bg-card/60">
-                                        {details.schedule.map((row, rIdx) => {
-                                          const isClosed = row.status === 'Paid & Closed' || row.status === 'Allotted';
-                                          return (
-                                            <tr key={row.srNo} className="hover:bg-muted/20">
-                                              <td className="px-3 py-1.5 font-mono text-muted-foreground">{row.srNo}</td>
-                                              <td className="px-3 py-1.5 font-semibold">{row.calendarMonth} {row.calendarYear}</td>
-                                              <td className="px-3 py-1.5 font-mono font-semibold">₹{row.actualAmount.toLocaleString()}</td>
-                                              <td className="px-3 py-1.5 font-mono font-semibold">₹{row.chitAmountAllocated.toLocaleString()}</td>
-                                              <td className="px-3 py-1.5">
-                                                {isClosed ? (
-                                                  <span className={`inline-flex px-2 py-0.5 rounded text-[9px] font-bold ${
-                                                    row.status === 'Paid & Closed' ? 'bg-green-500/10 text-green-500' : 'bg-primary/10 text-primary'
-                                                  }`}>
-                                                    {row.status}
-                                                  </span>
-                                                ) : (
-                                                  <select
-                                                    value={row.status}
-                                                    onChange={(e) => handleStatusChange(cf, rIdx, e.target.value as any)}
-                                                    className="px-2 py-0.5 rounded text-[10px] font-bold border border-border/80 bg-background text-amber-500 outline-none focus:ring-0 cursor-pointer"
-                                                  >
-                                                    <option value="Open / Pending">Open / Pending</option>
-                                                    <option value="Paid & Closed">Paid & Closed</option>
-                                                    <option value="Allotted">Allotted</option>
-                                                  </select>
-                                                )}
-                                              </td>
-                                            </tr>
-                                          );
-                                        })}
-                                      </tbody>
-                                    </table>
-                                  </div>
+                                <div className="lg:col-span-12">
+                                  <ChitScheduleTable
+                                    name={cf.organizerName}
+                                    schedule={details.schedule}
+                                    onStatusChange={(rIdx, status) => handleStatusChange(cf, rIdx, status)}
+                                    onPaidThrough={(srNo) => handlePaidThrough(cf, srNo)}
+                                  />
                                 </div>
 
                                 {/* Right side linked transaction audits */}
-                                <div className="lg:col-span-5 space-y-3 border-l border-border/30 lg:pl-6">
+                                <div className="lg:col-span-12 space-y-3">
                                   <div className="flex justify-between items-center pb-2 border-b border-border/30">
                                     <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                                       <FileText className="h-3.5 w-3.5" /> Linked expense transactions log

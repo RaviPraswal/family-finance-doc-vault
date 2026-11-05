@@ -122,7 +122,9 @@ public class DocumentService {
             Path targetLocation = this.fileStorageLocation.resolve(fileName);
             Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
 
-            int nextVersion = document.getVersions().size() + 1;
+            int nextVersion = versionRepository.findAllByDocumentIdOrderByVersionNumberDesc(documentId).stream()
+                    .map(DocumentVersion::getVersionNumber).filter(java.util.Objects::nonNull)
+                    .findFirst().orElse(0) + 1;
             
             document.setName(originalFileName); // Update name if different
             document.setType(detectedType);
@@ -285,12 +287,24 @@ public class DocumentService {
         DocumentVersion version = versionRepository.findById(versionId).orElseThrow();
         if (!version.getDocument().getId().equals(documentId)) throw new RuntimeException("Mismatch");
 
+        List<DocumentVersion> others = versionRepository.findAllByDocumentIdOrderByVersionNumberDesc(documentId).stream()
+                .filter(v -> !v.getId().equals(versionId)).toList();
+        if (others.isEmpty()) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "This is the only version. Delete the document instead.");
+        }
         try {
             Files.deleteIfExists(this.fileStorageLocation.resolve(version.getFilePath()).normalize());
+            document.getVersions().removeIf(v -> v.getId().equals(versionId));
             versionRepository.delete(version);
-            
-            // If it was the last version, we probably should delete the document, or at least it has 0 versions.
-            // For now, just delete the version.
+
+            // The document always points at its newest remaining file (S3-16).
+            if (version.getFilePath().equals(document.getFilePath())) {
+                DocumentVersion latest = others.get(0);
+                document.setFilePath(latest.getFilePath());
+                document.setSize(latest.getSize());
+                repository.save(document);
+            }
         } catch (IOException ex) {
             throw new RuntimeException("Could not delete file", ex);
         }

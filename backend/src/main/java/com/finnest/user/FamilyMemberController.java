@@ -66,7 +66,7 @@ public class FamilyMemberController {
         user.setPhone(dto.phone());
         user.setPassword(passwordEncoder.encode(dto.password()));
         user.setTenantId(tenantId);
-        user.setRole(dto.role() != null ? dto.role() : "MEMBER");
+        user.setRole(dto.role() != null ? validRole(dto.role()) : "MEMBER");
 
         return ResponseEntity.ok(userRepository.save(user));
     }
@@ -88,7 +88,13 @@ public class FamilyMemberController {
             throw new RuntimeException("Unauthorized");
         }
 
-        member.setRole(role);
+        String newRole = validRole(role);
+        if ("OWNER".equals(member.getRole()) && !"OWNER".equals(newRole)
+                && userRepository.countByTenantIdAndRole(member.getTenantId(), "OWNER") <= 1) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "The family needs at least one owner.");
+        }
+        member.setRole(newRole);
         return ResponseEntity.ok(userRepository.save(member));
     }
 
@@ -114,6 +120,14 @@ public class FamilyMemberController {
 
         userRepository.delete(member);
         return ResponseEntity.noContent().build();
+    }
+
+    private static String validRole(String role) {
+        if (!"OWNER".equals(role) && !"MEMBER".equals(role)) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "Role must be OWNER or MEMBER.");
+        }
+        return role;
     }
 
     public record MemberDto(String name, String email, String phone, String password, String role) {}

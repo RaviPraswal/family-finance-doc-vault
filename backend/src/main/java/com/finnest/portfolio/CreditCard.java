@@ -12,6 +12,7 @@ public class CreditCard extends TenantBaseEntity {
     private String cardName;
     private String bankName;
     private String cardHolderName;
+    @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.finnest.common.MaskedNumberSerializer.class)
     private String cardNumber;
     private BigDecimal creditLimit;
     private BigDecimal openingOutstanding;

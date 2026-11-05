@@ -21,29 +21,7 @@ public class BankAccountController {
     }
 
     private void calculateAndSetCurrentBalance(BankAccount account) {
-        java.math.BigDecimal openingBalance = account.getOpeningBalance();
-        if (openingBalance == null) {
-            openingBalance = java.math.BigDecimal.ZERO;
-        }
-
-        java.math.BigDecimal currentBalance = openingBalance;
-
-        // Fetch all expenses linked to this bank account
-        List<com.finnest.expense.Expense> expenses = expenseRepository.findAllByLinkedAccountId(account.getId());
-
-        for (com.finnest.expense.Expense expense : expenses) {
-            java.math.BigDecimal amount = expense.getAmount();
-            if (amount == null) {
-                continue;
-            }
-            if ("CREDIT".equalsIgnoreCase(expense.getType())) {
-                currentBalance = currentBalance.add(amount);
-            } else {
-                currentBalance = currentBalance.subtract(amount);
-            }
-        }
-
-        account.setCurrentBalance(currentBalance);
+        account.setCurrentBalance(ShownBalance.of(account, expenseRepository.findAllByLinkedAccountId(account.getId())));
     }
 
     @GetMapping
@@ -81,6 +59,9 @@ public class BankAccountController {
         entity.setTenantId(existing.getTenantId());
         entity.setCreatedAt(existing.getCreatedAt());
         entity.setUserId(existing.getUserId());
+        if (entity.getAccountNumber() == null || com.finnest.common.MaskedNumberSerializer.isMasked(entity.getAccountNumber())) {
+            entity.setAccountNumber(existing.getAccountNumber());
+        }
         BankAccount saved = repository.save(entity);
         calculateAndSetCurrentBalance(saved);
         return ResponseEntity.ok(saved);

@@ -32,12 +32,7 @@ public class DepositEventListener {
             if (depositOpt.isPresent()) {
                 Deposit deposit = depositOpt.get();
                 
-                // Update Total Deposited
-                if (deposit.getTotalDeposited() != null) {
-                    deposit.setTotalDeposited(deposit.getTotalDeposited().add(payment.getAmount()));
-                } else {
-                    deposit.setTotalDeposited(payment.getAmount());
-                }
+                // Total deposited was already increased by the ledger entry (S3-10).
 
                 depositRepository.save(deposit);
 

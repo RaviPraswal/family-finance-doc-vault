@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { chitPosition, netWorthOf, projectNetWorth } from '../lib/netWorth';
+import { dotLevels, weeklyNet } from '../lib/dotMatrix';
+import DotMatrix from '../components/DotMatrix';
+import MoneyMapCard from '../components/MoneyMapCard';
+import type { MapHolding, MapMember } from '../lib/moneyMap';
+import { useThemeStore } from '../store/themeStore';
+import NeedsAttention from '../components/NeedsAttention';
+import { overdueUdhaar, overdueEmis, lowBalances } from '../lib/alerts';
+import { monthsTracked, withLedgerAmounts } from '../lib/cockpit';
+import { averageOverThreeMonths, monthlyIncome, fixedOutflows, investmentBuckets } from '../lib/cockpit';
 import { Link } from 'react-router-dom';
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
@@ -65,13 +74,6 @@ function last3MonthKeys(): string[] {
   return keys;
 }
 
-/** Returns average value across months found in the map */
-function avgAcrossMonths(map: Map<string, number>): number {
-  if (map.size === 0) return 0;
-  const total = Array.from(map.values()).reduce((a, b) => a + b, 0);
-  return total / map.size;
-}
-
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function PortfolioOverview() {
   const [loading, setLoading] = useState(true);
@@ -88,9 +90,26 @@ export default function PortfolioOverview() {
   const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
   const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
   const [insights, setInsights] = useState<Recommendation[]>([]);
+  const [members, setMembers] = useState<MapMember[]>([]);
+  const [familyName, setFamilyName] = useState('Family');
+  /** This month's Monthly Commitments plan; when it has income, the cash flow card follows it. */
+  const [plan, setPlan] = useState<{ income: number; mustPay: number; living: number; pausable: number; totalOutflow: number; plannedSurplus: number } | null>(null);
+  // The money map and dot charts belong to the Royal look only; Classic and Liquid Glass stay as they were.
+  const royal = useThemeStore((state) => state.skin) === 'royal';
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   useEffect(() => { fetchAll(); }, []);
+
+  useEffect(() => {
+    if (!royal) return;
+    Promise.all([
+      apiClient('/api/family-members').catch(() => []),
+      apiClient('/api/family-members/profile').catch(() => null),
+    ]).then(([fam, profile]) => {
+      setMembers(Array.isArray(fam) ? fam : []);
+      if (profile?.familyName) setFamilyName(profile.familyName);
+    });
+  }, [royal]);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -111,6 +130,7 @@ export default function PortfolioOverview() {
         withTimeout(apiClient('/api/creditcards')).catch(() => []),
         withTimeout(apiClient('/api/peerlendings')).catch(() => []),
       ]);
+      apiClient('/api/commitments/plan').then((p: any) => setPlan(p && typeof p.income === 'number' ? p : null)).catch(() => setPlan(null));
 
       setBankAccounts(Array.isArray(banks) ? banks : []);
       setInvestments(Array.isArray(invs) ? invs : []);
@@ -132,6 +152,28 @@ export default function PortfolioOverview() {
 
   // ── Computed values (all via useMemo) ─────────────────────────────────────
 
+  /** Money items that need attention: overdue udhaar, EMIs not yet recorded, low balances (Sprint 5). */
+  const attention = useMemo(() => [
+    ...overdueUdhaar(peerLendings),
+    ...overdueEmis(loans, allExpenses as any[]),
+    ...lowBalances(bankAccounts),
+  ].sort((a, b) => a.urgency - b.urgency), [peerLendings, loans, allExpenses, bankAccounts]);
+
+  /** Side income as actually received: the latest ledger credit of each source (Sprint 6, ADR-001). */
+  const receivedIncome = useMemo(() => withLedgerAmounts(incomeSources, allExpenses), [incomeSources, allExpenses]);
+
+  /** Weekly money in minus out for the last 24 weeks, as dot-matrix column heights. */
+  const weeklyTrend = useMemo(() => dotLevels(weeklyNet(allExpenses, 24)), [allExpenses]);
+
+  /** Everything a member holds, for the money map. */
+  const holdings = useMemo<MapHolding[]>(() => [
+    ...bankAccounts.map((b) => ({ id: b.id, userId: b.userId, label: b.bankName || b.name || 'Account', kind: 'account' as const })),
+    ...loans.map((l) => ({ id: l.id, userId: l.userId, label: l.lenderName || 'Loan', kind: 'loan' as const })),
+    ...investments.map((i) => ({ id: i.id, userId: i.userId, label: i.name || i.type || 'Investment', kind: 'investment' as const })),
+    ...creditCards.map((c) => ({ id: c.id, userId: c.userId, label: c.cardName || c.bankName || 'Card', kind: 'card' as const })),
+    ...chitFunds.map((c) => ({ id: c.id, userId: c.userId, label: c.organizerName || 'Chit', kind: 'chit' as const })),
+  ], [bankAccounts, loans, investments, creditCards, chitFunds]);
+
   /** ① Bank balance */
   const bankBalance = useMemo(
     () => bankAccounts.reduce((s, b) => s + (b.currentBalance || 0), 0),
@@ -140,29 +182,7 @@ export default function PortfolioOverview() {
 
   /** ② Investments breakdown by asset class */
   const investmentBreakdown = useMemo(() => {
-    const mf = investments.filter(i =>
-      (i.type === 'Mutual Fund' || i.type === 'SIP') && !/gold|silver|etf|fof/i.test(i.name || '')
-    ).reduce((s, i) => s + (i.currentValue || i.investedAmount || 0), 0);
-
-    const gold = investments.filter(i =>
-      /gold/i.test(i.name || '') || /gold/i.test(i.type || '')
-    ).reduce((s, i) => s + (i.currentValue || i.investedAmount || 0), 0);
-
-    const silver = investments.filter(i =>
-      /silver/i.test(i.name || '') || /silver/i.test(i.type || '')
-    ).reduce((s, i) => s + (i.currentValue || i.investedAmount || 0), 0);
-
-    const stocks = investments.filter(i =>
-      (i.type === 'Stock' || i.type === 'Stock / Equity' || i.type === 'Equity') &&
-      !/gold|silver/i.test(i.name || '')
-    ).reduce((s, i) => s + (i.currentValue || i.investedAmount || 0), 0);
-
-    const other = investments.filter(i => {
-      const t = (i.type || '').toLowerCase();
-      const n = (i.name || '').toLowerCase();
-      return !['mutual fund', 'sip', 'stock', 'stock / equity', 'equity'].includes(t) &&
-        !/gold|silver|etf|fof/i.test(n);
-    }).reduce((s, i) => s + (i.currentValue || i.investedAmount || 0), 0);
+    const { mf, gold, silver, stocks, other } = investmentBuckets(investments);
 
     const fds = deposits.filter(d => d.type === 'FD')
       .reduce((s, d) => s + (d.principalAmount || 0), 0);
@@ -218,43 +238,25 @@ export default function PortfolioOverview() {
       }
     });
 
-    let avgSalary = avgAcrossMonths(salaryByMonth);
+    // Average only over the months the family has been tracking (Sprint 5).
+    const firstEntry = allExpenses.map((e) => e.expenseDate).filter(Boolean).sort()[0];
+    const tracked = monthsTracked(firstEntry);
+    const { salary: avgSalary, side: sideIncome } = monthlyIncome(receivedIncome, averageOverThreeMonths(salaryByMonth, tracked));
 
-    // Fallback: Monthly income sources
-    if (avgSalary === 0) {
-      avgSalary = incomeSources
-        .filter(i => i.frequency === 'Monthly' || (i.sourceName || '').toLowerCase().includes('salary'))
-        .reduce((s, i) => s + (i.amount || 0), 0);
-    }
-
-    // Side income: non-salary income sources (monthly average — divide yearly by 12)
-    const sideIncome = incomeSources
-      .filter(i => !(i.sourceName || '').toLowerCase().includes('salary') && i.frequency !== 'Monthly')
-      .reduce((s, i) => {
-        const amt = i.amount || 0;
-        if (i.frequency === 'Yearly') return s + amt / 12;
-        if (i.frequency === 'One-time') return s + 0;
-        return s + amt; // Assume monthly
-      }, 0) +
-      incomeSources
-        .filter(i => i.frequency === 'Monthly' && !(i.sourceName || '').toLowerCase().includes('salary'))
-        .reduce((s, i) => s + (i.amount || 0), 0);
-
-    const avgLivingExpenses = avgAcrossMonths(debitByMonth);
+    const avgLivingExpenses = averageOverThreeMonths(debitByMonth, tracked);
 
     // Fixed monthly outflows
-    const totalEMI = loans.reduce((s, l) => s + (l.emiAmount || 0), 0);
-    const totalRD = deposits.filter(d => d.type === 'RD')
-      .reduce((s, d) => s + (d.monthlyDepositAmount || 0), 0);
-    const totalChit = chitFunds.filter(c => (c.pendingInstallments || 0) > 0)
-      .reduce((s, c) => s + (c.monthlyInstallment || 0), 0);
+    const { emi: totalEMI, rd: totalRD, chit: totalChit } = fixedOutflows(loans, deposits, chitFunds);
     const totalSavingsOutflows = totalRD + totalChit;
 
-    const totalInflow = avgSalary + sideIncome;
-    const totalOutflow = avgLivingExpenses + totalEMI + totalSavingsOutflows;
-    const netSurplus = totalInflow - totalOutflow;
+    const fromPlan = !!plan && plan.income > 0;
+    const totalInflow = fromPlan ? plan!.income : avgSalary + sideIncome;
+    const totalOutflow = fromPlan ? plan!.totalOutflow : avgLivingExpenses + totalEMI + totalSavingsOutflows;
+    const netSurplus = fromPlan ? plan!.plannedSurplus : totalInflow - totalOutflow;
 
     return {
+      fromPlan,
+      tracked,
       avgSalary,
       sideIncome,
       avgLivingExpenses,
@@ -266,7 +268,7 @@ export default function PortfolioOverview() {
       totalOutflow,
       netSurplus,
     };
-  }, [allExpenses, incomeSources, loans, deposits, chitFunds]);
+  }, [allExpenses, receivedIncome, loans, deposits, chitFunds, plan]);
 
   /** ④ Year-end projection (Dec 31 of current year) */
   const projection = useMemo(() => {
@@ -349,7 +351,7 @@ export default function PortfolioOverview() {
 
   // ── JSX ────────────────────────────────────────────────────────────────────
   return (
-    <div className="h-full flex flex-col space-y-6 overflow-y-auto pb-8 pr-1 custom-scrollbar">
+    <div className="min-h-full flex flex-col space-y-6 pb-8">
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div>
@@ -364,11 +366,14 @@ export default function PortfolioOverview() {
       {/* ── Top 4-card summary ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Net Worth */}
-        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-lg p-5 text-white relative overflow-hidden col-span-2 lg:col-span-1">
+        <div className="rg-hero bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-lg p-5 text-white relative overflow-hidden col-span-2 lg:col-span-1">
           <div className="relative z-10">
             <p className="text-indigo-100 text-xs font-semibold uppercase tracking-wider mb-1">Total Net Worth</p>
             <h2 className="text-2xl font-bold font-mono">{fmt(netWorth)}</h2>
             <span className="text-[10px] text-indigo-200 mt-1 block">Assets − Liabilities</span>
+            {royal && <div className="mt-3">
+              <DotMatrix levels={weeklyTrend} color="#FFFFFF" offColor="rgba(255,255,255,.22)" label="Weekly money in minus out, last 24 weeks" />
+            </div>}
           </div>
           <TrendingUp className="absolute -right-4 -bottom-4 h-28 w-28 text-white/10" />
         </div>
@@ -413,6 +418,13 @@ export default function PortfolioOverview() {
       </div>
 
       {/* ── 3-Column main layout ────────────────────────────────────────────── */}
+      <NeedsAttention alerts={attention} />
+
+      {/* ── Family money map ───────────────────────────────────────────────── */}
+      {royal && (members.length > 0 || holdings.length > 0) && (
+        <MoneyMapCard familyName={familyName} members={members} holdings={holdings} />
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
         {/* ═══════════ COLUMN 1: Asset breakdown ════════════════════════════ */}
@@ -505,16 +517,43 @@ export default function PortfolioOverview() {
         <div className="space-y-6">
 
           {/* Monthly Cash Flow Card */}
-          <div className="bg-card rounded-2xl shadow-sm border border-border p-5 space-y-4">
-            <h3 className="text-sm font-bold text-foreground uppercase tracking-wider border-b border-border/30 pb-2 flex items-center gap-1.5">
+          <section aria-labelledby="cash-flow-title" className="bg-card rounded-2xl shadow-sm border border-border p-5 space-y-4">
+            <h3 id="cash-flow-title" className="text-sm font-bold text-foreground uppercase tracking-wider border-b border-border/30 pb-2 flex items-center gap-1.5">
               <Landmark className="h-4 w-4 text-primary" /> Monthly Cash Flow
-              <span className="ml-auto text-[9px] text-muted-foreground font-normal normal-case">3-month avg</span>
+              <span className="ml-auto text-[9px] text-muted-foreground font-normal normal-case">
+                {cashFlow.fromPlan ? 'From Monthly Commitments' : `${cashFlow.tracked}-month avg`}
+              </span>
             </h3>
 
-            <div className="space-y-0.5 font-mono text-xs">
+            {cashFlow.fromPlan && plan && (
+              <div className="space-y-0.5 font-mono text-xs">
+                <div className="flex justify-between items-center py-1.5 border-b border-border/30 bg-emerald-500/5 px-2 rounded-lg -mx-2">
+                  <span className="text-emerald-700 dark:text-emerald-400 font-bold">Income</span>
+                  <span className="text-emerald-600 font-bold text-sm">{fmt(plan.income)}</span>
+                </div>
+                <div className="flex justify-between items-center py-1.5 border-b border-border/20">
+                  <span className="text-muted-foreground">- Must-pay (EMIs, chits, RD, SSY)</span>
+                  <span className="text-red-500 font-bold">{fmt(plan.mustPay)}</span>
+                </div>
+                <div className="flex justify-between items-center py-1.5 border-b border-border/20">
+                  <span className="text-muted-foreground">- Living</span>
+                  <span className="text-red-500 font-bold">{fmt(plan.living)}</span>
+                </div>
+                <div className="flex justify-between items-center py-1.5 border-b border-border/20">
+                  <span className="text-muted-foreground">- Pause-able (SIPs)</span>
+                  <span className="text-orange-500 font-bold">{fmt(plan.pausable)}</span>
+                </div>
+                <div className={`flex justify-between items-center py-2 px-3 rounded-xl -mx-2 mt-1 border ${plan.plannedSurplus >= 0 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+                  <span className={`font-bold text-sm ${plan.plannedSurplus >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600'}`}>= Headroom this month</span>
+                  <span className={`font-bold text-base ${plan.plannedSurplus >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{fmt(plan.plannedSurplus)}</span>
+                </div>
+              </div>
+            )}
+
+            {!cashFlow.fromPlan && <div className="space-y-0.5 font-mono text-xs">
               {/* Inflows */}
               <div className="flex justify-between items-center py-1.5 border-b border-border/20">
-                <span className="text-muted-foreground">Salary (avg 3 mo)</span>
+                <span className="text-muted-foreground">Salary (avg {cashFlow.tracked} mo)</span>
                 <span className="text-emerald-600 font-bold">{fmt(cashFlow.avgSalary)}</span>
               </div>
               {cashFlow.sideIncome > 0 && (
@@ -568,14 +607,14 @@ export default function PortfolioOverview() {
                   {fmt(cashFlow.netSurplus)}
                 </span>
               </div>
-            </div>
+            </div>}
 
             {cashFlow.avgSalary === 0 && cashFlow.totalInflow === 0 && (
               <p className="text-[11px] text-amber-600 bg-amber-500/10 rounded-lg p-2">
                 ⚠ No salary data found in last 3 months. Log CREDIT transactions with category "Salary" to enable this engine.
               </p>
             )}
-          </div>
+          </section>
 
           {/* Year-End Projection Panel */}
           <div className="bg-card rounded-2xl shadow-sm border border-border p-5 space-y-4">
@@ -806,7 +845,7 @@ export default function PortfolioOverview() {
               <div className="text-center py-6 text-xs text-muted-foreground">No side income sources.</div>
             ) : (
               <div className="space-y-1.5">
-                {incomeSources.map(inc => (
+                {receivedIncome.map(inc => (
                   <div key={inc.id} className="flex justify-between items-center p-2.5 rounded-xl border border-border/40 bg-background/20 text-xs">
                     <div>
                       <p className="font-semibold text-foreground">{inc.sourceName}</p>

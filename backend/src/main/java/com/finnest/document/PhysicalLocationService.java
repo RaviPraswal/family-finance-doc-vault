@@ -24,6 +24,7 @@ public class PhysicalLocationService {
     }
 
     public Optional<PhysicalLocation> getPhysicalLocation(UUID documentId) {
+        com.finnest.common.TenantGuard.owned(documentRepository.findById(documentId));
         return locationRepository.findByDocumentId(documentId);
     }
 
@@ -81,6 +82,10 @@ public class PhysicalLocationService {
         PhysicalLocation location = locationRepository.findByDocumentId(documentId)
                 .orElseThrow(() -> new RuntimeException("Physical location details not configured for this document"));
 
+        if (!location.isOriginalPresent()) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "The original is already checked out" + (location.getLastBorrowedBy() != null ? " to " + location.getLastBorrowedBy() : "") + ".");
+        }
         location.setOriginalPresent(false);
         location.setLastBorrowedBy(borrowerName);
         location.setLastBorrowedAt(LocalDateTime.now());
@@ -143,6 +148,7 @@ public class PhysicalLocationService {
     }
 
     public List<PhysicalDocumentLog> getLogs(UUID documentId) {
+        com.finnest.common.TenantGuard.owned(documentRepository.findById(documentId));
         return logRepository.findAllByDocumentIdOrderByCreatedAtDesc(documentId);
     }
 

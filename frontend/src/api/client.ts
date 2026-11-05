@@ -23,10 +23,14 @@ export const apiClient = async (endpoint: string, options: RequestInit = {}) => 
 
   if (!response.ok) {
     const errorBody = await response.text();
-    // Only logout on actual authentication/authorization failures
-    if (response.status === 401 || response.status === 403) {
+    // 401 = the login is missing or expired: end the session.
+    if (response.status === 401) {
       useAuthStore.getState().logout();
       throw new Error('Session expired. Please log in again.');
+    }
+    // 403 = logged in, but not allowed to touch this record: keep the session.
+    if (response.status === 403) {
+      throw new Error("You don't have permission to do that.");
     }
     // For 4xx client errors (e.g. FK constraint violations), surface the backend message
     if (response.status >= 400 && response.status < 500) {

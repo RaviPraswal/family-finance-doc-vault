@@ -33,4 +33,11 @@ describe('Royal skin tokens', () => {
     const unscoped = selectors.map((s: string) => s.trim()).filter((s: string) => s && !/^(from|to|\d+%)$/.test(s) && !s.split(',').every((p: string) => p.trim().startsWith('html.skin-royal')));
     expect(unscoped).toEqual([]);
   });
+
+  // Sprint 5: details get the room. Fixed-height panels grow with their content and padding is tighter.
+  it('lets fixed-height panels grow and tightens spacing', () => {
+    expect(css).toMatch(/html\.skin-royal \.h-\\\[calc\\\(100vh-16rem\\\)\\\][^{]*\{[^}]*height:\s*auto/);
+    expect(css).toMatch(/html\.skin-royal \.p-6[^{]*\{[^}]*padding:\s*1rem/);
+    expect(css).toMatch(/html\.skin-royal main[^{]*\{[^}]*padding/);
+  });
 });

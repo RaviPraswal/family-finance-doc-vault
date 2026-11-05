@@ -1,10 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { averageOverThreeMonths, monthlyIncome, fixedOutflows, investmentBuckets } from '../lib/cockpit';
+import { averageOverThreeMonths, monthsTracked, monthlyIncome, fixedOutflows, investmentBuckets } from '../lib/cockpit';
 
 // Sprint 3, S3-14: cockpit numbers (BR-NW-05, 08, 09, 11).
 describe('cockpit maths', () => {
   it('averages over 3 months even when only one month has data', () => {
-    expect(averageOverThreeMonths(new Map([['2026-8', 30000]]))).toBe(10000);
+    expect(averageOverThreeMonths(new Map([['2026-8', 30000]]), 3)).toBe(10000);
+  });
+
+  // Sprint 5: a family that started tracking last month has one month of history, not three.
+  it('averages only over the months the family has been tracking', () => {
+    expect(averageOverThreeMonths(new Map([['2026-9', 89706]]), 1)).toBe(89706);
+    expect(monthsTracked('2026-10-03', new Date('2026-11-05'))).toBe(1);
+    expect(monthsTracked('2026-02-01', new Date('2026-11-05'))).toBe(3);
+    expect(monthsTracked(undefined, new Date('2026-11-05'))).toBe(3);
   });
 
   it('counts a monthly side income once, and falls back to salary sources only', () => {

@@ -208,6 +208,46 @@ html.skin-royal .custom-scrollbar::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, #7C3AED 45%, transparent);
 }
 
+/* ---------- Density (Sprint 5): the details get the room ---------- */
+/* Panels that were locked to the window height grow with their content; the page scrolls instead. */
+html.skin-royal .h-\[calc\(100vh-16rem\)\],
+html.skin-royal .h-\[calc\(100vh-2rem\)\] {
+  height: auto;
+  max-height: none;
+}
+html.skin-royal main {
+  padding: 1rem 1.25rem 1.5rem;
+}
+html.skin-royal .p-6,
+html.skin-royal .p-8 {
+  padding: 1rem;
+}
+html.skin-royal .p-5 {
+  padding: 0.9rem;
+}
+html.skin-royal .gap-6 {
+  gap: 1rem;
+}
+html.skin-royal .mb-6,
+html.skin-royal .mb-8 {
+  margin-bottom: 1rem;
+}
+html.skin-royal .space-y-6 > * + * {
+  margin-top: 1rem;
+}
+html.skin-royal h1.text-2xl,
+html.skin-royal h1.text-3xl {
+  font-size: 1.45rem;
+  line-height: 1.2;
+}
+html.skin-royal td.py-3,
+html.skin-royal th.py-3,
+html.skin-royal td.py-4,
+html.skin-royal th.py-4 {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
 /* ---------- Motion ---------- */
 @keyframes rg-drift {
   to {

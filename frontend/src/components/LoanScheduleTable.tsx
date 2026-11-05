@@ -1,0 +1,90 @@
+import { useMemo } from 'react';
+import { buildLoanSchedule, scheduleSummary, type InstallmentStatus, type LoanTerms } from '../lib/loanSchedule';
+
+interface Props {
+  loan: LoanTerms & { lenderName?: string };
+  /** Ledger entries; DEBITs linked to this loan mark their month's EMI as paid. */
+  entries: { linkedLoan?: { id?: string } | null; expenseDate?: string; type?: string }[];
+  loanId: string;
+}
+
+const STATUS: Record<InstallmentStatus, { label: string; cls: string }> = {
+  PAID: { label: 'Paid', cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
+  OVERDUE: { label: 'Overdue', cls: 'bg-red-500/15 text-red-700 dark:text-red-300' },
+  DUE: { label: 'Due', cls: 'bg-amber-500/20 text-amber-800 dark:text-amber-300' },
+  UPCOMING: { label: 'Upcoming', cls: 'bg-muted text-muted-foreground' },
+};
+
+const inr = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
+const date = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' });
+
+/** Every EMI of a loan: due date, split, closing balance, foreclosure amount and paid status (Sprint 5). */
+export default function LoanScheduleTable({ loan, entries, loanId }: Props) {
+  const paidMonths = useMemo(
+    () => entries.filter((e) => e.linkedLoan?.id === loanId && e.type !== 'CREDIT' && e.expenseDate).map((e) => e.expenseDate!.slice(0, 7)),
+    [entries, loanId],
+  );
+  const rows = useMemo(() => buildLoanSchedule(loan, { paidMonths }), [loan, paidMonths]);
+  const summary = scheduleSummary(rows);
+  const showClose = !!loan.foreclosureRate;
+
+  if (rows.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground bg-muted/30 rounded-xl p-4">
+        Add the loan's tenure, first EMI date and EMI amount (Edit loan) to see its full EMI schedule.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2 text-xs">
+        <span className="px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-semibold">{summary.paid} of {summary.total} paid</span>
+        <span className="px-3 py-1.5 rounded-full bg-muted font-semibold">{summary.remaining} remaining</span>
+        {summary.overdue > 0 && <span className="px-3 py-1.5 rounded-full bg-red-500/15 text-red-700 dark:text-red-300 font-semibold">{summary.overdue} overdue</span>}
+        <span className="px-3 py-1.5 rounded-full bg-muted font-semibold">Principal repaid {inr(summary.principalRepaid)}</span>
+        <span className="px-3 py-1.5 rounded-full bg-muted font-semibold">Interest paid {inr(summary.interestPaid)} of {inr(summary.totalInterest)}</span>
+        <span className="px-3 py-1.5 rounded-full bg-muted font-semibold">Outstanding {inr(summary.outstanding)}</span>
+        {summary.next && <span className="px-3 py-1.5 rounded-full bg-primary/10 text-primary font-semibold">Next: #{summary.next.no} on {date(summary.next.dueDate)} · {inr(summary.next.emi)}</span>}
+      </div>
+      <div className="overflow-x-auto rounded-xl border border-border">
+        <table aria-label={`EMI schedule${loan.lenderName ? ` for ${loan.lenderName}` : ''}`} className="min-w-full text-xs tabular-nums">
+          <thead className="bg-muted/50 sticky top-0">
+            <tr className="text-left text-muted-foreground uppercase tracking-wider">
+              <th className="px-3 py-2">#</th>
+              <th className="px-3 py-2">Due date</th>
+              <th className="px-3 py-2 text-right">Opening</th>
+              <th className="px-3 py-2 text-right">EMI</th>
+              <th className="px-3 py-2 text-right">Principal</th>
+              <th className="px-3 py-2 text-right">Interest</th>
+              <th className="px-3 py-2 text-right">Closing</th>
+              {showClose && <th className="px-3 py-2 text-right">To close now</th>}
+              <th className="px-3 py-2">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/60">
+            {rows.map((r) => (
+              <tr key={r.no} className={r.status === 'DUE' ? 'bg-amber-500/10' : r.status === 'PAID' ? 'opacity-80' : ''}>
+                <td className="px-3 py-1.5 text-muted-foreground">{r.no}</td>
+                <td className="px-3 py-1.5 font-semibold">{date(r.dueDate)}</td>
+                <td className="px-3 py-1.5 text-right">{inr(r.opening)}</td>
+                <td className="px-3 py-1.5 text-right font-semibold">{inr(r.emi)}</td>
+                <td className="px-3 py-1.5 text-right">{inr(r.principal)}</td>
+                <td className="px-3 py-1.5 text-right">{inr(r.interest)}</td>
+                <td className="px-3 py-1.5 text-right">{inr(r.closing)}</td>
+                {showClose && (
+                  <td className="px-3 py-1.5 text-right">
+                    {r.foreclosureEligible ? <span title={`Includes ${inr(r.foreclosureCharge)} charge`}>{inr(r.amountToClose)}</span> : <span className="text-muted-foreground">Not eligible</span>}
+                  </td>
+                )}
+                <td className="px-3 py-1.5">
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${STATUS[r.status].cls}`}>{STATUS[r.status].label}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

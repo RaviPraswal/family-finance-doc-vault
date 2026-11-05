@@ -3,10 +3,21 @@
  * Amounts are rupees per month unless stated.
  */
 
-/** Average over the last 3 full months; a month with no entries counts as zero. */
-export function averageOverThreeMonths(byMonth: Map<string, number>): number {
+/**
+ * Average over the last 3 full months, but only over the months the family has been tracking
+ * (a family that started last month has one month of history, not three). A month with no entries counts as zero.
+ */
+export function averageOverThreeMonths(byMonth: Map<string, number>, months: number = 3): number {
   const total = Array.from(byMonth.values()).reduce((a, b) => a + b, 0);
-  return total / 3;
+  return total / Math.min(3, Math.max(1, months));
+}
+
+/** Full months of history before the current month, from the first ledger entry (1 to 3). */
+export function monthsTracked(firstEntryDate: string | undefined, today: Date = new Date()): number {
+  if (!firstEntryDate) return 3;
+  const [y, m] = firstEntryDate.slice(0, 7).split('-').map(Number);
+  const months = today.getFullYear() * 12 + today.getMonth() - (y * 12 + (m - 1));
+  return Math.min(3, Math.max(1, months));
 }
 
 export interface IncomeSourceLike {

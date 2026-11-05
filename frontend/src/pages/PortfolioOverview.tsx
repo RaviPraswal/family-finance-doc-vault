@@ -5,6 +5,9 @@ import DotMatrix from '../components/DotMatrix';
 import MoneyMapCard from '../components/MoneyMapCard';
 import type { MapHolding, MapMember } from '../lib/moneyMap';
 import { useThemeStore } from '../store/themeStore';
+import NeedsAttention from '../components/NeedsAttention';
+import { overdueUdhaar, overdueEmis, lowBalances } from '../lib/alerts';
+import { monthsTracked } from '../lib/cockpit';
 import { averageOverThreeMonths, monthlyIncome, fixedOutflows, investmentBuckets } from '../lib/cockpit';
 import { Link } from 'react-router-dom';
 import {
@@ -89,6 +92,8 @@ export default function PortfolioOverview() {
   const [insights, setInsights] = useState<Recommendation[]>([]);
   const [members, setMembers] = useState<MapMember[]>([]);
   const [familyName, setFamilyName] = useState('Family');
+  /** This month's Monthly Commitments plan; when it has income, the cash flow card follows it. */
+  const [plan, setPlan] = useState<{ income: number; mustPay: number; living: number; pausable: number; totalOutflow: number; plannedSurplus: number } | null>(null);
   // The money map and dot charts belong to the Royal look only; Classic and Liquid Glass stay as they were.
   const royal = useThemeStore((state) => state.skin) === 'royal';
 
@@ -125,6 +130,7 @@ export default function PortfolioOverview() {
         withTimeout(apiClient('/api/creditcards')).catch(() => []),
         withTimeout(apiClient('/api/peerlendings')).catch(() => []),
       ]);
+      apiClient('/api/commitments/plan').then((p: any) => setPlan(p && typeof p.income === 'number' ? p : null)).catch(() => setPlan(null));
 
       setBankAccounts(Array.isArray(banks) ? banks : []);
       setInvestments(Array.isArray(invs) ? invs : []);
@@ -145,6 +151,13 @@ export default function PortfolioOverview() {
   };
 
   // ── Computed values (all via useMemo) ─────────────────────────────────────
+
+  /** Money items that need attention: overdue udhaar, EMIs not yet recorded, low balances (Sprint 5). */
+  const attention = useMemo(() => [
+    ...overdueUdhaar(peerLendings),
+    ...overdueEmis(loans, allExpenses as any[]),
+    ...lowBalances(bankAccounts),
+  ].sort((a, b) => a.urgency - b.urgency), [peerLendings, loans, allExpenses, bankAccounts]);
 
   /** Weekly money in minus out for the last 24 weeks, as dot-matrix column heights. */
   const weeklyTrend = useMemo(() => dotLevels(weeklyNet(allExpenses, 24)), [allExpenses]);
@@ -222,19 +235,25 @@ export default function PortfolioOverview() {
       }
     });
 
-    const { salary: avgSalary, side: sideIncome } = monthlyIncome(incomeSources, averageOverThreeMonths(salaryByMonth));
+    // Average only over the months the family has been tracking (Sprint 5).
+    const firstEntry = allExpenses.map((e) => e.expenseDate).filter(Boolean).sort()[0];
+    const tracked = monthsTracked(firstEntry);
+    const { salary: avgSalary, side: sideIncome } = monthlyIncome(incomeSources, averageOverThreeMonths(salaryByMonth, tracked));
 
-    const avgLivingExpenses = averageOverThreeMonths(debitByMonth);
+    const avgLivingExpenses = averageOverThreeMonths(debitByMonth, tracked);
 
     // Fixed monthly outflows
     const { emi: totalEMI, rd: totalRD, chit: totalChit } = fixedOutflows(loans, deposits, chitFunds);
     const totalSavingsOutflows = totalRD + totalChit;
 
-    const totalInflow = avgSalary + sideIncome;
-    const totalOutflow = avgLivingExpenses + totalEMI + totalSavingsOutflows;
-    const netSurplus = totalInflow - totalOutflow;
+    const fromPlan = !!plan && plan.income > 0;
+    const totalInflow = fromPlan ? plan!.income : avgSalary + sideIncome;
+    const totalOutflow = fromPlan ? plan!.totalOutflow : avgLivingExpenses + totalEMI + totalSavingsOutflows;
+    const netSurplus = fromPlan ? plan!.plannedSurplus : totalInflow - totalOutflow;
 
     return {
+      fromPlan,
+      tracked,
       avgSalary,
       sideIncome,
       avgLivingExpenses,
@@ -246,7 +265,7 @@ export default function PortfolioOverview() {
       totalOutflow,
       netSurplus,
     };
-  }, [allExpenses, incomeSources, loans, deposits, chitFunds]);
+  }, [allExpenses, incomeSources, loans, deposits, chitFunds, plan]);
 
   /** ④ Year-end projection (Dec 31 of current year) */
   const projection = useMemo(() => {
@@ -396,6 +415,8 @@ export default function PortfolioOverview() {
       </div>
 
       {/* ── 3-Column main layout ────────────────────────────────────────────── */}
+      <NeedsAttention alerts={attention} />
+
       {/* ── Family money map ───────────────────────────────────────────────── */}
       {royal && (members.length > 0 || holdings.length > 0) && (
         <MoneyMapCard familyName={familyName} members={members} holdings={holdings} />
@@ -493,16 +514,43 @@ export default function PortfolioOverview() {
         <div className="space-y-6">
 
           {/* Monthly Cash Flow Card */}
-          <div className="bg-card rounded-2xl shadow-sm border border-border p-5 space-y-4">
-            <h3 className="text-sm font-bold text-foreground uppercase tracking-wider border-b border-border/30 pb-2 flex items-center gap-1.5">
+          <section aria-labelledby="cash-flow-title" className="bg-card rounded-2xl shadow-sm border border-border p-5 space-y-4">
+            <h3 id="cash-flow-title" className="text-sm font-bold text-foreground uppercase tracking-wider border-b border-border/30 pb-2 flex items-center gap-1.5">
               <Landmark className="h-4 w-4 text-primary" /> Monthly Cash Flow
-              <span className="ml-auto text-[9px] text-muted-foreground font-normal normal-case">3-month avg</span>
+              <span className="ml-auto text-[9px] text-muted-foreground font-normal normal-case">
+                {cashFlow.fromPlan ? 'From Monthly Commitments' : `${cashFlow.tracked}-month avg`}
+              </span>
             </h3>
 
-            <div className="space-y-0.5 font-mono text-xs">
+            {cashFlow.fromPlan && plan && (
+              <div className="space-y-0.5 font-mono text-xs">
+                <div className="flex justify-between items-center py-1.5 border-b border-border/30 bg-emerald-500/5 px-2 rounded-lg -mx-2">
+                  <span className="text-emerald-700 dark:text-emerald-400 font-bold">Income</span>
+                  <span className="text-emerald-600 font-bold text-sm">{fmt(plan.income)}</span>
+                </div>
+                <div className="flex justify-between items-center py-1.5 border-b border-border/20">
+                  <span className="text-muted-foreground">- Must-pay (EMIs, chits, RD, SSY)</span>
+                  <span className="text-red-500 font-bold">{fmt(plan.mustPay)}</span>
+                </div>
+                <div className="flex justify-between items-center py-1.5 border-b border-border/20">
+                  <span className="text-muted-foreground">- Living</span>
+                  <span className="text-red-500 font-bold">{fmt(plan.living)}</span>
+                </div>
+                <div className="flex justify-between items-center py-1.5 border-b border-border/20">
+                  <span className="text-muted-foreground">- Pause-able (SIPs)</span>
+                  <span className="text-orange-500 font-bold">{fmt(plan.pausable)}</span>
+                </div>
+                <div className={`flex justify-between items-center py-2 px-3 rounded-xl -mx-2 mt-1 border ${plan.plannedSurplus >= 0 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+                  <span className={`font-bold text-sm ${plan.plannedSurplus >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600'}`}>= Headroom this month</span>
+                  <span className={`font-bold text-base ${plan.plannedSurplus >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{fmt(plan.plannedSurplus)}</span>
+                </div>
+              </div>
+            )}
+
+            {!cashFlow.fromPlan && <div className="space-y-0.5 font-mono text-xs">
               {/* Inflows */}
               <div className="flex justify-between items-center py-1.5 border-b border-border/20">
-                <span className="text-muted-foreground">Salary (avg 3 mo)</span>
+                <span className="text-muted-foreground">Salary (avg {cashFlow.tracked} mo)</span>
                 <span className="text-emerald-600 font-bold">{fmt(cashFlow.avgSalary)}</span>
               </div>
               {cashFlow.sideIncome > 0 && (
@@ -556,14 +604,14 @@ export default function PortfolioOverview() {
                   {fmt(cashFlow.netSurplus)}
                 </span>
               </div>
-            </div>
+            </div>}
 
             {cashFlow.avgSalary === 0 && cashFlow.totalInflow === 0 && (
               <p className="text-[11px] text-amber-600 bg-amber-500/10 rounded-lg p-2">
                 ⚠ No salary data found in last 3 months. Log CREDIT transactions with category "Salary" to enable this engine.
               </p>
             )}
-          </div>
+          </section>
 
           {/* Year-End Projection Panel */}
           <div className="bg-card rounded-2xl shadow-sm border border-border p-5 space-y-4">

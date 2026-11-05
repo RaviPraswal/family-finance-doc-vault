@@ -260,7 +260,7 @@ export default function QuickLogger() {
   };
 
   return (
-    <div className="h-full flex flex-col space-y-6 overflow-y-auto pb-8 pr-1 custom-scrollbar">
+    <div className="min-h-full flex flex-col space-y-6 pb-8">
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Zap className="h-6 w-6 text-primary fill-primary/10" /> Quick Transaction Logger

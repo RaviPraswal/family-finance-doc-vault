@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
-import { buildLoanSchedule, scheduleSummary, type InstallmentStatus, type LoanTerms } from '../lib/loanSchedule';
+import { buildLoanSchedule, projectedSchedule, scheduleSummary, type InstallmentStatus, type LoanTerms } from '../lib/loanSchedule';
 
 interface Props {
-  loan: LoanTerms & { lenderName?: string };
+  loan: LoanTerms & { lenderName?: string; outstanding?: number | null };
   /** Ledger entries; DEBITs linked to this loan mark their month's EMI as paid. */
   entries: { linkedLoan?: { id?: string } | null; expenseDate?: string; type?: string }[];
   loanId: string;
@@ -24,20 +24,34 @@ export default function LoanScheduleTable({ loan, entries, loanId }: Props) {
     () => entries.filter((e) => e.linkedLoan?.id === loanId && e.type !== 'CREDIT' && e.expenseDate).map((e) => e.expenseDate!.slice(0, 7)),
     [entries, loanId],
   );
-  const rows = useMemo(() => buildLoanSchedule(loan, { paidMonths }), [loan, paidMonths]);
+  const full = useMemo(() => buildLoanSchedule(loan, { paidMonths }), [loan, paidMonths]);
+  // Sprint 6: without the statement details, project the remaining EMIs from today's outstanding balance.
+  const projected = full.length === 0;
+  const rows = useMemo(
+    () => (projected
+      ? projectedSchedule({ outstanding: loan.outstanding ?? 0, ratePercent: loan.ratePercent, emi: loan.emi, method: loan.method,
+          emiDay: loan.firstEmiDate ? Number(loan.firstEmiDate.slice(8, 10)) : 5 })
+      : full),
+    [projected, full, loan],
+  );
   const summary = scheduleSummary(rows);
   const showClose = !!loan.foreclosureRate;
 
   if (rows.length === 0) {
     return (
       <p className="text-sm text-muted-foreground bg-muted/30 rounded-xl p-4">
-        Add the loan's tenure, first EMI date and EMI amount (Edit loan) to see its full EMI schedule.
+        Add the loan's outstanding amount, EMI and interest rate (Edit loan) to see its EMI schedule.
       </p>
     );
   }
 
   return (
     <div className="space-y-3">
+      {projected && (
+        <p className="text-xs text-muted-foreground bg-muted/30 rounded-xl px-3 py-2">
+          Projected from today's outstanding of {inr(loan.outstanding ?? 0)}. Add the tenure and first EMI date from your loan statement (Edit loan) to also see the EMIs already paid.
+        </p>
+      )}
       <div className="flex flex-wrap gap-2 text-xs">
         <span className="px-3 py-1.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-semibold">{summary.paid} of {summary.total} paid</span>
         <span className="px-3 py-1.5 rounded-full bg-muted font-semibold">{summary.remaining} remaining</span>

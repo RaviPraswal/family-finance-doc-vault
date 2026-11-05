@@ -16,6 +16,18 @@ public class Investment extends TenantBaseEntity {
     private BigDecimal investedAmount;
     private BigDecimal currentValue;
 
+    // Sprint 6 (S6-04): what a scheduled investment (Sukanya Samriddhi) is projected from.
+    private java.time.LocalDate startDate;
+    private BigDecimal yearlyContribution;
+    private Double interestRate;
+
+    public java.time.LocalDate getStartDate() { return startDate; }
+    public void setStartDate(java.time.LocalDate startDate) { this.startDate = startDate; }
+    public BigDecimal getYearlyContribution() { return yearlyContribution; }
+    public void setYearlyContribution(BigDecimal yearlyContribution) { this.yearlyContribution = yearlyContribution; }
+    public Double getInterestRate() { return interestRate; }
+    public void setInterestRate(Double interestRate) { this.interestRate = interestRate; }
+
     public String getType() {
         return type;
     }

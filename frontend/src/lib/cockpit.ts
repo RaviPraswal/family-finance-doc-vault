@@ -81,3 +81,20 @@ export function investmentBuckets(investments: InvestmentLike[]) {
   }
   return buckets;
 }
+
+interface LinkedEntry { type?: string; amount?: number; expenseDate?: string; linkedIncomeSource?: { id?: string } | null }
+
+/**
+ * Sprint 6 (S6-03): the ledger is the source of truth (ADR-001). Each income source takes the amount of the latest
+ * credit received against it; a source with nothing received yet keeps its expected amount.
+ */
+export function withLedgerAmounts<T extends { id?: string; amount?: number }>(sources: T[], entries: LinkedEntry[]): T[] {
+  const latest = new Map<string, { date: string; amount: number }>();
+  for (const e of entries) {
+    const id = e.linkedIncomeSource?.id;
+    if (!id || e.type !== 'CREDIT' || !e.expenseDate) continue;
+    const seen = latest.get(id);
+    if (!seen || e.expenseDate > seen.date) latest.set(id, { date: e.expenseDate, amount: e.amount || 0 });
+  }
+  return sources.map((s) => (s.id && latest.has(s.id) ? { ...s, amount: latest.get(s.id)!.amount } : s));
+}

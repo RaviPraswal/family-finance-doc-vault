@@ -4,6 +4,8 @@ import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
 import { Plus, Briefcase, Trash2, Search, Download, Printer, FileText } from 'lucide-react';
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
+import SsyScheduleTable from '../components/SsyScheduleTable';
+import { isSukanya } from '../lib/ssySchedule';
 
 interface Investment {
   id: string;
@@ -11,6 +13,9 @@ interface Investment {
   name: string;
   investedAmount: number;
   currentValue: number;
+  startDate?: string | null;
+  yearlyContribution?: number | null;
+  interestRate?: number | null;
 }
 
 export default function Investments() {
@@ -73,6 +78,16 @@ export default function Investments() {
       setCustomAssetClasses(data);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const saveSsyTerms = async (inv: Investment, terms: { startDate: string; yearlyContribution: number; interestRate: number }) => {
+    try {
+      await apiClient(`/api/investments/${inv.id}`, { method: 'PUT', body: JSON.stringify({ ...inv, ...terms }) });
+      toast.success('Saved', 'Sukanya Samriddhi details updated.');
+      fetchInvestments();
+    } catch (err: any) {
+      toast.error('Failed to save', err.message || 'Could not update the account details.');
     }
   };
 
@@ -256,7 +271,7 @@ export default function Investments() {
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="min-h-full flex flex-col">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Investments</h1>
@@ -801,6 +816,14 @@ export default function Investments() {
           </div>
         </div>
       )}
+
+      {/* ── Sukanya Samriddhi, year by year (Sprint 6) ─────────────────── */}
+      {investments.filter(isSukanya).map((inv) => (
+        <section key={inv.id} aria-label={`Sukanya Samriddhi: ${inv.name}`} className="mt-6 bg-card border border-border rounded-2xl p-4 space-y-3">
+          <h2 className="text-base font-bold text-foreground">Sukanya Samriddhi · {inv.name}</h2>
+          <SsyScheduleTable investment={inv} onSaveTerms={(terms) => saveSsyTerms(inv, terms)} />
+        </section>
+      ))}
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">

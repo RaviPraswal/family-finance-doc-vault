@@ -246,7 +246,7 @@ export default function Loans() {
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="min-h-full flex flex-col">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Loans & EMI</h1>
@@ -832,6 +832,7 @@ export default function Loans() {
             entries={expenses}
             loan={{
               lenderName: selectedLoan.lenderName,
+              outstanding: selectedLoan.outstandingAmount ?? 0,
               principal: selectedLoan.principalAmount ?? 0,
               ratePercent: selectedLoan.interestRate ?? 0,
               emi: selectedLoan.emiAmount ?? 0,

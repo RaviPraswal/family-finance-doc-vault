@@ -7,7 +7,7 @@ import type { MapHolding, MapMember } from '../lib/moneyMap';
 import { useThemeStore } from '../store/themeStore';
 import NeedsAttention from '../components/NeedsAttention';
 import { overdueUdhaar, overdueEmis, lowBalances } from '../lib/alerts';
-import { monthsTracked } from '../lib/cockpit';
+import { monthsTracked, withLedgerAmounts } from '../lib/cockpit';
 import { averageOverThreeMonths, monthlyIncome, fixedOutflows, investmentBuckets } from '../lib/cockpit';
 import { Link } from 'react-router-dom';
 import {
@@ -159,6 +159,9 @@ export default function PortfolioOverview() {
     ...lowBalances(bankAccounts),
   ].sort((a, b) => a.urgency - b.urgency), [peerLendings, loans, allExpenses, bankAccounts]);
 
+  /** Side income as actually received: the latest ledger credit of each source (Sprint 6, ADR-001). */
+  const receivedIncome = useMemo(() => withLedgerAmounts(incomeSources, allExpenses), [incomeSources, allExpenses]);
+
   /** Weekly money in minus out for the last 24 weeks, as dot-matrix column heights. */
   const weeklyTrend = useMemo(() => dotLevels(weeklyNet(allExpenses, 24)), [allExpenses]);
 
@@ -238,7 +241,7 @@ export default function PortfolioOverview() {
     // Average only over the months the family has been tracking (Sprint 5).
     const firstEntry = allExpenses.map((e) => e.expenseDate).filter(Boolean).sort()[0];
     const tracked = monthsTracked(firstEntry);
-    const { salary: avgSalary, side: sideIncome } = monthlyIncome(incomeSources, averageOverThreeMonths(salaryByMonth, tracked));
+    const { salary: avgSalary, side: sideIncome } = monthlyIncome(receivedIncome, averageOverThreeMonths(salaryByMonth, tracked));
 
     const avgLivingExpenses = averageOverThreeMonths(debitByMonth, tracked);
 
@@ -265,7 +268,7 @@ export default function PortfolioOverview() {
       totalOutflow,
       netSurplus,
     };
-  }, [allExpenses, incomeSources, loans, deposits, chitFunds, plan]);
+  }, [allExpenses, receivedIncome, loans, deposits, chitFunds, plan]);
 
   /** ④ Year-end projection (Dec 31 of current year) */
   const projection = useMemo(() => {
@@ -348,7 +351,7 @@ export default function PortfolioOverview() {
 
   // ── JSX ────────────────────────────────────────────────────────────────────
   return (
-    <div className="h-full flex flex-col space-y-6 overflow-y-auto pb-8 pr-1 custom-scrollbar">
+    <div className="min-h-full flex flex-col space-y-6 pb-8">
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div>
@@ -842,7 +845,7 @@ export default function PortfolioOverview() {
               <div className="text-center py-6 text-xs text-muted-foreground">No side income sources.</div>
             ) : (
               <div className="space-y-1.5">
-                {incomeSources.map(inc => (
+                {receivedIncome.map(inc => (
                   <div key={inc.id} className="flex justify-between items-center p-2.5 rounded-xl border border-border/40 bg-background/20 text-xs">
                     <div>
                       <p className="font-semibold text-foreground">{inc.sourceName}</p>

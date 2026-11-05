@@ -116,3 +116,48 @@ export function scheduleSummary(rows: InstallmentRow[]) {
     next: rows.find((r) => r.status !== 'PAID'),
   };
 }
+
+export interface ProjectionTerms {
+  outstanding: number;
+  ratePercent: number;
+  emi: number;
+  /** Day of the month the EMI is debited (default 5). */
+  emiDay?: number | null;
+  method?: string | null;
+}
+
+/**
+ * Sprint 6 (S6-01): the remaining EMIs of a loan whose statement details (tenure, first EMI date) are not entered,
+ * projected from today's outstanding balance. Earlier instalments are unknown, so every row is still to pay.
+ */
+export function projectedSchedule(terms: ProjectionTerms, options: { today?: string | Date } = {}): InstallmentRow[] {
+  const { outstanding, emi } = terms;
+  if (!outstanding || outstanding <= 0 || !emi || emi <= 0) return [];
+  const rate = (terms.ratePercent || 0) / 100;
+  const daily = terms.method === 'DAILY_365';
+  const day = Math.min(Math.max(terms.emiDay || 5, 1), 28);
+  const today = options.today ? (typeof options.today === 'string' ? parse(options.today) : new Date(options.today)) : new Date();
+  today.setHours(0, 0, 0, 0);
+
+  let first = new Date(today.getFullYear(), today.getMonth(), day);
+  if (first < today) first = addMonths(first, 1);
+
+  const rows: InstallmentRow[] = [];
+  let balance = Math.round(outstanding);
+  let previous = addMonths(first, -1);
+  for (let no = 1; balance > 0 && no <= 600; no++) {
+    const due = addMonths(first, no - 1);
+    const interest = daily ? Math.round((balance * rate * daysBetween(previous, due)) / 365) : Math.round((balance * rate) / 12);
+    if (no === 1 && emi <= interest) return [];
+    const principalPart = Math.min(balance, emi - interest);
+    const sameMonth = due.getFullYear() === today.getFullYear() && due.getMonth() === today.getMonth();
+    rows.push({
+      no, dueDate: iso(due), opening: balance, emi: principalPart + interest, principal: principalPart, interest,
+      closing: balance - principalPart, foreclosureEligible: false, foreclosureCharge: 0, amountToClose: balance,
+      status: sameMonth ? 'DUE' : 'UPCOMING',
+    });
+    balance -= principalPart;
+    previous = due;
+  }
+  return rows;
+}

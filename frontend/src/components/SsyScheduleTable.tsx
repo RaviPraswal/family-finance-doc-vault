@@ -101,7 +101,9 @@ export default function SsyScheduleTable({ investment, onSaveTerms }: Props) {
                 <td className="px-3 py-1.5 text-muted-foreground">{r.year}</td>
                 <td className="px-3 py-1.5 font-semibold">{date(r.startDate)}</td>
                 <td className="px-3 py-1.5 text-right">{inr(r.opening)}</td>
-                <td className="px-3 py-1.5 text-right font-semibold">{r.deposit ? inr(r.deposit) : '—'}</td>
+                <td className="px-3 py-1.5 text-right font-semibold">
+                  {!r.deposit ? '—' : r.depositedSoFar > 0 && r.depositedSoFar < r.deposit ? `${inr(r.depositedSoFar)} of ${inr(r.deposit)}` : inr(r.deposit)}
+                </td>
                 <td className="px-3 py-1.5 text-right">{inr(r.interest)}</td>
                 <td className="px-3 py-1.5 text-right">{inr(r.closing)}</td>
                 <td className="px-3 py-1.5"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${STATUS[r.status].cls}`}>{STATUS[r.status].label}</span></td>
@@ -110,7 +112,7 @@ export default function SsyScheduleTable({ investment, onSaveTerms }: Props) {
           </tbody>
         </table>
       </div>
-      <p className="text-[11px] text-muted-foreground">Paid years are counted from the amount invested so far. Interest uses today's rate; the government resets it every quarter.</p>
+      <p className="text-[11px] text-muted-foreground">Deposits made so far (the amount invested) fill the years in order. Interest uses today's rate; the government resets it every quarter.</p>
     </div>
   );
 }

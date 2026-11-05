@@ -20,6 +20,8 @@ export interface SsyRow {
   startDate: string;
   opening: number;
   deposit: number;
+  /** How much of this year's deposit has been made so far (deposits fill the years in order). */
+  depositedSoFar: number;
   interest: number;
   closing: number;
   status: SsyStatus;
@@ -49,16 +51,19 @@ export function buildSsySchedule(terms: SsyTerms, today: string | Date = new Dat
 
   const rows: SsyRow[] = [];
   let balance = 0;
+  let unallocated = terms.deposited ?? 0;
   for (let year = 1; year <= TERM_YEARS; year++) {
     const from = addYears(start, year - 1);
     const to = addYears(start, year);
     const deposit = year <= DEPOSIT_YEARS ? yearly : 0;
+    const depositedSoFar = Math.min(deposit, Math.max(0, unallocated));
+    unallocated -= depositedSoFar;
     const interest = Math.round((balance + deposit) * rate);
     const status: SsyStatus = year > DEPOSIT_YEARS ? 'GROWING'
       : year <= paidYears ? 'PAID'
       : to <= now ? 'OVERDUE'
       : from <= now ? 'DUE' : 'UPCOMING';
-    rows.push({ year, startDate: iso(from), opening: balance, deposit, interest, closing: balance + deposit + interest, status });
+    rows.push({ year, startDate: iso(from), opening: balance, deposit, depositedSoFar, interest, closing: balance + deposit + interest, status });
     balance += deposit + interest;
   }
   return rows;

@@ -91,6 +91,14 @@ describe('Sukanya Samriddhi', () => {
     expect(screen.getByText(/matures/i)).toBeInTheDocument();
   });
 
+  it('shows the part-paid current year as deposited so far', async () => {
+    data['/api/investments'] = [{ id: 'v1', type: 'Test Sukanya Yojna', name: 'Test SSY', investedAmount: 35000, currentValue: 35000,
+      startDate: '2026-05-02', yearlyContribution: 150000, interestRate: 8.2 }];
+    at(<Investments />);
+    const table = await screen.findByRole('table', { name: /sukanya samriddhi schedule/i });
+    expect(within(table).getByText('₹35,000 of ₹1,50,000')).toBeInTheDocument();
+  });
+
   it('asks for the start date and yearly deposit when they are missing', async () => {
     data['/api/investments'] = [{ id: 'v1', type: 'Test Sukanya Yojna', name: 'Test SSY', investedAmount: 35000, currentValue: 35000 }];
     at(<Investments />);

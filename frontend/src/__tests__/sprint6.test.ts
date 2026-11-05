@@ -50,6 +50,13 @@ describe('Sukanya Samriddhi schedule', () => {
     expect(s.maturityValue).toBe(rows[20].closing);
   });
 
+  it('shows how much of a part-paid year is deposited so far', () => {
+    const part = buildSsySchedule({ startDate: '2026-05-02', yearlyDeposit: 150000, ratePercent: 8.2, deposited: 35000 }, '2026-11-05');
+    expect(part[0]).toMatchObject({ deposit: 150000, depositedSoFar: 35000, status: 'DUE' });
+    expect(part[1].depositedSoFar).toBe(0);
+    expect(rows[0].depositedSoFar).toBe(15000);
+  });
+
   it('needs a start date and yearly deposit', () => {
     expect(buildSsySchedule({ startDate: null, yearlyDeposit: 15000, deposited: 0 })).toEqual([]);
   });

@@ -1,0 +1,33 @@
+# Builds the backend JAR on feature branches and keeps it on a DRAFT release (not public),
+# so end-to-end checks can run the real app where Maven Central is not reachable.
+name: E2E JAR
+on:
+  push:
+    branches: ['feature/**']
+    paths: ['backend/**', '.github/workflows/e2e-jar.yml']
+permissions:
+  contents: write
+concurrency:
+  group: e2e-jar-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  jar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      - name: Build JAR (tests run in CI)
+        working-directory: backend
+        run: bash mvnw -B -ntp -DskipTests package
+      - name: Put it on the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="e2e-${GITHUB_REF_NAME//\//-}"
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --draft --title "$TAG (draft, e2e only)" --notes "Build for end-to-end checks. Not a release." --target "$GITHUB_SHA"
+          cp backend/target/*.jar finnest.jar
+          gh release upload "$TAG" finnest.jar --clobber

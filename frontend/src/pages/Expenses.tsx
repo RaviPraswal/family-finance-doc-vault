@@ -440,12 +440,12 @@ export default function Expenses() {
   const handleExportPDF = () => {
     const headers = ['Date', 'Category', 'Type', 'Description', 'Asset/Card', 'Amount'];
     const exportData = sortedExpenses.map(e => [
-      new Date(e.expenseDate).toLocaleDateString(),
+      new Date(e.expenseDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
       e.category,
       e.type,
       e.description || '-',
       e.linkedAccount?.bankName || e.linkedAccount?.name || e.linkedCreditCard?.cardName || '-',
-      `₹${e.amount.toLocaleString()}`
+      `₹${e.amount.toLocaleString('en-IN')}`
     ]);
     exportToPDF('Detailed Daily Transactions Ledger', headers, exportData, 'Transactions_Statement');
   };
@@ -541,7 +541,7 @@ export default function Expenses() {
                     <option value="">-- Select --</option>
                     {peerLendings.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.type === 'TAKEN' ? 'Lent From (Borrowed)' : 'Lent To'}: {p.personName} (₹{p.amount.toLocaleString()})
+                        {p.type === 'TAKEN' ? 'Lent From (Borrowed)' : 'Lent To'}: {p.personName} (₹{p.amount.toLocaleString('en-IN')})
                       </option>
                     ))}
                   </select>
@@ -560,7 +560,7 @@ export default function Expenses() {
                     <option value="">-- Select Loan --</option>
                     {loans.map((l) => (
                       <option key={l.id} value={l.id}>
-                        {l.lenderName} (Outstanding: ₹{l.outstandingAmount.toLocaleString()})
+                        {l.lenderName} (Outstanding: ₹{l.outstandingAmount.toLocaleString('en-IN')})
                       </option>
                     ))}
                   </select>
@@ -579,7 +579,7 @@ export default function Expenses() {
                     <option value="">-- Select Chit Fund --</option>
                     {chitFunds.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.organizerName} (Installment: ₹{c.monthlyInstallment.toLocaleString()})
+                        {c.organizerName} (Installment: ₹{c.monthlyInstallment.toLocaleString('en-IN')})
                       </option>
                     ))}
                   </select>
@@ -598,7 +598,7 @@ export default function Expenses() {
                     <option value="">-- Select Deposit --</option>
                     {deposits.map((d) => (
                       <option key={d.id} value={d.id}>
-                        {d.institution} - {d.type} (Principal: ₹{d.principalAmount.toLocaleString()})
+                        {d.institution} - {d.type} (Principal: ₹{d.principalAmount.toLocaleString('en-IN')})
                       </option>
                     ))}
                   </select>
@@ -617,7 +617,7 @@ export default function Expenses() {
                     <option value="">-- Select Investment --</option>
                     {investments.map((i) => (
                       <option key={i.id} value={i.id}>
-                        {i.name} (Invested: ₹{i.investedAmount.toLocaleString()})
+                        {i.name} (Invested: ₹{i.investedAmount.toLocaleString('en-IN')})
                       </option>
                     ))}
                   </select>
@@ -659,7 +659,7 @@ export default function Expenses() {
                       <option value="">-- Select Project --</option>
                       {projects.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.name} (Budget: ₹{p.budget.toLocaleString()})
+                          {p.name} (Budget: ₹{p.budget.toLocaleString('en-IN')})
                         </option>
                       ))}
                     </select>
@@ -711,7 +711,7 @@ export default function Expenses() {
                     <option value="">-- Select Income Source --</option>
                     {incomeSources.map((i) => (
                       <option key={i.id} value={i.id}>
-                        {i.sourceName} (Amount: ₹{i.amount.toLocaleString()})
+                        {i.sourceName} (Amount: ₹{i.amount.toLocaleString('en-IN')})
                       </option>
                     ))}
                   </select>
@@ -802,24 +802,24 @@ export default function Expenses() {
           <div className="space-y-3">
             <div className="glass-panel p-4 rounded-xl border border-border/50 bg-gradient-to-br from-green-500/5 to-transparent">
               <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Inflow (Credits) This Month</span>
-              <p className="text-base font-mono font-bold text-green-500 mt-1">₹{totalCreditsThisMonth.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+              <p className="text-base font-mono font-bold text-green-500 mt-1">₹{totalCreditsThisMonth.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
             </div>
             
             <div className="glass-panel p-4 rounded-xl border border-border/50 bg-gradient-to-br from-red-500/5 to-transparent">
               <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Outflow (Debits) This Month</span>
-              <p className="text-base font-mono font-bold text-red-500 mt-1">₹{totalDebitsThisMonth.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+              <p className="text-base font-mono font-bold text-red-500 mt-1">₹{totalDebitsThisMonth.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
             </div>
 
             <div className="glass-panel p-4 rounded-xl border border-border/50 bg-gradient-to-br from-orange-500/5 to-transparent">
               <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Actually Spent This Month</span>
-              <p className="text-base font-mono font-bold text-orange-500 mt-1">₹{spentThisMonth.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+              <p className="text-base font-mono font-bold text-orange-500 mt-1">₹{spentThisMonth.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
               <span className="text-[10px] text-muted-foreground">Excludes investments, EMIs, udhaar and transfers</span>
             </div>
 
             <div className={`glass-panel p-4 rounded-xl border border-border/50 bg-gradient-to-br ${netCashflow >= 0 ? 'from-green-500/5' : 'from-red-500/5'} to-transparent`}>
               <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Net Cashflow This Month</span>
               <p className={`text-base font-mono font-bold mt-1 ${netCashflow >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                {netCashflow >= 0 ? '+' : ''}₹{netCashflow.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {netCashflow >= 0 ? '+' : ''}₹{netCashflow.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </p>
             </div>
           </div>
@@ -927,7 +927,7 @@ export default function Expenses() {
                         className={`hover:bg-muted/30 transition-colors ${idx % 2 === 0 ? 'bg-background/25' : 'bg-card/15'}`}
                       >
                         <td className="px-3 py-2 whitespace-nowrap font-mono text-muted-foreground text-[11px] tabular-nums">
-                          {new Date(expense.expenseDate).toLocaleDateString()}
+                          {new Date(expense.expenseDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </td>
                         <td className="px-3 py-2 text-xs">
                           <span className="font-semibold text-foreground block">{expense.category}</span>
@@ -956,7 +956,7 @@ export default function Expenses() {
                            expense.madeAgainst === 'SIP_INVESTMENT' && expense.linkedInvestment ? `SIP: ${expense.linkedInvestment.name}` : '-'}
                         </td>
                         <td className={`px-3 py-2 whitespace-nowrap text-right font-mono font-bold tabular-nums text-xs ${isCredit ? 'text-green-500' : 'text-red-500'}`}>
-                          {isCredit ? '+' : '-'}₹{expense.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          {isCredit ? '+' : '-'}₹{expense.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </td>
                         <td className="px-3 py-2 whitespace-nowrap text-right text-xs font-medium">
                           <div className="flex justify-end gap-1.5">

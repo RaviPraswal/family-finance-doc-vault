@@ -372,7 +372,7 @@ export default function ChitFunds() {
     const paidRows = schedule.filter(row => row.status === 'Paid & Closed' || row.status === 'Allotted');
     const lastPaidRow = paidRows.length > 0 ? paidRows[paidRows.length - 1] : null;
     const lastPaidText = lastPaidRow
-      ? `₹${lastPaidRow.actualAmount.toLocaleString()} (${lastPaidRow.calendarMonth})`
+      ? `₹${lastPaidRow.actualAmount.toLocaleString('en-IN')} (${lastPaidRow.calendarMonth})`
       : 'N/A';
 
     const outstandingAmount = cf.totalValue - totalDeposited;
@@ -439,12 +439,12 @@ export default function ChitFunds() {
       return [
         cf.organizerName,
         cf.memberName,
-        `₹${cf.totalValue.toLocaleString()}`,
+        `₹${cf.totalValue.toLocaleString('en-IN')}`,
         `${cf.durationMonths}m`,
         `${details.paidMonthsCount}/${cf.durationMonths}m`,
-        `₹${details.upcomingVal.toLocaleString()}`,
+        `₹${details.upcomingVal.toLocaleString('en-IN')}`,
         cf.isAllotted ? 'Yes' : 'No',
-        cf.allottedAmount ? `₹${cf.allottedAmount.toLocaleString()}` : '-'
+        cf.allottedAmount ? `₹${cf.allottedAmount.toLocaleString('en-IN')}` : '-'
       ];
     });
     exportToPDF('Chit Funds Ledger Statement', headers, exportData, 'Chit_Funds_Report');
@@ -489,21 +489,21 @@ export default function ChitFunds() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Total Pool Value</span>
-          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalChitValue.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalChitValue.toLocaleString('en-IN')}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Deposited / Contributed</span>
-          <p className="text-lg font-mono font-bold text-green-500 mt-1 tabular-nums">₹{totalDepositedCumulative.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-green-500 mt-1 tabular-nums">₹{totalDepositedCumulative.toLocaleString('en-IN')}</p>
         </div>
         <span className="hidden md:block">
           <div className="glass-panel p-4 rounded-xl border border-border/50 h-full">
             <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Upcoming Outgo</span>
-            <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{nextDueInstallmentCumulative.toLocaleString()}</p>
+            <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{nextDueInstallmentCumulative.toLocaleString('en-IN')}</p>
           </div>
         </span>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Outstanding Balances</span>
-          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalOutstandingCumulative.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalOutstandingCumulative.toLocaleString('en-IN')}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Chits</span>
@@ -599,26 +599,26 @@ export default function ChitFunds() {
                     <div className="space-y-1.5 text-xs pt-2.5 border-t border-border/30">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Total Pool Value:</span>
-                        <span className="font-bold text-violet-500 font-mono tabular-nums">₹{cf.totalValue.toLocaleString()}</span>
+                        <span className="font-bold text-violet-500 font-mono tabular-nums">₹{cf.totalValue.toLocaleString('en-IN')}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Total Deposited:</span>
-                        <span className="font-semibold text-foreground font-mono tabular-nums">₹{details.totalDeposited.toLocaleString()}</span>
+                        <span className="font-semibold text-foreground font-mono tabular-nums">₹{details.totalDeposited.toLocaleString('en-IN')}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Outstanding:</span>
-                        <span className="font-semibold text-foreground font-mono tabular-nums">₹{details.outstandingAmount.toLocaleString()}</span>
+                        <span className="font-semibold text-foreground font-mono tabular-nums">₹{details.outstandingAmount.toLocaleString('en-IN')}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Next Installment:</span>
                         <span className="font-semibold text-foreground font-mono">
-                          ₹{details.upcomingVal.toLocaleString()} ({details.upcomingMonth})
+                          ₹{details.upcomingVal.toLocaleString('en-IN')} ({details.upcomingMonth})
                         </span>
                       </div>
                       <div className="flex justify-between pt-1.5 border-t border-border/20">
                         <span className="text-muted-foreground">Allotted Amount:</span>
                         <span className={`font-semibold ${cf.isAllotted ? 'text-green-500' : 'text-amber-500'}`}>
-                          {cf.isAllotted ? `₹${cf.allottedAmount?.toLocaleString()}` : 'Not Allotted'}
+                          {cf.isAllotted ? `₹${cf.allottedAmount?.toLocaleString('en-IN')}` : 'Not Allotted'}
                         </span>
                       </div>
                     </div>
@@ -688,7 +688,7 @@ export default function ChitFunds() {
                             {cf.memberName}
                           </td>
                           <td className="px-4 py-2.5 whitespace-nowrap font-mono font-bold text-violet-500 text-sm tabular-nums">
-                            ₹{cf.totalValue.toLocaleString()}
+                            ₹{cf.totalValue.toLocaleString('en-IN')}
                           </td>
                           <td className="px-4 py-2.5 whitespace-nowrap">
                             <div className="flex items-center gap-2">
@@ -699,10 +699,10 @@ export default function ChitFunds() {
                             </div>
                           </td>
                           <td className="px-4 py-2.5 whitespace-nowrap font-mono text-xs text-foreground font-medium">
-                            ₹{details.upcomingVal.toLocaleString()} <span className="text-[9px] text-muted-foreground">({details.upcomingMonth})</span>
+                            ₹{details.upcomingVal.toLocaleString('en-IN')} <span className="text-[9px] text-muted-foreground">({details.upcomingMonth})</span>
                           </td>
                           <td className="px-4 py-2.5 whitespace-nowrap font-mono text-xs text-foreground font-bold tabular-nums">
-                            ₹{details.outstandingAmount.toLocaleString()}
+                            ₹{details.outstandingAmount.toLocaleString('en-IN')}
                           </td>
                           <td className="px-4 py-2.5 whitespace-nowrap text-xs">
                             <span className={`font-semibold ${cf.isClosed ? 'text-muted-foreground' : cf.isAllotted ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
@@ -783,7 +783,7 @@ export default function ChitFunds() {
                                             {exp.description && <p className="text-[10px] text-muted-foreground italic mt-0.5">{exp.description}</p>}
                                           </div>
                                           <span className={`font-mono font-bold ${exp.type === 'DEBIT' ? 'text-red-500' : 'text-green-500'}`}>
-                                            {exp.type === 'DEBIT' ? '-' : '+'}₹{exp.amount.toLocaleString()}
+                                            {exp.type === 'DEBIT' ? '-' : '+'}₹{exp.amount.toLocaleString('en-IN')}
                                           </span>
                                         </div>
                                       ))
@@ -941,7 +941,7 @@ export default function ChitFunds() {
                   {scheduleRows.some(r => r.status === 'Allotted') && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground font-medium">Net Payout Amount:</span>
-                      <span className="font-semibold text-green-500 font-mono">₹{scheduleRows.find(r => r.status === 'Allotted')?.chitAmountAllocated.toLocaleString()}</span>
+                      <span className="font-semibold text-green-500 font-mono">₹{scheduleRows.find(r => r.status === 'Allotted')?.chitAmountAllocated.toLocaleString('en-IN')}</span>
                     </div>
                   )}
                   <div className="flex justify-between">

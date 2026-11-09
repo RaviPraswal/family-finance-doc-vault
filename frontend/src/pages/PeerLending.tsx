@@ -241,9 +241,9 @@ export default function PeerLending() {
     const exportData = sortedLendings.map(l => [
       l.personName,
       l.type === 'GIVEN' ? 'Given (Lent)' : 'Taken (Borrowed)',
-      `₹${l.amount.toLocaleString()}`,
-      new Date(l.date).toLocaleDateString(),
-      new Date(l.expectedReturnDate).toLocaleDateString(),
+      `₹${l.amount.toLocaleString('en-IN')}`,
+      new Date(l.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+      new Date(l.expectedReturnDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
       l.settled ? 'Settled' : (isLendingOverdue(l) ? 'Overdue' : 'Pending')
     ]);
     exportToPDF('Udhaar (Peer Lending) Report', headers, exportData, 'Udhaar_Report');
@@ -435,7 +435,7 @@ export default function PeerLending() {
                     <div className="flex items-center justify-between mb-3 pb-3 border-b border-border/50">
                       <div>
                         <p className="text-[10px] text-muted-foreground uppercase font-medium">Amount</p>
-                        <p className="text-base font-mono font-bold text-foreground tabular-nums">₹{lending.amount.toLocaleString()}</p>
+                        <p className="text-base font-mono font-bold text-foreground tabular-nums">₹{lending.amount.toLocaleString('en-IN')}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-[10px] text-muted-foreground uppercase font-medium mb-0.5">Status</p>
@@ -457,12 +457,12 @@ export default function PeerLending() {
                     <div className="space-y-1 text-xs">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Date:</span>
-                        <span className="font-medium text-foreground font-mono tabular-nums">{new Date(lending.date).toLocaleDateString()}</span>
+                        <span className="font-medium text-foreground font-mono tabular-nums">{new Date(lending.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Expected Return:</span>
                         <span className={`font-semibold font-mono tabular-nums ${isOverdue ? 'text-red-500' : 'text-foreground'}`}>
-                          {new Date(lending.expectedReturnDate).toLocaleDateString()}
+                          {new Date(lending.expectedReturnDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </span>
                       </div>
                     </div>
@@ -627,14 +627,14 @@ export default function PeerLending() {
                           </span>
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap font-mono font-bold text-foreground text-sm tabular-nums">
-                          ₹{lending.amount.toLocaleString()}
+                          ₹{lending.amount.toLocaleString('en-IN')}
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap text-xs text-muted-foreground font-mono tabular-nums">
-                          {new Date(lending.date).toLocaleDateString()}
+                          {new Date(lending.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap text-xs text-muted-foreground font-mono tabular-nums">
                           <span className={isOverdue ? 'text-red-500 font-bold' : ''}>
-                            {new Date(lending.expectedReturnDate).toLocaleDateString()}
+                            {new Date(lending.expectedReturnDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                           </span>
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap text-xs">
@@ -794,7 +794,7 @@ export default function PeerLending() {
                     </button>
                   </div>
                   <div className="mt-2 flex justify-between items-baseline">
-                    <span className="text-[10px] font-mono font-bold text-foreground tabular-nums">₹{lending.amount.toLocaleString()}</span>
+                    <span className="text-[10px] font-mono font-bold text-foreground tabular-nums">₹{lending.amount.toLocaleString('en-IN')}</span>
                     <span className={`text-[10px] font-bold uppercase ${
                       lending.settled 
                         ? 'text-green-500' 
@@ -821,7 +821,7 @@ export default function PeerLending() {
                     </div>
                     <div className="text-right">
                       <span className="text-[10px] text-muted-foreground block uppercase">Principal Amount</span>
-                      <span className="text-xl font-mono font-bold text-foreground tabular-nums">₹{selectedLending.amount.toLocaleString()}</span>
+                      <span className="text-xl font-mono font-bold text-foreground tabular-nums">₹{selectedLending.amount.toLocaleString('en-IN')}</span>
                     </div>
                   </div>
                 </div>
@@ -831,12 +831,12 @@ export default function PeerLending() {
                   <div className="grid grid-cols-3 gap-4 bg-muted/30 p-3 rounded-xl">
                     <div>
                       <span className="text-[10px] text-muted-foreground block uppercase">Date Logged</span>
-                      <span className="text-xs font-semibold text-foreground font-mono tabular-nums">{new Date(selectedLending.date).toLocaleDateString()}</span>
+                      <span className="text-xs font-semibold text-foreground font-mono tabular-nums">{new Date(selectedLending.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                     </div>
                     <div>
                       <span className="text-[10px] text-muted-foreground block uppercase">Expected Settlement</span>
                       <span className={`text-xs font-semibold font-mono tabular-nums ${isLendingOverdue(selectedLending) ? 'text-red-500' : 'text-foreground'}`}>
-                        {new Date(selectedLending.expectedReturnDate).toLocaleDateString()}
+                        {new Date(selectedLending.expectedReturnDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </span>
                     </div>
                     <div>
@@ -882,7 +882,7 @@ export default function PeerLending() {
                                   {exp.description && <p className="text-[10px] text-muted-foreground italic mt-0.5">{exp.description}</p>}
                                 </div>
                                 <span className={`font-bold text-xs font-mono tabular-nums ${isRepayment ? 'text-green-500' : 'text-red-500'}`}>
-                                  {isRepayment ? '+' : '-'}₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                  {isRepayment ? '+' : '-'}₹{exp.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                 </span>
                               </div>
                             );

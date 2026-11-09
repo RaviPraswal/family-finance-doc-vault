@@ -282,7 +282,7 @@ export default function BankAccounts() {
     if (accTx.length === 0) return 'No tx';
     const dates = accTx.map(e => new Date(e.expenseDate).getTime());
     const latest = new Date(Math.max(...dates));
-    return latest.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return latest.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
   }, [expenses]);
 
   // Export handlers
@@ -305,13 +305,13 @@ export default function BankAccounts() {
     if (!selectedAccount) return;
     const headers = ['Date', 'Description', 'Category', 'Ref/UTR', 'Debit', 'Credit', 'Running Balance'];
     const exportData = filteredLedgerTxns.map(tx => [
-      new Date(tx.expenseDate).toLocaleDateString(),
+      new Date(tx.expenseDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
       tx.description || 'No description',
       tx.category,
       tx.referenceNumber || tx.utr || '-',
-      tx.type === 'DEBIT' ? `₹${tx.amount.toLocaleString()}` : '-',
-      tx.type === 'CREDIT' ? `₹${tx.amount.toLocaleString()}` : '-',
-      `₹${tx.runningBalance.toLocaleString()}`
+      tx.type === 'DEBIT' ? `₹${tx.amount.toLocaleString('en-IN')}` : '-',
+      tx.type === 'CREDIT' ? `₹${tx.amount.toLocaleString('en-IN')}` : '-',
+      `₹${tx.runningBalance.toLocaleString('en-IN')}`
     ]);
     exportToPDF(`${selectedAccount.bankName} - Statement Ledger`, headers, exportData, `${selectedAccount.bankName}_Ledger_Report`);
   };
@@ -359,15 +359,15 @@ export default function BankAccounts() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Total Balance</span>
-          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalBalanceAll.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalBalanceAll.toLocaleString('en-IN')}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">This Month Inflow</span>
-          <p className="text-lg font-mono font-bold text-green-500 mt-1 tabular-nums">+₹{thisMonthInflow.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-green-500 mt-1 tabular-nums">+₹{thisMonthInflow.toLocaleString('en-IN')}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">This Month Outflow</span>
-          <p className="text-lg font-mono font-bold text-red-500 mt-1 tabular-nums">-₹{thisMonthOutflow.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-red-500 mt-1 tabular-nums">-₹{thisMonthOutflow.toLocaleString('en-IN')}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Net Monthly Delta</span>
@@ -419,7 +419,7 @@ export default function BankAccounts() {
                     </div>
                     <div className="text-right">
                       <span className="text-[10px] text-muted-foreground uppercase">Balance</span>
-                      <p className="font-mono font-bold text-sm text-foreground tabular-nums">₹{(acc.currentBalance ?? 0).toLocaleString()}</p>
+                      <p className="font-mono font-bold text-sm text-foreground tabular-nums">₹{(acc.currentBalance ?? 0).toLocaleString('en-IN')}</p>
                     </div>
                   </div>
                 </div>
@@ -546,7 +546,7 @@ export default function BankAccounts() {
                     </div>
                     <div className="text-right shrink-0">
                       <span className="text-xs font-mono font-bold text-foreground tabular-nums">
-                        ₹{(acc.currentBalance ?? 0).toLocaleString()}
+                        ₹{(acc.currentBalance ?? 0).toLocaleString('en-IN')}
                       </span>
                     </div>
                   </div>
@@ -554,8 +554,8 @@ export default function BankAccounts() {
                   {/* Line 2: Last 4 digits • Last transaction date • Sparkline */}
                   <div className="mt-2.5 pt-2 border-t border-border/30 flex items-center justify-between text-[10px] text-muted-foreground">
                     <div className="flex items-center gap-1.5 truncate">
-                      <span className="font-mono">**{acc.accountNumber.slice(-4)}</span>
-                      <span>•</span>
+                      {acc.accountNumber && (<><span className="font-mono">**{String(acc.accountNumber).slice(-4)}</span>
+                      <span>•</span></>)}
                       <span>Last: {getAccountLastTxDate(acc.id)}</span>
                     </div>
                     <div className="shrink-0 flex items-center">
@@ -595,13 +595,13 @@ export default function BankAccounts() {
                       <div>
                         <span className="text-[9px] uppercase tracking-wider text-muted-foreground block font-bold leading-tight">Opening Balance</span>
                         <span className="text-xs font-semibold text-foreground font-mono tabular-nums">
-                          ₹{(selectedAccount.openingBalance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          ₹{(selectedAccount.openingBalance ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </span>
                       </div>
                       <div>
                         <span className="text-[9px] uppercase tracking-wider text-muted-foreground block font-bold leading-tight">Current Balance</span>
                         <span className="text-sm font-bold text-primary font-mono tabular-nums">
-                          ₹{(selectedAccount.currentBalance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          ₹{(selectedAccount.currentBalance ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </span>
                       </div>
                     </div>
@@ -696,7 +696,7 @@ export default function BankAccounts() {
                               className={`hover:bg-muted/30 transition-colors ${idx % 2 === 0 ? 'bg-background/25' : 'bg-card/15'}`}
                             >
                               <td className="px-3 py-2 whitespace-nowrap font-mono tabular-nums text-muted-foreground text-xs">
-                                {new Date(tx.expenseDate).toLocaleDateString()}
+                                {new Date(tx.expenseDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                               </td>
                               <td className="px-3 py-2 text-foreground font-medium text-xs max-w-[150px] truncate" title={tx.description}>
                                 {tx.description || '-'}
@@ -710,13 +710,13 @@ export default function BankAccounts() {
                                 {tx.referenceNumber || tx.utr || '-'}
                               </td>
                               <td className="px-3 py-2 whitespace-nowrap text-right font-mono text-red-500 font-semibold tabular-nums text-xs">
-                                {isDebit ? `₹${tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '-'}
+                                {isDebit ? `₹${tx.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
                               </td>
                               <td className="px-3 py-2 whitespace-nowrap text-right font-mono text-green-500 font-semibold tabular-nums text-xs">
-                                {!isDebit ? `₹${tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '-'}
+                                {!isDebit ? `₹${tx.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
                               </td>
                               <td className="px-3 py-2 whitespace-nowrap text-right font-mono text-foreground font-bold tabular-nums text-xs">
-                                ₹{tx.runningBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                ₹{tx.runningBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                               </td>
                             </tr>
                           );

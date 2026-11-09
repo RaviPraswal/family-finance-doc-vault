@@ -391,7 +391,7 @@ export default function PhysicalVault() {
       d.category,
       d.physicalLocation?.holder || '-',
       `${(d.size / 1024).toFixed(0)} KB`,
-      d.expiryDate ? new Date(d.expiryDate).toLocaleDateString() : '-',
+      d.expiryDate ? new Date(d.expiryDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '-',
       d.physicalLocation?.originalPresent ? 'In-Vault' : 'Borrowed',
       d.physicalLocation ? `${d.physicalLocation.shelf} > ${d.physicalLocation.folder}` : '-'
     ]);
@@ -633,7 +633,7 @@ export default function PhysicalVault() {
                             <td className="px-3 py-2 whitespace-nowrap text-right font-mono text-xs">
                               {doc.expiryDate ? (
                                 <span className={`font-bold ${isExpired || is30d ? 'text-red-500' : is90d ? 'text-yellow-500' : 'text-muted-foreground'}`}>
-                                  {new Date(doc.expiryDate).toLocaleDateString()}
+                                  {new Date(doc.expiryDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                                 </span>
                               ) : '-'}
                             </td>
@@ -834,7 +834,7 @@ export default function PhysicalVault() {
                       <div className="flex justify-between">
                         <span className="font-semibold text-muted-foreground">Borrowed At:</span>
                         <span className="font-bold text-foreground">
-                          {new Date(selectedDoc.physicalLocation.lastBorrowedAt!).toLocaleDateString()}
+                          {new Date(selectedDoc.physicalLocation.lastBorrowedAt!).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </span>
                       </div>
                     </div>
@@ -854,7 +854,7 @@ export default function PhysicalVault() {
                                 {log.actionType}
                               </span>
                               <span className="text-[9px] text-muted-foreground font-normal">
-                                {new Date(log.createdAt).toLocaleDateString()}
+                                {new Date(log.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                               </span>
                             </div>
                             {log.borrowerName && (
@@ -1229,7 +1229,7 @@ export default function PhysicalVault() {
                     <div className="flex justify-between">
                       <span className="font-semibold text-muted-foreground">Borrowed At:</span>
                       <span className="font-bold text-foreground">
-                        {new Date(selectedDoc.physicalLocation.lastBorrowedAt!).toLocaleDateString()}
+                        {new Date(selectedDoc.physicalLocation.lastBorrowedAt!).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </span>
                     </div>
                   </div>
@@ -1249,7 +1249,7 @@ export default function PhysicalVault() {
                               {log.actionType}
                             </span>
                             <span className="text-[10px] text-muted-foreground font-normal">
-                              {new Date(log.createdAt).toLocaleString()}
+                              {new Date(log.createdAt).toLocaleString('en-IN')}
                             </span>
                           </div>
                           {log.borrowerName && (

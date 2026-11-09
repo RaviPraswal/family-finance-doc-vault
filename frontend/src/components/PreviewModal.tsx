@@ -294,7 +294,7 @@ export default function PreviewModal({ documentId, documentName, documentType, o
                             )}
                           </p>
                           <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(v.createdAt).toLocaleString()} • {(v.size / 1024 / 1024).toFixed(2)} MB
+                            {new Date(v.createdAt).toLocaleString('en-IN')} • {(v.size / 1024 / 1024).toFixed(2)} MB
                           </p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">

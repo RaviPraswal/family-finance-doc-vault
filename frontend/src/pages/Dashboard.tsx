@@ -176,7 +176,7 @@ export default function Dashboard() {
           type: 'EXPIRY',
           urgency: 0,
           title: `Expired: ${doc.name}`,
-          message: `Document has expired on ${exp.toLocaleDateString()}. Please renew immediately.`,
+          message: `Document has expired on ${exp.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}. Please renew immediately.`,
           actionLabel: 'Manage Vault',
           actionPath: '/vault'
         });
@@ -185,7 +185,7 @@ export default function Dashboard() {
           type: 'EXPIRY',
           urgency: 2,
           title: `Expiring Soon: ${doc.name}`,
-          message: `Document will expire in ${diffDays} days (${exp.toLocaleDateString()}).`,
+          message: `Document will expire in ${diffDays} days (${exp.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}).`,
           actionLabel: 'Manage Vault',
           actionPath: '/vault'
         });
@@ -246,7 +246,7 @@ export default function Dashboard() {
                           <div key={n.id} className="p-4 hover:bg-muted/50 transition-colors group">
                             <p className="text-sm text-foreground leading-relaxed">{n.message}</p>
                             <div className="flex justify-between items-center mt-2">
-                              <span className="text-xs text-muted-foreground">{new Date(n.createdAt).toLocaleDateString()}</span>
+                              <span className="text-xs text-muted-foreground">{new Date(n.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                               <button onClick={(e) => { e.stopPropagation(); markAsRead(n.id); }} className="text-xs text-primary opacity-0 group-hover:opacity-100 transition-opacity font-medium">Mark as read</button>
                             </div>
                           </div>
@@ -369,7 +369,7 @@ export default function Dashboard() {
                         </p>
                         {doc.expiryDate && (
                           <span className="flex items-center gap-1 text-xs bg-muted px-2 py-0.5 rounded-md text-muted-foreground shrink-0">
-                            <AlertTriangle className="h-3 w-3" /> Expires: {new Date(doc.expiryDate).toLocaleDateString()}
+                            <AlertTriangle className="h-3 w-3" /> Expires: {new Date(doc.expiryDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                           </span>
                         )}
                       </div>
@@ -381,7 +381,7 @@ export default function Dashboard() {
                       <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                         <span className="bg-secondary text-secondary-foreground font-medium px-2 py-0.5 rounded-full">{doc.category}</span>
                         <span>{(doc.size / 1024 / 1024).toFixed(2)} MB</span>
-                        <span>Uploaded: {new Date(doc.createdAt).toLocaleDateString()}</span>
+                        <span>Uploaded: {new Date(doc.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                         
                         {doc.tags && doc.tags.length > 0 && (
                           <div className="flex items-center gap-1">

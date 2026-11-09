@@ -275,9 +275,9 @@ export default function Investments() {
       return [
         inv.name,
         inv.type,
-        `₹${inv.investedAmount.toLocaleString()}`,
-        `₹${inv.currentValue.toLocaleString()}`,
-        `₹${profit.toLocaleString()}`,
+        `₹${inv.investedAmount.toLocaleString('en-IN')}`,
+        `₹${inv.currentValue.toLocaleString('en-IN')}`,
+        `₹${profit.toLocaleString('en-IN')}`,
         `${returnsPercent.toFixed(1)}%`
       ];
     });
@@ -336,11 +336,11 @@ export default function Investments() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Total Invested (Year)</span>
-          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalInvestedYear.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalInvestedYear.toLocaleString('en-IN')}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Total Invested (Month)</span>
-          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalInvestedMonth.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalInvestedMonth.toLocaleString('en-IN')}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Active SIPs</span>
@@ -352,7 +352,7 @@ export default function Investments() {
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Monthly SIP Outgo</span>
-          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{monthlySipOutgo.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{monthlySipOutgo.toLocaleString('en-IN')}</p>
         </div>
       </div>
 
@@ -433,16 +433,16 @@ export default function Investments() {
                     <div className="space-y-1.5 text-xs border-t border-border/30 pt-3">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Invested Amount:</span>
-                        <span className="font-medium text-foreground font-mono tabular-nums">₹{inv.investedAmount.toLocaleString()}</span>
+                        <span className="font-medium text-foreground font-mono tabular-nums">₹{inv.investedAmount.toLocaleString('en-IN')}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Current Value:</span>
-                        <span className="font-bold text-foreground font-mono tabular-nums">₹{inv.currentValue.toLocaleString()}</span>
+                        <span className="font-bold text-foreground font-mono tabular-nums">₹{inv.currentValue.toLocaleString('en-IN')}</span>
                       </div>
                       <div className="flex justify-between pt-1.5 border-t border-border/20">
                         <span className="text-muted-foreground">Profit/Loss:</span>
                         <span className={`font-bold font-mono tabular-nums ${returns >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                          {returns >= 0 ? '+' : ''}₹{returns.toLocaleString()} ({returnsPercent.toFixed(1)}%)
+                          {returns >= 0 ? '+' : ''}₹{returns.toLocaleString('en-IN')} ({returnsPercent.toFixed(1)}%)
                         </span>
                       </div>
                     </div>
@@ -591,13 +591,13 @@ export default function Investments() {
                           {inv.type}
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap font-mono font-bold text-foreground text-sm tabular-nums">
-                          ₹{inv.investedAmount.toLocaleString()}
+                          ₹{inv.investedAmount.toLocaleString('en-IN')}
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap font-mono font-bold text-foreground text-sm tabular-nums">
-                          ₹{inv.currentValue.toLocaleString()}
+                          ₹{inv.currentValue.toLocaleString('en-IN')}
                         </td>
                         <td className={`px-4 py-2.5 whitespace-nowrap font-mono font-bold text-sm tabular-nums ${profit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                          {profit >= 0 ? '+' : ''}₹{profit.toLocaleString()} ({returnsPercent.toFixed(1)}%)
+                          {profit >= 0 ? '+' : ''}₹{profit.toLocaleString('en-IN')} ({returnsPercent.toFixed(1)}%)
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap text-right text-xs font-medium">
                           <div className="opacity-0 group-hover:opacity-100 transition-opacity flex justify-end gap-2">
@@ -742,7 +742,7 @@ export default function Investments() {
                   <div className="mt-2.5 flex justify-between items-baseline">
                     <span className="text-[10px] text-muted-foreground">Current Value:</span>
                     <span className={`text-xs font-mono font-bold tabular-nums ${returns >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                      ₹{inv.currentValue.toLocaleString()}
+                      ₹{inv.currentValue.toLocaleString('en-IN')}
                     </span>
                   </div>
                 </div>
@@ -761,7 +761,7 @@ export default function Investments() {
                     </div>
                     <div className="text-right">
                       <span className="text-[10px] text-muted-foreground block uppercase">Current Portfolio Value</span>
-                      <span className="text-xl font-mono font-bold text-primary tabular-nums">₹{selectedInvestment.currentValue.toLocaleString()}</span>
+                      <span className="text-xl font-mono font-bold text-primary tabular-nums">₹{selectedInvestment.currentValue.toLocaleString('en-IN')}</span>
                     </div>
                   </div>
                 </div>
@@ -771,12 +771,12 @@ export default function Investments() {
                   <div className="grid grid-cols-3 gap-4 bg-muted/30 p-3 rounded-xl">
                     <div>
                       <span className="text-[10px] text-muted-foreground block uppercase">Invested Amount</span>
-                      <span className="text-xs font-semibold text-foreground font-mono tabular-nums">₹{selectedInvestment.investedAmount.toLocaleString()}</span>
+                      <span className="text-xs font-semibold text-foreground font-mono tabular-nums">₹{selectedInvestment.investedAmount.toLocaleString('en-IN')}</span>
                     </div>
                     <div>
                       <span className="text-[10px] text-muted-foreground block uppercase">Profit / Loss</span>
                       <span className={`text-xs font-bold font-mono tabular-nums ${selectedInvestment.currentValue - selectedInvestment.investedAmount >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        ₹{(selectedInvestment.currentValue - selectedInvestment.investedAmount).toLocaleString()}
+                        ₹{(selectedInvestment.currentValue - selectedInvestment.investedAmount).toLocaleString('en-IN')}
                       </span>
                     </div>
                     <div>
@@ -811,7 +811,7 @@ export default function Investments() {
                                   {exp.description && <p className="text-[10px] text-muted-foreground italic mt-0.5">{exp.description}</p>}
                                 </div>
                                 <span className="font-bold text-xs font-mono text-red-500 tabular-nums">
-                                  -₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                  -₹{exp.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                 </span>
                               </div>
                             );

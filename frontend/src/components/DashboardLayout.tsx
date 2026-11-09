@@ -53,7 +53,7 @@ export default function DashboardLayout() {
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
-      <div className="w-64 glass-panel border-r border-border/50 flex flex-col hidden md:flex z-10 m-4 rounded-2xl">
+      <div className="lg-sidebar w-64 glass-panel border-r border-border/50 flex flex-col hidden md:flex z-10 m-4 rounded-2xl">
         <div className="h-20 flex items-center px-6 border-b border-border/50 shrink-0">
           <Link to="/" className="text-2xl font-bold bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
             FinNest
@@ -68,7 +68,8 @@ export default function DashboardLayout() {
                 <li key={item.name}>
                   <Link
                     to={item.href}
-                    className={`flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all ${
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`lg-nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all ${
                       isActive
                         ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm'
                         : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
@@ -137,7 +138,7 @@ export default function DashboardLayout() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden relative z-10">
         {/* Mobile Header */}
-        <div className="md:hidden h-16 border-b border-border/50 glass-panel flex items-center justify-between px-4 z-20 m-4 rounded-xl">
+        <div className="lg-toolbar md:hidden h-16 border-b border-border/50 glass-panel flex items-center justify-between px-4 z-20 m-4 rounded-xl">
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-foreground">FinNest</h1>
             {currentUser && (
@@ -167,7 +168,7 @@ export default function DashboardLayout() {
         </div>
         
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 pt-0 md:pt-4">
+        <main className="lg-content flex-1 overflow-y-auto p-4 md:p-8 pt-0 md:pt-4">
           <PageErrorBoundary resetKey={location.pathname}><Outlet /></PageErrorBoundary>
         </main>
       </div>

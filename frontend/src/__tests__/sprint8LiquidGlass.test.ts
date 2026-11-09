@@ -67,7 +67,7 @@ describe('Liquid Glass skin', () => {
   });
 
   it('tracks type by size: tight display headings, body near zero', () => {
-    expect(clean).toMatch(/html\.skin-liquid h1[^{]*\{[^}]*letter-spacing:\s*-0\.0[23]em/);
+    expect(clean).toMatch(/html\.skin-liquid h1[^{]*\{[^}]*letter-spacing:\s*-0\.0(2|25|3)em/);
     expect(clean).toMatch(/html\.skin-liquid body\s*\{[^}]*letter-spacing:\s*0(\.\d+em)?;/);
   });
 });

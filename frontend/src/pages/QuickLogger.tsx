@@ -483,7 +483,7 @@ export default function QuickLogger() {
 
                   <div className="mt-4 pt-3 border-t border-border/30 flex justify-between items-center">
                     <span className="font-mono font-bold text-sm text-foreground">
-                      ₹{tpl.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      ₹{tpl.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </span>
                     
                     <button 

@@ -308,11 +308,11 @@ export default function CreditCards() {
                         <div className="space-y-3 mt-4">
                           <div className="flex justify-between text-xs">
                             <span className="text-muted-foreground">Outstanding Balance:</span>
-                            <span className="font-semibold text-red-500">₹{outstanding.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            <span className="font-semibold text-red-500">₹{outstanding.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                           </div>
                           <div className="flex justify-between text-xs">
                             <span className="text-muted-foreground">Available Limit:</span>
-                            <span className="font-semibold text-green-600">₹{available.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            <span className="font-semibold text-green-600">₹{available.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                           </div>
                           
                           {/* Limit usage progress bar */}
@@ -416,13 +416,13 @@ export default function CreditCards() {
                             Cycle: {card.billingCycleDate}th | Due: {card.dueDate}th
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
-                            ₹{card.creditLimit.toLocaleString()}
+                            ₹{card.creditLimit.toLocaleString('en-IN')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-red-500">
-                            ₹{outstanding.toLocaleString()}
+                            ₹{outstanding.toLocaleString('en-IN')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">
-                            ₹{available.toLocaleString()}
+                            ₹{available.toLocaleString('en-IN')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex items-center justify-end gap-3">
                             <button
@@ -528,7 +528,7 @@ export default function CreditCards() {
                       </div>
                       <div className="mt-3 flex justify-between items-baseline">
                         <span className="text-xs text-muted-foreground">Outstanding:</span>
-                        <span className="text-sm font-bold text-foreground">₹{outstanding.toLocaleString()}</span>
+                        <span className="text-sm font-bold text-foreground">₹{outstanding.toLocaleString('en-IN')}</span>
                       </div>
                     </div>
                   );
@@ -554,7 +554,7 @@ export default function CreditCards() {
                           </div>
                           <div>
                             <span className="text-[10px] uppercase tracking-wider text-muted-foreground block font-bold leading-tight">Outstanding Balance</span>
-                            <span className="text-lg font-bold text-red-500">₹{(selectedCard.currentOutstanding ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            <span className="text-lg font-bold text-red-500">₹{(selectedCard.currentOutstanding ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                           </div>
                         </div>
                       </div>
@@ -566,7 +566,7 @@ export default function CreditCards() {
                         <div>
                           <span className="text-[9px] uppercase tracking-wider text-muted-foreground block font-bold mb-0.5">Total Charges (Debits)</span>
                           <span className="text-sm font-bold text-red-500">
-                            +₹{totalDebits.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            +₹{totalDebits.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                         <div className="text-[9px] bg-red-500/10 text-red-500 font-bold px-1.5 py-0.5 rounded-full">
@@ -577,7 +577,7 @@ export default function CreditCards() {
                         <div>
                           <span className="text-[9px] uppercase tracking-wider text-muted-foreground block font-bold mb-0.5">Total Payments (Credits)</span>
                           <span className="text-sm font-bold text-green-600">
-                            -₹{totalCredits.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            -₹{totalCredits.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                         <div className="text-[9px] bg-green-500/10 text-green-600 font-bold px-1.5 py-0.5 rounded-full">
@@ -645,7 +645,7 @@ export default function CreditCards() {
                                 {exp.description && <p className="text-[10px] text-muted-foreground italic truncate mt-0.5">{exp.description}</p>}
                               </div>
                               <span className={`font-bold text-xs shrink-0 ${isCredit ? 'text-green-500' : 'text-red-500'}`}>
-                                {isCredit ? '-' : '+'}₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                {isCredit ? '-' : '+'}₹{exp.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </span>
                             </div>
                           );

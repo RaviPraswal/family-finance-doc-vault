@@ -269,11 +269,11 @@ export default function Goals() {
                 <div className="flex justify-between items-end mb-2">
                   <div>
                     <p className="text-2xl font-bold text-foreground">
-                      ₹{goal.currentAmount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      ₹{goal.currentAmount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm text-muted-foreground">of ₹{goal.targetAmount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                    <p className="text-sm text-muted-foreground">of ₹{goal.targetAmount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
                   </div>
                 </div>
 

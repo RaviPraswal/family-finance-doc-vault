@@ -246,8 +246,8 @@ export default function Projects() {
                     </div>
                   </div>
                   <div className="space-y-2 text-sm text-muted-foreground mb-4">
-                    <p>Budget: <span className="font-semibold text-foreground">₹{project.budget.toLocaleString()}</span></p>
-                    <p>Start Date: <span className="font-medium text-foreground">{new Date(project.startDate).toLocaleDateString()}</span></p>
+                    <p>Budget: <span className="font-semibold text-foreground">₹{project.budget.toLocaleString('en-IN')}</span></p>
+                    <p>Start Date: <span className="font-medium text-foreground">{new Date(project.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span></p>
                   </div>
                 </div>
 
@@ -294,7 +294,7 @@ export default function Projects() {
                                     <span className="font-medium text-foreground">{exp.category}</span>
                                     <span className="text-[10px] text-muted-foreground block">{exp.expenseDate}</span>
                                   </div>
-                                  <span className="font-semibold text-red-500">-₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                  <span className="font-semibold text-red-500">-₹{exp.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                 </div>
                                 {Object.keys(customData).length > 0 && (
                                   <div className="flex flex-wrap gap-1 mt-1">
@@ -435,10 +435,10 @@ export default function Projects() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap font-semibold text-foreground text-sm">
-                        ₹{project.budget.toLocaleString()}
+                        ₹{project.budget.toLocaleString('en-IN')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                        {new Date(project.startDate).toLocaleDateString()}
+                        {new Date(project.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full ${
@@ -457,7 +457,7 @@ export default function Projects() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap font-medium text-red-500 text-sm">
-                        ₹{totalSpent.toLocaleString()}
+                        ₹{totalSpent.toLocaleString('en-IN')}
                       </td>
                     </tr>
                   );
@@ -584,7 +584,7 @@ export default function Projects() {
                 </div>
                 <div className="mt-3 flex justify-between items-baseline">
                   <span className="text-xs text-muted-foreground">Budget:</span>
-                  <span className="text-sm font-bold text-foreground">₹{project.budget.toLocaleString()}</span>
+                  <span className="text-sm font-bold text-foreground">₹{project.budget.toLocaleString('en-IN')}</span>
                 </div>
               </div>
             ))}
@@ -606,11 +606,11 @@ export default function Projects() {
                           <Edit2 className="h-4 w-4" />
                         </button>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">Project Timeline | Start Date: {new Date(selectedProject.startDate).toLocaleDateString()}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Project Timeline | Start Date: {new Date(selectedProject.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                     </div>
                     <div className="text-right">
                       <span className="text-xs text-muted-foreground block">Allocated Budget</span>
-                      <span className="text-2xl font-bold text-primary">₹{selectedProject.budget.toLocaleString()}</span>
+                      <span className="text-2xl font-bold text-primary">₹{selectedProject.budget.toLocaleString('en-IN')}</span>
                     </div>
                   </div>
                 </div>
@@ -629,12 +629,12 @@ export default function Projects() {
                         <div className="grid grid-cols-3 gap-4 bg-muted/30 p-4 rounded-xl">
                           <div>
                             <span className="text-xs text-muted-foreground block">Total Disbursed</span>
-                            <span className="text-base font-semibold text-foreground">₹{totalSpent.toLocaleString()}</span>
+                            <span className="text-base font-semibold text-foreground">₹{totalSpent.toLocaleString('en-IN')}</span>
                           </div>
                           <div>
                             <span className="text-xs text-muted-foreground block">Remaining Budget</span>
                             <span className={`text-base font-bold ${remaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                              ₹{remaining.toLocaleString()}
+                              ₹{remaining.toLocaleString('en-IN')}
                             </span>
                           </div>
                           <div>
@@ -701,7 +701,7 @@ export default function Projects() {
                                     {exp.description && <p className="text-xs text-muted-foreground italic mt-1">{exp.description}</p>}
                                   </div>
                                   <span className="font-bold text-sm text-red-500">
-                                    -₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    -₹{exp.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                   </span>
                                 </div>
                                 {Object.keys(customData).length > 0 && (

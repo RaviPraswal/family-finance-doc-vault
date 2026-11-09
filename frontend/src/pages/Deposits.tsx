@@ -206,11 +206,11 @@ export default function Deposits() {
       d.institution,
       d.type,
       d.accountHolderName,
-      `₹${d.principalAmount.toLocaleString()}`,
-      `₹${d.maturityAmount.toLocaleString()}`,
+      `₹${d.principalAmount.toLocaleString('en-IN')}`,
+      `₹${d.maturityAmount.toLocaleString('en-IN')}`,
       `${d.interestRate}%`,
-      new Date(d.startDate).toLocaleDateString(),
-      new Date(d.maturityDate).toLocaleDateString()
+      new Date(d.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+      new Date(d.maturityDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
     ]);
     exportToPDF('Fixed & Recurring Deposits Register', headers, exportData, 'Deposits_Report');
   };
@@ -261,11 +261,11 @@ export default function Deposits() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Total Principal Invested</span>
-          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalPrincipalInvested.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalPrincipalInvested.toLocaleString('en-IN')}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Est. Maturity Value</span>
-          <p className="text-lg font-mono font-bold text-green-500 mt-1 tabular-nums">₹{totalMaturityValue.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-green-500 mt-1 tabular-nums">₹{totalMaturityValue.toLocaleString('en-IN')}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Active Deposits</span>
@@ -277,7 +277,7 @@ export default function Deposits() {
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Monthly RD Outgo</span>
-          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums font-mono">₹{monthlyRdContribution.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums font-mono">₹{monthlyRdContribution.toLocaleString('en-IN')}</p>
         </div>
       </div>
 
@@ -370,7 +370,7 @@ export default function Deposits() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Maturity Value:</span>
-                        <span className="font-bold text-foreground font-mono tabular-nums">₹{dep.maturityAmount.toLocaleString()}</span>
+                        <span className="font-bold text-foreground font-mono tabular-nums">₹{dep.maturityAmount.toLocaleString('en-IN')}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Interest Rate:</span>
@@ -379,7 +379,7 @@ export default function Deposits() {
                       <div className="flex justify-between pt-1.5 border-t border-border/20">
                         <span className="text-muted-foreground">Matures On:</span>
                         <span className={`font-semibold ${isMatured ? 'text-red-500' : 'text-foreground'}`}>
-                          {new Date(dep.maturityDate).toLocaleDateString()}
+                          {new Date(dep.maturityDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </span>
                       </div>
                     </div>
@@ -533,14 +533,14 @@ export default function Deposits() {
                           {depositAmountText(dep)}
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap font-mono font-bold text-green-500 text-sm tabular-nums">
-                          ₹{dep.maturityAmount.toLocaleString()}
+                          ₹{dep.maturityAmount.toLocaleString('en-IN')}
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap font-mono text-foreground text-sm">
                           {dep.interestRate}%
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap font-mono text-xs text-muted-foreground">
                           <span className={`font-bold ${isMatured ? 'text-red-500' : 'text-foreground'}`}>
-                            {new Date(dep.maturityDate).toLocaleDateString()}
+                            {new Date(dep.maturityDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                           </span>
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap text-right text-xs font-medium">
@@ -712,7 +712,7 @@ export default function Deposits() {
                   <div className="grid grid-cols-3 gap-4 bg-muted/30 p-3 rounded-xl">
                     <div>
                       <span className="text-[10px] text-muted-foreground block uppercase">Maturity Value</span>
-                      <span className="text-xs font-semibold text-green-500 font-mono tabular-nums">₹{selectedDeposit.maturityAmount.toLocaleString()}</span>
+                      <span className="text-xs font-semibold text-green-500 font-mono tabular-nums">₹{selectedDeposit.maturityAmount.toLocaleString('en-IN')}</span>
                     </div>
                     <div>
                       <span className="text-[10px] text-muted-foreground block uppercase">Interest Rate</span>
@@ -720,7 +720,7 @@ export default function Deposits() {
                     </div>
                     <div>
                       <span className="text-[10px] text-muted-foreground block uppercase">Matures On</span>
-                      <span className="text-xs font-bold text-foreground font-mono">{new Date(selectedDeposit.maturityDate).toLocaleDateString()}</span>
+                      <span className="text-xs font-bold text-foreground font-mono">{new Date(selectedDeposit.maturityDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                     </div>
                   </div>
 
@@ -748,7 +748,7 @@ export default function Deposits() {
                                   {exp.description && <p className="text-[10px] text-muted-foreground italic mt-0.5">{exp.description}</p>}
                                 </div>
                                 <span className="font-bold text-xs font-mono text-red-500 tabular-nums">
-                                  -₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                  -₹{exp.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                 </span>
                               </div>
                             );

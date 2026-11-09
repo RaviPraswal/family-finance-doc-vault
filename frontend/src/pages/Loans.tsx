@@ -236,9 +236,9 @@ export default function Loans() {
       l.lenderName,
       l.loanType,
       l.borrowerName,
-      `₹${(l.principalAmount ?? 0).toLocaleString()}`,
-      `₹${l.outstandingAmount.toLocaleString()}`,
-      `₹${l.emiAmount.toLocaleString()}`,
+      `₹${(l.principalAmount ?? 0).toLocaleString('en-IN')}`,
+      `₹${l.outstandingAmount.toLocaleString('en-IN')}`,
+      `₹${l.emiAmount.toLocaleString('en-IN')}`,
       `${l.interestRate}%`,
       isLoanActive(l) ? (getLoanEmiStatus(l) === 'OVERDUE' ? 'Overdue' : 'Active') : 'Closed'
     ]);
@@ -291,11 +291,11 @@ export default function Loans() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Total Outstanding Principal</span>
-          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalOutstanding.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalOutstanding.toLocaleString('en-IN')}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Monthly EMI Outgo</span>
-          <p className="text-lg font-mono font-bold text-red-500 mt-1 tabular-nums">₹{totalEmiOutgo.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-red-500 mt-1 tabular-nums">₹{totalEmiOutgo.toLocaleString('en-IN')}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Active Loans</span>
@@ -308,7 +308,7 @@ export default function Loans() {
         <div className="glass-panel p-4 rounded-xl border border-border/50 bg-gradient-to-br from-red-500/5 to-transparent">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Next EMI Due</span>
           <p className="text-sm font-mono font-bold text-foreground mt-2 tabular-nums">
-            {nextEmiDueDate ? nextEmiDueDate.toLocaleDateString() : 'No EMIs Pending'}
+            {nextEmiDueDate ? nextEmiDueDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'No EMIs Pending'}
           </p>
         </div>
       </div>
@@ -410,15 +410,15 @@ export default function Loans() {
                     <div className="space-y-1.5 text-xs">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Principal:</span>
-                        <span className="font-medium text-foreground font-mono tabular-nums">₹{(loan.principalAmount ?? 0).toLocaleString()}</span>
+                        <span className="font-medium text-foreground font-mono tabular-nums">₹{(loan.principalAmount ?? 0).toLocaleString('en-IN')}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Outstanding:</span>
-                        <span className="font-bold text-red-500 font-mono tabular-nums">₹{loan.outstandingAmount.toLocaleString()}</span>
+                        <span className="font-bold text-red-500 font-mono tabular-nums">₹{loan.outstandingAmount.toLocaleString('en-IN')}</span>
                       </div>
                       <div className="flex justify-between pt-1.5 border-t border-border/30">
                         <span className="text-muted-foreground">Monthly EMI:</span>
-                        <span className="font-semibold text-foreground font-mono tabular-nums">₹{loan.emiAmount.toLocaleString()}</span>
+                        <span className="font-semibold text-foreground font-mono tabular-nums">₹{loan.emiAmount.toLocaleString('en-IN')}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground font-bold">Status:</span>
@@ -573,13 +573,13 @@ export default function Loans() {
                           <span className="text-muted-foreground block text-[10px]">{loan.borrowerName}</span>
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap font-mono font-bold text-foreground text-sm tabular-nums">
-                          ₹{(loan.principalAmount ?? 0).toLocaleString()}
+                          ₹{(loan.principalAmount ?? 0).toLocaleString('en-IN')}
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap font-mono font-bold text-red-500 text-sm tabular-nums">
-                          ₹{loan.outstandingAmount.toLocaleString()}
+                          ₹{loan.outstandingAmount.toLocaleString('en-IN')}
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap font-mono font-semibold text-foreground text-sm tabular-nums">
-                          ₹{loan.emiAmount.toLocaleString()}
+                          ₹{loan.emiAmount.toLocaleString('en-IN')}
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap text-xs">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
@@ -731,7 +731,7 @@ export default function Loans() {
                   </div>
                   <div className="mt-2.5 flex justify-between items-baseline">
                     <span className="text-[10px] text-muted-foreground">Outstanding:</span>
-                    <span className="text-xs font-mono font-bold text-red-500 tabular-nums">₹{loan.outstandingAmount.toLocaleString()}</span>
+                    <span className="text-xs font-mono font-bold text-red-500 tabular-nums">₹{loan.outstandingAmount.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
               );
@@ -749,7 +749,7 @@ export default function Loans() {
                     </div>
                     <div className="text-right">
                       <span className="text-[10px] text-muted-foreground block uppercase">Monthly EMI Amount</span>
-                      <span className="text-xl font-mono font-bold text-red-500 tabular-nums">₹{selectedLoan.emiAmount.toLocaleString()}</span>
+                      <span className="text-xl font-mono font-bold text-red-500 tabular-nums">₹{selectedLoan.emiAmount.toLocaleString('en-IN')}</span>
                     </div>
                   </div>
                 </div>
@@ -759,11 +759,11 @@ export default function Loans() {
                   <div className="grid grid-cols-3 gap-4 bg-muted/30 p-3 rounded-xl">
                     <div>
                       <span className="text-[10px] text-muted-foreground block uppercase">Principal Amount</span>
-                      <span className="text-xs font-semibold text-foreground font-mono tabular-nums">₹{(selectedLoan.principalAmount ?? 0).toLocaleString()}</span>
+                      <span className="text-xs font-semibold text-foreground font-mono tabular-nums">₹{(selectedLoan.principalAmount ?? 0).toLocaleString('en-IN')}</span>
                     </div>
                     <div>
                       <span className="text-[10px] text-muted-foreground block uppercase">Outstanding Balance</span>
-                      <span className="text-xs font-bold text-red-500 font-mono tabular-nums">₹{selectedLoan.outstandingAmount.toLocaleString()}</span>
+                      <span className="text-xs font-bold text-red-500 font-mono tabular-nums">₹{selectedLoan.outstandingAmount.toLocaleString('en-IN')}</span>
                     </div>
                     <div>
                       <span className="text-[10px] text-muted-foreground block uppercase">Interest Rate</span>
@@ -795,7 +795,7 @@ export default function Loans() {
                                   {exp.description && <p className="text-[10px] text-muted-foreground italic mt-0.5">{exp.description}</p>}
                                 </div>
                                 <span className="font-bold text-xs font-mono text-red-500 tabular-nums">
-                                  -₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                  -₹{exp.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                 </span>
                               </div>
                             );

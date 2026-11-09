@@ -35,7 +35,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
 
-        final String authHeader = request.getHeader("Authorization");
+        String header = request.getHeader("Authorization");
+        if (header == null && request.getCookies() != null) {
+            // Sprint 7 T7: browsers send the session as an HttpOnly cookie instead of a header.
+            for (jakarta.servlet.http.Cookie c : request.getCookies()) {
+                if (SessionCookies.NAME.equals(c.getName()) && c.getValue() != null && !c.getValue().isBlank()) header = "Bearer " + c.getValue();
+            }
+        }
+        final String authHeader = header;
 
         try {
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {

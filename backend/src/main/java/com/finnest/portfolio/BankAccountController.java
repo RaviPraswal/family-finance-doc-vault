@@ -20,6 +20,9 @@ public class BankAccountController {
         this.expenseRepository = expenseRepository;
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.finnest.ledger.LedgerTotals ledgerTotals;
+
     private void calculateAndSetCurrentBalance(BankAccount account) {
         account.setCurrentBalance(ShownBalance.of(account, expenseRepository.findAllByLinkedAccountId(account.getId())));
     }
@@ -32,8 +35,10 @@ public class BankAccountController {
                     .filter(x -> user.getId().equals(x.getUserId()))
                     .toList();
         }
+        // Sprint 7 T10: one grouped query for every balance instead of one query per account.
+        var balances = ledgerTotals.bankBalances(UUID.fromString(TenantContext.getCurrentTenant()), list);
         for (BankAccount account : list) {
-            calculateAndSetCurrentBalance(account);
+            account.setCurrentBalance(balances.get(account.getId()));
         }
         return ResponseEntity.ok(list);
     }
@@ -43,7 +48,7 @@ public class BankAccountController {
         entity.setTenantId(UUID.fromString(TenantContext.getCurrentTenant()));
         BankAccount saved = repository.save(entity);
         calculateAndSetCurrentBalance(saved);
-        return ResponseEntity.ok(saved);
+        return ResponseEntity.ok(repository.save(saved)); // Sprint 7 T4: store the ledger-derived balance
     }
 
     @PutMapping("/{id}")
@@ -64,7 +69,7 @@ public class BankAccountController {
         }
         BankAccount saved = repository.save(entity);
         calculateAndSetCurrentBalance(saved);
-        return ResponseEntity.ok(saved);
+        return ResponseEntity.ok(repository.save(saved)); // Sprint 7 T4: store the ledger-derived balance
     }
 
     @DeleteMapping("/{id}")

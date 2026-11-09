@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useAuthStore } from '../store/authStore';
 import { X, Download, Loader2, Eye, Share2, Trash2 } from 'lucide-react';
-import { apiClient } from '../api/client';
+import { apiClient, authFetch } from '../api/client';
 import ShareModal from './ShareModal';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
@@ -26,7 +25,6 @@ export default function PreviewModal({ documentId, documentName, documentType, o
   const [activeTab, setActiveTab] = useState<'preview' | 'history'>('preview');
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const token = useAuthStore((state) => state.token);
 
   const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(true);
@@ -67,8 +65,8 @@ export default function PreviewModal({ documentId, documentName, documentType, o
     }
     
     try {
-      const response = await fetch(`/api/documents/${documentId}/versions/${versionId}/download`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await authFetch(`/api/documents/${documentId}/versions/${versionId}/download`, {
+        headers: {}
       });
       if (!response.ok) throw new Error('Failed to load preview');
       let blob = await response.blob();
@@ -107,10 +105,9 @@ export default function PreviewModal({ documentId, documentName, documentType, o
     formData.append('file', file);
 
     try {
-      const response = await fetch(`/api/documents/${documentId}/versions`, {
+      const response = await authFetch(`/api/documents/${documentId}/versions`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`
         },
         body: formData,
       });
@@ -150,8 +147,8 @@ export default function PreviewModal({ documentId, documentName, documentType, o
 
   const handleDownloadVersion = async (versionId: string, name: string) => {
     try {
-      const response = await fetch(`/api/documents/${documentId}/versions/${versionId}/download`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await authFetch(`/api/documents/${documentId}/versions/${versionId}/download`, {
+        headers: {}
       });
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
@@ -175,9 +172,9 @@ export default function PreviewModal({ documentId, documentName, documentType, o
       danger: true,
       onConfirm: async () => {
         try {
-          await fetch(`/api/documents/${documentId}/versions/${versionId}`, {
+          await authFetch(`/api/documents/${documentId}/versions/${versionId}`, {
             method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: {}
           });
           useToastStore.getState().success('Version deleted', 'The document version has been removed.');
           fetchVersions();

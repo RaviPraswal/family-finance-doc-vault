@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAuthStore } from '../store/authStore';
+import { loadSession } from '../store/authStore';
 import { apiClient } from '../api/client';
 import { useNavigate, Link } from 'react-router-dom';
 
@@ -7,7 +7,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const setToken = useAuthStore((state) => state.setToken);
+  
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -18,7 +18,8 @@ export default function Login() {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
-      setToken(response.token);
+      void response; // Sprint 7 T8: the server set the HttpOnly session cookie
+      await loadSession();
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Login failed');

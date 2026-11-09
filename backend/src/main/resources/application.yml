@@ -28,6 +28,15 @@ spring:
 
   # Gemini AI Configuration (via OpenAI compatibility)
   ai:
+    # Sprint 7 T9 (D-10): at most one retry, none for quota errors (429) — retrying a daily quota only adds delay.
+    retry:
+      max-attempts: 2
+      on-client-errors: false
+      exclude-on-http-codes: 429
+      backoff:
+        initial-interval: 2s
+        multiplier: 2
+        max-interval: 5s
     openai:
       api-key: ${GEMINI_API_KEY}
       base-url: https://generativelanguage.googleapis.com/v1beta/openai/

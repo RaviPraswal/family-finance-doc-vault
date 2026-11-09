@@ -1,9 +1,9 @@
+import { authFetch } from '../api/client';
 import { useEffect, useState } from 'react';
-import { useAuthStore } from '../store/authStore';
 
 /**
  * <img> cannot send the Authorization header, so protected images are fetched
- * with the login token and shown from a temporary object URL.
+ * with the session cookie (Sprint 7 T8) and shown from a temporary object URL.
  */
 export default function AuthImage({ src, alt = '', className, onError }: {
   src: string;
@@ -11,13 +11,12 @@ export default function AuthImage({ src, alt = '', className, onError }: {
   className?: string;
   onError?: () => void;
 }) {
-  const token = useAuthStore((s) => s.token);
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let objectUrl: string | null = null;
     let cancelled = false;
-    fetch(src, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+    authFetch(src)
       .then((res) => (res.ok ? res.blob() : Promise.reject(new Error(String(res.status)))))
       .then((blob) => {
         if (cancelled) return;
@@ -31,7 +30,7 @@ export default function AuthImage({ src, alt = '', className, onError }: {
     };
     // onError is a callback from the parent; re-running on its identity would refetch every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [src, token]);
+  }, [src]);
 
   return url ? <img src={url} alt={alt} className={className} /> : null;
 }

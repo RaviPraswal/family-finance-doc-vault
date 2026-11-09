@@ -1,3 +1,4 @@
+import { divRupees, sumRupees } from './money';
 /**
  * Money-cockpit maths, kept out of the page so it can be tested (Sprint 3, S3-14).
  * Amounts are rupees per month unless stated.
@@ -8,8 +9,7 @@
  * (a family that started last month has one month of history, not three). A month with no entries counts as zero.
  */
 export function averageOverThreeMonths(byMonth: Map<string, number>, months: number = 3): number {
-  const total = Array.from(byMonth.values()).reduce((a, b) => a + b, 0);
-  return total / Math.min(3, Math.max(1, months));
+  return divRupees(sumRupees(Array.from(byMonth.values())), Math.min(3, Math.max(1, months)));
 }
 
 /** Full months of history before the current month, from the first ledger entry (1 to 3). */
@@ -30,7 +30,7 @@ const isSalary = (s: IncomeSourceLike) => (s.sourceName || '').toLowerCase().inc
 
 function perMonth(s: IncomeSourceLike): number {
   const amount = s.amount || 0;
-  if (s.frequency === 'Yearly') return amount / 12;
+  if (s.frequency === 'Yearly') return divRupees(amount, 12);
   if (s.frequency === 'One-time') return 0;
   return amount; // Monthly or unspecified
 }
@@ -42,8 +42,8 @@ function perMonth(s: IncomeSourceLike): number {
 export function monthlyIncome(sources: IncomeSourceLike[], ledgerSalary: number): { salary: number; side: number } {
   const salary = ledgerSalary > 0
     ? ledgerSalary
-    : sources.filter(isSalary).reduce((s, i) => s + perMonth(i), 0);
-  const side = sources.filter(s => !isSalary(s)).reduce((s, i) => s + perMonth(i), 0);
+    : sumRupees(sources.filter(isSalary).map(perMonth));
+  const side = sumRupees(sources.filter(s => !isSalary(s)).map(perMonth));
   return { salary, side };
 }
 
@@ -53,12 +53,13 @@ export interface ChitInstallmentLike { monthlyInstallment?: number; pendingInsta
 
 /** Monthly EMIs, RD deposits and chit installments still running on {@code today}. */
 export function fixedOutflows(loans: LoanLike[], deposits: DepositLike[], chits: ChitInstallmentLike[], today: Date = new Date()) {
-  const emi = loans.filter(l => (l.outstandingAmount || 0) > 0).reduce((s, l) => s + (l.emiAmount || 0), 0);
+  const emi = sumRupees(loans.filter(l => (l.outstandingAmount || 0) > 0).map(l => l.emiAmount));
   const rd = deposits
     .filter(d => d.type === 'RD' && (!d.maturityDate || new Date(d.maturityDate) >= today))
-    .reduce((s, d) => s + (d.monthlyDepositAmount || 0), 0);
-  const chit = chits.filter(c => (c.pendingInstallments || 0) > 0).reduce((s, c) => s + (c.monthlyInstallment || 0), 0);
-  return { emi, rd, chit };
+    .map(d => d.monthlyDepositAmount);
+  const rdTotal = sumRupees(rd);
+  const chit = sumRupees(chits.filter(c => (c.pendingInstallments || 0) > 0).map(c => c.monthlyInstallment));
+  return { emi, rd: rdTotal, chit };
 }
 
 export interface InvestmentLike { type?: string; name?: string; currentValue?: number; investedAmount?: number }
@@ -73,11 +74,8 @@ export function investmentBuckets(investments: InvestmentLike[]) {
     const value = i.currentValue || i.investedAmount || 0;
     const text = `${i.type || ''} ${i.name || ''}`;
     const type = (i.type || '').toLowerCase();
-    if (/gold/i.test(text)) buckets.gold += value;
-    else if (/silver/i.test(text)) buckets.silver += value;
-    else if (MF_TYPES.includes(type)) buckets.mf += value;
-    else if (STOCK_TYPES.includes(type)) buckets.stocks += value;
-    else buckets.other += value;
+    const key = /gold/i.test(text) ? 'gold' : /silver/i.test(text) ? 'silver' : MF_TYPES.includes(type) ? 'mf' : STOCK_TYPES.includes(type) ? 'stocks' : 'other';
+    buckets[key] = sumRupees([buckets[key], value]);
   }
   return buckets;
 }

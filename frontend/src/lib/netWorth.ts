@@ -1,3 +1,4 @@
+import { sumRupees, timesRupees } from './money';
 /**
  * Family net worth maths, kept separate from the page so it can be tested.
  * Amounts are rupees. Every input is optional: missing data counts as zero.
@@ -25,10 +26,10 @@ export function chitPosition(c: ChitLike): { asset: number; liability: number } 
   const installment = c.monthlyInstallment || 0;
   const pending = Math.max(0, c.pendingInstallments || 0);
   if (c.isAllotted) {
-    return { asset: 0, liability: pending * installment };
+    return { asset: 0, liability: timesRupees(installment, pending) };
   }
   const paid = Math.max(0, (c.durationMonths || 0) - pending);
-  return { asset: paid * installment, liability: 0 };
+  return { asset: timesRupees(installment, paid), liability: 0 };
 }
 
 /** Money lent is owed to you (asset); money borrowed is owed by you (liability). Settled entries count as zero. */
@@ -38,8 +39,8 @@ export function udhaarPosition(list: UdhaarLike[]): { lent: number; borrowed: nu
   for (const u of list) {
     if (u.settled) continue;
     const amt = Math.max(0, u.amount || 0);
-    if ((u.type || '').toUpperCase() === 'TAKEN') borrowed += amt;
-    else lent += amt;
+    if ((u.type || '').toUpperCase() === 'TAKEN') borrowed = sumRupees([borrowed, amt]);
+    else lent = sumRupees([lent, amt]);
   }
   return { lent, borrowed };
 }
@@ -54,16 +55,17 @@ export interface NetWorthInput {
 }
 
 export function netWorthOf(i: NetWorthInput) {
-  const chit = i.chits.map(chitPosition).reduce((a, b) => ({ asset: a.asset + b.asset, liability: a.liability + b.liability }), { asset: 0, liability: 0 });
+  const positions = i.chits.map(chitPosition);
+  const chit = { asset: sumRupees(positions.map(p => p.asset)), liability: sumRupees(positions.map(p => p.liability)) };
   const u = udhaarPosition(i.udhaar);
   const cards = Math.max(0, i.cardOutstanding);
-  const assets = i.bankBalance + i.investmentsExChits + chit.asset + u.lent;
-  const liabilities = i.loanOutstanding + cards + chit.liability + u.borrowed;
-  return { assets, liabilities, netWorth: assets - liabilities, chitAsset: chit.asset, chitLiability: chit.liability, lent: u.lent, borrowed: u.borrowed, cards };
+  const assets = sumRupees([i.bankBalance, i.investmentsExChits, chit.asset, u.lent]);
+  const liabilities = sumRupees([i.loanOutstanding, cards, chit.liability, u.borrowed]);
+  return { assets, liabilities, netWorth: sumRupees([assets, -liabilities]), chitAsset: chit.asset, chitLiability: chit.liability, lent: u.lent, borrowed: u.borrowed, cards };
 }
 
 /** Year-end projection that can go down as well as up. */
 export function projectNetWorth(netWorth: number, monthlySurplus: number, months: number) {
-  const change = monthlySurplus * Math.max(0, months);
-  return { projected: netWorth + change, change };
+  const change = timesRupees(monthlySurplus, Math.max(0, Math.trunc(months)));
+  return { projected: sumRupees([netWorth, change]), change };
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAuthStore } from '../store/authStore';
+import { loadSession } from '../store/authStore';
 import { apiClient } from '../api/client';
 import { useNavigate, Link } from 'react-router-dom';
 import { Users, UserPlus, Trash, Sparkles, Building } from 'lucide-react';
@@ -22,7 +22,7 @@ export default function Register() {
   
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const setToken = useAuthStore((state) => state.setToken);
+  
   const navigate = useNavigate();
 
   const handleMemberChange = (index: number, field: keyof MemberInput, value: any) => {
@@ -88,7 +88,8 @@ export default function Register() {
           members
         }),
       });
-      setToken(response.token);
+      void response; // Sprint 7 T8: the server set the HttpOnly session cookie
+      await loadSession();
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Registration failed');

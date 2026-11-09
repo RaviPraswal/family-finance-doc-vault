@@ -3,15 +3,15 @@ import { render, screen, waitFor } from '@testing-library/react';
 import AuthImage from '../components/AuthImage';
 import { useAuthStore } from '../store/authStore';
 
-// Sprint 1, P0-8: thumbnails are protected, so the image must be fetched with the login token.
+// Sprint 1, P0-8: thumbnails are protected. Sprint 7 T8: they are fetched with the session cookie, never a token.
 describe('AuthImage', () => {
   beforeEach(() => {
-    useAuthStore.setState({ token: 'test-token' });
+    useAuthStore.setState({ status: 'in' } as never);
     globalThis.URL.createObjectURL = vi.fn(() => 'blob:thumb');
     globalThis.URL.revokeObjectURL = vi.fn();
   });
 
-  it('sends the Authorization header and shows the image', async () => {
+  it('fetches with the session cookie (no Authorization header) and shows the image', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, blob: () => Promise.resolve(new Blob(['png'])) });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -19,9 +19,7 @@ describe('AuthImage', () => {
 
     const img = await screen.findByRole('img', { name: 'thumb' });
     expect(img).toHaveAttribute('src', 'blob:thumb');
-    expect(fetchMock).toHaveBeenCalledWith('/api/documents/1/thumbnail', {
-      headers: { Authorization: 'Bearer test-token' },
-    });
+    expect(fetchMock).toHaveBeenCalledWith('/api/documents/1/thumbnail', { headers: {}, credentials: 'same-origin' });
   });
 
   it('calls onError and shows nothing when the server refuses (another family / no access)', async () => {

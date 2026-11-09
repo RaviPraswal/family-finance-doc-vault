@@ -92,3 +92,23 @@ export function formatINR(p: number, opts: { decimals?: 0 | 2 } = {}): string {
   const sign = shown < 0 ? '-' : '';
   return `${sign}₹${grouping(decimals).format(Math.abs(shown) / 100)}`;
 }
+
+// Sprint 7 T6: rupee-in, rupee-out conveniences for code that holds rupee values from the API.
+// Each converts to paise, does exact integer maths, and converts back once.
+
+/** Exact sum of rupee amounts (missing values count as zero). */
+export function sumRupees(values: Array<number | null | undefined>): number {
+  return fromPaise(addP(...values.map((v) => toPaise(v))));
+}
+
+/** Rupees ÷ a whole number, rounded half-up to the paisa (e.g. a yearly amount per month). */
+export function divRupees(rupees: number | null | undefined, by: number): number {
+  if (!Number.isInteger(by) || by === 0) throw new Error('Divide by a whole, non-zero number');
+  return fromPaise(divRound(BigInt(toPaise(rupees)), BigInt(by)));
+}
+
+/** Rupees × a whole count (e.g. instalment × months), exactly. */
+export function timesRupees(rupees: number | null | undefined, count: number): number {
+  if (!Number.isInteger(count)) throw new Error('Multiply by a whole count');
+  return fromPaise(toPaise(rupees) * count);
+}

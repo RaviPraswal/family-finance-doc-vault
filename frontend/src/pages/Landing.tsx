@@ -5,7 +5,7 @@ import { useThemeStore } from '../store/themeStore';
 import { Moon, Sun, ArrowRight, Shield, Wallet, Users } from 'lucide-react';
 
 export default function Landing() {
-  const token = useAuthStore((state) => state.token);
+  const signedIn = useAuthStore((state) => state.status === 'in');
   const { theme, toggleTheme } = useThemeStore();
 
   const containerVariants = {
@@ -51,7 +51,7 @@ export default function Landing() {
             {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </button>
           
-          {token ? (
+          {signedIn ? (
             <Link to="/dashboard" className="px-5 py-2 rounded-full bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-all shadow-lg hover:shadow-primary/25 hover:-translate-y-0.5">
               Go to Dashboard
             </Link>
@@ -93,7 +93,7 @@ export default function Landing() {
           </motion.p>
 
           <motion.div variants={itemVariants} className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link to={token ? "/dashboard" : "/register"} className="w-full sm:w-auto px-8 py-4 rounded-full bg-foreground text-background font-semibold hover:scale-105 transition-transform shadow-xl flex items-center justify-center gap-2">
+            <Link to={signedIn ? "/dashboard" : "/register"} className="w-full sm:w-auto px-8 py-4 rounded-full bg-foreground text-background font-semibold hover:scale-105 transition-transform shadow-xl flex items-center justify-center gap-2">
               Get Started for Free <ArrowRight className="h-5 w-5" />
             </Link>
             <Link to="/login" className="w-full sm:w-auto px-8 py-4 rounded-full glass-panel font-semibold hover:bg-white/20 transition-colors flex items-center justify-center text-foreground">

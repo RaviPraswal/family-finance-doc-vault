@@ -1,3 +1,5 @@
+import { depositAmountText, depositInvestedP } from '../lib/depositAmount';
+import { addP, fromPaise } from '../lib/money';
 import { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
@@ -16,6 +18,7 @@ interface Deposit {
   startDate: string;
   maturityDate: string;
   totalDeposited?: number;
+  monthlyDepositAmount?: number;
 }
 
 export default function Deposits() {
@@ -171,7 +174,7 @@ export default function Deposits() {
   const activeDeps = deposits.filter(d => getDepositStatus(d) === 'ACTIVE');
   const maturedDeps = deposits.filter(d => getDepositStatus(d) === 'MATURED');
 
-  const totalPrincipalInvested = activeDeps.reduce((sum, d) => sum + (d.type === 'RD' ? (d.totalDeposited || d.principalAmount) : d.principalAmount), 0);
+  const totalPrincipalInvested = fromPaise(addP(...activeDeps.map(depositInvestedP)));
   const totalMaturityValue = activeDeps.reduce((sum, d) => sum + d.maturityAmount, 0);
   
   const activeCount = activeDeps.length;
@@ -363,7 +366,7 @@ export default function Deposits() {
                     <div className="space-y-1.5 text-xs border-t border-border/30 pt-3">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">{dep.type === 'RD' ? 'Total Deposited:' : 'Principal:'}</span>
-                        <span className="font-medium text-foreground font-mono tabular-nums">₹{(dep.type === 'RD' ? (dep.totalDeposited || dep.principalAmount) : dep.principalAmount).toLocaleString()}</span>
+                        <span className="font-medium text-foreground font-mono tabular-nums">{depositAmountText(dep)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Maturity Value:</span>
@@ -527,7 +530,7 @@ export default function Deposits() {
                           {dep.accountHolderName}
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap font-mono font-bold text-foreground text-sm tabular-nums">
-                          ₹{(dep.type === 'RD' ? (dep.totalDeposited || dep.principalAmount) : dep.principalAmount).toLocaleString()}
+                          {depositAmountText(dep)}
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap font-mono font-bold text-green-500 text-sm tabular-nums">
                           ₹{dep.maturityAmount.toLocaleString()}
@@ -681,7 +684,7 @@ export default function Deposits() {
                   </div>
                   <div className="mt-2.5 flex justify-between items-baseline">
                     <span className="text-[10px] text-muted-foreground">{dep.type === 'RD' ? 'Total Deposited:' : 'Principal:'}</span>
-                    <span className="text-xs font-mono font-bold text-foreground tabular-nums">₹{(dep.type === 'RD' ? (dep.totalDeposited || dep.principalAmount) : dep.principalAmount).toLocaleString()}</span>
+                    <span className="text-xs font-mono font-bold text-foreground tabular-nums">{depositAmountText(dep)}</span>
                   </div>
                 </div>
               );
@@ -699,7 +702,7 @@ export default function Deposits() {
                     </div>
                     <div className="text-right">
                       <span className="text-[10px] text-muted-foreground block uppercase">{selectedDeposit.type === 'RD' ? 'Total Deposited' : 'Principal Invested'}</span>
-                      <span className="text-xl font-mono font-bold text-primary tabular-nums">₹{(selectedDeposit.type === 'RD' ? (selectedDeposit.totalDeposited || selectedDeposit.principalAmount) : selectedDeposit.principalAmount).toLocaleString()}</span>
+                      <span className="text-xl font-mono font-bold text-primary tabular-nums">{depositAmountText(selectedDeposit)}</span>
                     </div>
                   </div>
                 </div>
@@ -790,6 +793,12 @@ export default function Deposits() {
                   <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Principal (₹)</label>
                   <input required type="number" value={formData.principalAmount || ''} onChange={e => setFormData({...formData, principalAmount: parseFloat(e.target.value)})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm" placeholder="0.00" />
                 </div>
+                {formData.type === 'RD' && (
+                  <div>
+                    <label htmlFor="rd-monthly" className="block text-xs font-bold text-muted-foreground uppercase mb-1">Monthly instalment (₹)</label>
+                    <input id="rd-monthly" type="number" min={0} value={formData.monthlyDepositAmount || ''} onChange={e => setFormData({...formData, monthlyDepositAmount: parseFloat(e.target.value)})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm" placeholder="5000" />
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Maturity Amount (₹)</label>
                   <input required type="number" value={formData.maturityAmount || ''} onChange={e => setFormData({...formData, maturityAmount: parseFloat(e.target.value)})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm" placeholder="0.00" />

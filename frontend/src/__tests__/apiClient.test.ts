@@ -9,7 +9,7 @@ describe('apiClient error handling', () => {
 
   beforeEach(() => {
     logout.mockReset();
-    useAuthStore.setState({ token: 'test-token', logout } as never);
+    useAuthStore.setState({ status: 'in', logout } as never);
   });
 
   const respond = (status: number, body = '') =>

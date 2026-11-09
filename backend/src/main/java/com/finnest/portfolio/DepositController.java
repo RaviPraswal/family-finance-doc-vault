@@ -14,6 +14,9 @@ public class DepositController {
     private final DepositRepository repository;
     private final BankAccountRepository bankAccountRepository;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.finnest.ledger.LedgerTotals ledgerTotals;
+
     public DepositController(DepositRepository repository, BankAccountRepository bankAccountRepository) {
         this.repository = repository;
         this.bankAccountRepository = bankAccountRepository;
@@ -58,7 +61,17 @@ public class DepositController {
         entity.setTenantId(existing.getTenantId());
         entity.setCreatedAt(existing.getCreatedAt());
         entity.setUserId(existing.getUserId());
-        return ResponseEntity.ok(repository.save(entity));
+        // Sprint 7 T5: keep an RD's starting point; a manual change of the total is a correction of it.
+        java.math.BigDecimal derived = ledgerTotals.rdDeposited(existing);
+        if (existing.getOpeningDeposited() == null || derived == null) {
+            entity.setOpeningDeposited(existing.getOpeningDeposited());
+        } else {
+            java.math.BigDecimal wanted = entity.getTotalDeposited() == null ? derived : entity.getTotalDeposited();
+            entity.setOpeningDeposited(existing.getOpeningDeposited().add(wanted.subtract(derived)));
+        }
+        Deposit saved = repository.save(entity);
+        ledgerTotals.refresh(saved);
+        return ResponseEntity.ok(repository.save(saved));
     }
 
     @DeleteMapping("/{id}")

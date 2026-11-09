@@ -26,13 +26,12 @@ public class AdvisorController {
     }
 
     @GetMapping("/recommendations")
-    public ResponseEntity<List<FinancialAdvisorService.Recommendation>> getRecommendations() {
+    public ResponseEntity<FinancialAdvisorService.Insights> getRecommendations() {
         UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
         
         var goals = goalRepository.findAllByTenantIdOrderByTargetDateAsc(tenantId);
         var projects = projectRepository.findAllByTenantIdOrderByCreatedAtDesc(tenantId);
         
-        var recommendations = advisorService.getRecommendations(goals, projects);
-        return ResponseEntity.ok(recommendations);
+        return ResponseEntity.ok(advisorService.insights(goals, projects)); // Sprint 7 T9: never an error page
     }
 }

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useAuthStore } from '../store/authStore';
 import { X, UploadCloud, Loader2, Sparkles, HelpCircle } from 'lucide-react';
-import { apiClient } from '../api/client';
+import { apiClient, authFetch } from '../api/client';
 
 interface UploadModalProps {
   onClose: () => void;
@@ -18,7 +17,6 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
   const [tags, setTags] = useState('');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
-  const token = useAuthStore((state) => state.token);
 
   // AI & Physical Location States
   const [uploadedDoc, setUploadedDoc] = useState<any>(null);
@@ -90,8 +88,8 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
     const interval = setInterval(async () => {
       attempts++;
       try {
-        const res = await fetch(`/api/documents/${doc.id}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
+        const res = await authFetch(`/api/documents/${doc.id}`, {
+          headers: {}
         });
         if (res.ok) {
           const updatedDoc = await res.json();
@@ -151,10 +149,9 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
     if (tags) formData.append('tags', tags);
 
     try {
-      const response = await fetch('/api/documents', {
+      const response = await authFetch('/api/documents', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`
         },
         body: formData,
       });
@@ -193,11 +190,10 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
     if (!uploadedDoc) return;
     try {
       setUploading(true);
-      const res = await fetch(`/api/physical-documents/${uploadedDoc.id}/assign`, {
+      const res = await authFetch(`/api/physical-documents/${uploadedDoc.id}/assign`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           shelf: selectedShelf,

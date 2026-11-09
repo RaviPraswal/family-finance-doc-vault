@@ -15,6 +15,18 @@ public class Loan extends TenantBaseEntity {
     private String borrowerName;
     private BigDecimal principalAmount;
     private BigDecimal outstandingAmount;
+
+    /** Sprint 7 T3: outstanding when FinNest started tracking; the shown outstanding is this minus ledger repayments. */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private BigDecimal openingOutstanding;
+
+    public BigDecimal getOpeningOutstanding() { return openingOutstanding; }
+    public void setOpeningOutstanding(BigDecimal openingOutstanding) { this.openingOutstanding = openingOutstanding; }
+
+    @jakarta.persistence.PrePersist
+    void startTracking() {
+        if (openingOutstanding == null) openingOutstanding = outstandingAmount;
+    }
     private BigDecimal emiAmount;
     private Double interestRate;
     private Integer remainingTenure; // In months

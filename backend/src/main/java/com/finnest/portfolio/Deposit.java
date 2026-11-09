@@ -37,6 +37,18 @@ public class Deposit extends TenantBaseEntity {
     private BigDecimal monthlyDepositAmount;
     private BigDecimal totalDeposited;
 
+    /** Sprint 7 T3: an RD's deposits before FinNest tracked it; the shown total adds ledger instalments. */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private BigDecimal openingDeposited;
+
+    public BigDecimal getOpeningDeposited() { return openingDeposited; }
+    public void setOpeningDeposited(BigDecimal openingDeposited) { this.openingDeposited = openingDeposited; }
+
+    @jakarta.persistence.PrePersist
+    void startTracking() {
+        if (openingDeposited == null && "RD".equalsIgnoreCase(type)) openingDeposited = totalDeposited == null ? BigDecimal.ZERO : totalDeposited;
+    }
+
     public String getType() {
         return type;
     }

@@ -28,5 +28,21 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
 
     @Query("SELECT e FROM Expense e WHERE e.linkedCreditCard.id = :creditCardId")
     List<Expense> findAllByLinkedCreditCardId(@Param("creditCardId") UUID creditCardId);
-}
 
+    // Sprint 7 T3: ledger sums behind every derived total (tenant-scoped, bound parameters only).
+    @Query("SELECT COALESCE(SUM(CASE WHEN UPPER(e.type) = 'CREDIT' THEN e.amount ELSE -e.amount END), 0) FROM Expense e "
+         + "WHERE e.tenantId = :tenantId AND e.linkedAccount.id = :accountId AND e.amount IS NOT NULL")
+    java.math.BigDecimal netForAccount(@Param("tenantId") UUID tenantId, @Param("accountId") UUID accountId);
+
+    @Query("SELECT COALESCE(SUM(CASE WHEN UPPER(e.type) = 'CREDIT' THEN -e.amount ELSE COALESCE(e.loanPrincipalPortion, e.amount) END), 0) "
+         + "FROM Expense e WHERE e.tenantId = :tenantId AND e.linkedLoan.id = :loanId AND e.amount IS NOT NULL")
+    java.math.BigDecimal principalRepaidForLoan(@Param("tenantId") UUID tenantId, @Param("loanId") UUID loanId);
+
+    @Query("SELECT COALESCE(SUM(CASE WHEN UPPER(e.type) = 'CREDIT' THEN -e.amount ELSE COALESCE(e.loanPrincipalPortion, e.amount) END), 0) "
+         + "FROM Expense e WHERE e.tenantId = :tenantId AND e.linkedLoan.id = :loanId AND e.amount IS NOT NULL AND e.id <> :excludeId")
+    java.math.BigDecimal principalRepaidForLoanExcluding(@Param("tenantId") UUID tenantId, @Param("loanId") UUID loanId, @Param("excludeId") UUID excludeId);
+
+    @Query("SELECT COALESCE(SUM(CASE WHEN UPPER(e.type) = 'CREDIT' THEN -e.amount ELSE e.amount END), 0) FROM Expense e "
+         + "WHERE e.tenantId = :tenantId AND e.linkedDeposit.id = :depositId AND e.amount IS NOT NULL")
+    java.math.BigDecimal netDepositedForDeposit(@Param("tenantId") UUID tenantId, @Param("depositId") UUID depositId);
+}

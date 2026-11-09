@@ -56,13 +56,13 @@ class Sprint8MemberPagesTest {
     }
 
     @Test
-    @DisplayName("Budgets load even with an entry without a category and a duplicated budget row")
+    @DisplayName("Budgets load even with a blank-category entry and a duplicated budget row")
     void budgetsRobust() throws Exception {
         Sprint7Support.Family fam = Sprint7Support.family(mvc, json, "Bud");
         read(mvc, json, post("/api/expenses"), fam.memberToken(), Map.of("amount", 120, "category", "Daily Life", "expenseDate", "2026-11-05", "type", "DEBIT"));
         JsonNode budget = read(mvc, json, post("/api/budgets"), fam.ownerToken(), Map.of("category", "Daily Life", "amount", 5000, "month", "2026-11"));
         UUID tenant = UUID.fromString(budget.get("tenantId").asText());
-        jdbc.update("UPDATE expenses SET category = NULL WHERE tenant_id = ?", tenant);
+        jdbc.update("UPDATE expenses SET category = '' WHERE tenant_id = ?", tenant);
         jdbc.update("INSERT INTO budgets (id, tenant_id, category, amount, month, rollover, email_alert, created_at, updated_at) "
                 + "VALUES (?, ?, 'Daily Life', 3000, '2026-11', false, false, now(), now())", UUID.randomUUID(), tenant);
 

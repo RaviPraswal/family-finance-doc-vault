@@ -95,10 +95,23 @@ describe('Loans', () => {
     at(<Loans />);
     const table = await screen.findByRole('table', { name: /emi schedule/i });
     const rows = within(table).getAllByRole('row');
-    expect(rows.length).toBe(61); // header + 60 instalments
+    expect(rows.length).toBe(13); // Sprint 8 S8-4: header + 12 instalments per page
     expect(within(table).getAllByText('Paid')).toHaveLength(3);
     expect(within(table).getAllByText('Overdue').length).toBeGreaterThan(0);
-    expect(screen.getByText(/3 of 60 paid/i)).toBeInTheDocument();
+    expect(screen.getByText(/3 of 60 paid/i)).toBeInTheDocument(); // summary still covers the whole loan
+  });
+
+  // Sprint 8 S8-4: 12 EMIs a page, opening on the page with the next EMI to pay.
+  it('pages the schedule 12 at a time and moves between pages', async () => {
+    at(<Loans />);
+    const table = await screen.findByRole('table', { name: /emi schedule/i });
+    expect(screen.getByText(/EMIs 1–12 of 60/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /next page/i }));
+    expect(screen.getByText(/EMIs 13–24 of 60/)).toBeInTheDocument();
+    expect(within(table).getAllByRole('row')[1]).toHaveTextContent(/^13/);
+    await userEvent.click(screen.getByRole('button', { name: 'Page 5' }));
+    expect(screen.getByText(/EMIs 49–60 of 60/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /next page/i })).toBeDisabled();
   });
 
   it('does not crash when a loan has no principal amount', async () => {

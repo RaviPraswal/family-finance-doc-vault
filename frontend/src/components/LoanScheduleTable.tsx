@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { buildLoanSchedule, projectedSchedule, scheduleSummary, type InstallmentStatus, type LoanTerms } from '../lib/loanSchedule';
 
 interface Props {
@@ -35,6 +35,17 @@ export default function LoanScheduleTable({ loan, entries, loanId }: Props) {
     [projected, full, loan],
   );
   const summary = scheduleSummary(rows);
+
+  // Sprint 8 S8-4: 12 EMIs a page, opening on the page with the next EMI to pay.
+  const PAGE = 12;
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE));
+  const nextIndex = rows.findIndex((r) => r.status !== 'PAID');
+  const startPage = nextIndex < 0 ? pages - 1 : Math.floor(nextIndex / PAGE);
+  const [page, setPage] = useState(startPage);
+  useEffect(() => setPage(startPage), [startPage, rows.length]);
+  const visible = rows.slice(page * PAGE, page * PAGE + PAGE);
+  const pageNumbers = Array.from({ length: pages }, (_, i) => i)
+    .filter((i) => pages <= 7 || Math.abs(i - page) <= 2 || i === 0 || i === pages - 1);
   const showClose = !!loan.foreclosureRate;
 
   if (rows.length === 0) {
@@ -77,7 +88,7 @@ export default function LoanScheduleTable({ loan, entries, loanId }: Props) {
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
-            {rows.map((r) => (
+            {visible.map((r) => (
               <tr key={r.no} className={r.status === 'DUE' ? 'bg-amber-500/10' : r.status === 'PAID' ? 'opacity-80' : ''}>
                 <td className="px-3 py-1.5 text-muted-foreground">{r.no}</td>
                 <td className="px-3 py-1.5 font-semibold">{date(r.dueDate)}</td>
@@ -99,6 +110,26 @@ export default function LoanScheduleTable({ loan, entries, loanId }: Props) {
           </tbody>
         </table>
       </div>
+      {pages > 1 && (
+        <nav aria-label="EMI schedule pages" className="flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className="text-muted-foreground">
+            EMIs {page * PAGE + 1}–{Math.min(rows.length, page * PAGE + PAGE)} of {rows.length}
+          </span>
+          <div className="flex items-center gap-1">
+            <button type="button" aria-label="Previous page" disabled={page === 0} onClick={() => setPage(page - 1)}
+              className="px-2.5 py-1 rounded-lg border border-border disabled:opacity-40 hover:bg-muted">‹</button>
+            {pageNumbers.map((i, k) => (
+              <span key={i} className="flex items-center">
+                {k > 0 && i - pageNumbers[k - 1] > 1 && <span className="px-1 text-muted-foreground">…</span>}
+                <button type="button" aria-label={`Page ${i + 1}`} aria-current={i === page ? 'page' : undefined} onClick={() => setPage(i)}
+                  className={`min-w-7 px-2 py-1 rounded-lg border ${i === page ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:bg-muted'}`}>{i + 1}</button>
+              </span>
+            ))}
+            <button type="button" aria-label="Next page" disabled={page >= pages - 1} onClick={() => setPage(page + 1)}
+              className="px-2.5 py-1 rounded-lg border border-border disabled:opacity-40 hover:bg-muted">›</button>
+          </div>
+        </nav>
+      )}
     </div>
   );
 }

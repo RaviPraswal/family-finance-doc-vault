@@ -26,8 +26,8 @@ Today: frontend 102 Vitest tests (libs + page tests with a mocked API), backend 
 - No overall % gate (it rewards trivial tests); the table above is the gate.
 
 ## CI rules (GitHub Actions, every push and PR to `develop`)
-1. **Frontend:** `npm ci` → `npm run lint` → `npx tsc --noEmit -p .` → `npm test` → `npm run build` → `npm audit --omit=dev --audit-level=high`.
+1. **Frontend:** `npm ci` → `npm run lint` → `npx tsc --noEmit -p .` → `npm test` → `npm run build` → `npm audit --audit-level=high`.
 2. **Backend:** `./mvnw -B verify` (Testcontainers uses the runner's Docker).
 3. **Repo hygiene:** fail if `*.xlsx`, `sbi_investments.*`, `private-data/` or `application-secrets.yml` are tracked.
 4. Any red step blocks the merge; no `--force`, no skipped tests without a linked task.
-5. Locally (cloud session): frontend steps run here; backend runs on Ravi's PC via `run-sprint3-tests.bat` until CI is live.
+5. Locally: all work and test runs happen in the SIT repo (`D:\Personal Projects\Antigravity-projects\family-finance-doc-vault`): `cd frontend && npm test`, `cd backend && mvnw.cmd test`. CI on GitHub is the gate.

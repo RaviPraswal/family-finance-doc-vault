@@ -47,6 +47,11 @@ public class JwtService {
         }
     }
 
+    /** Sprint 7 T7: when the token stops being valid (epoch millis). */
+    public long expiresAt(String token) {
+        return extractClaim(token, Claims::getExpiration).getTime();
+    }
+
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }

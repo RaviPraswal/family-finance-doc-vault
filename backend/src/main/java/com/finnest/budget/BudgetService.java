@@ -55,14 +55,16 @@ public class BudgetService {
         Map<String, BigDecimal> expensesByCategory = expenses.stream()
                 .filter(e -> "DEBIT".equalsIgnoreCase(e.getType()) && e.getKind() == com.finnest.expense.EntryKind.EXPENSE)
                 .collect(Collectors.groupingBy(
-                        Expense::getCategory,
-                        Collectors.reducing(BigDecimal.ZERO, Expense::getAmount, BigDecimal::add)
+                        e -> e.getCategory() == null || e.getCategory().isBlank() ? "Uncategorised" : e.getCategory(),
+                        Collectors.reducing(BigDecimal.ZERO, e -> e.getAmount() == null ? BigDecimal.ZERO : e.getAmount(), BigDecimal::add)
                 ));
 
         // 2. Get all budgets defined for this month
         List<Budget> budgets = budgetRepository.findAllByTenantIdAndMonth(tenantId, monthStr);
         Map<String, Budget> budgetsByCategory = budgets.stream()
-                .collect(Collectors.toMap(Budget::getCategory, b -> b));
+                .collect(Collectors.toMap(Budget::getCategory, b -> b, (a, b) ->
+                        // an old duplicate row: keep the most recently updated one
+                        a.getUpdatedAt() != null && b.getUpdatedAt() != null && a.getUpdatedAt().isAfter(b.getUpdatedAt()) ? a : b));
 
         // Get a distinct set of all categories that have either a budget or an expense
         Set<String> allCategories = new HashSet<>(expensesByCategory.keySet());
@@ -92,13 +94,13 @@ public class BudgetService {
                 // Fetch previous month's budget
                 YearMonth prevMonth = targetMonth.minusMonths(1);
                 String prevMonthStr = prevMonth.format(DateTimeFormatter.ofPattern("yyyy-MM"));
-                Optional<Budget> prevBudgetOpt = budgetRepository.findByTenantIdAndCategoryAndMonth(tenantId, category, prevMonthStr);
+                Optional<Budget> prevBudgetOpt = budgetRepository.findFirstByTenantIdAndCategoryAndMonthOrderByUpdatedAtDesc(tenantId, category, prevMonthStr);
                 if (prevBudgetOpt.isPresent()) {
                     Budget prevBudget = prevBudgetOpt.get();
                     // Get previous month's expenses
                     List<Expense> prevExpenses = expenseRepository.findByTenantIdAndExpenseDateBetween(tenantId, prevMonth.atDay(1), prevMonth.atEndOfMonth());
                     BigDecimal prevSpent = prevExpenses.stream()
-                            .filter(e -> category.equalsIgnoreCase(e.getCategory()) && "DEBIT".equalsIgnoreCase(e.getType())
+                            .filter(e -> category.equalsIgnoreCase(e.getCategory()) && "DEBIT".equalsIgnoreCase(e.getType()) && e.getAmount() != null
                                     && e.getKind() == com.finnest.expense.EntryKind.EXPENSE)
                             .map(Expense::getAmount)
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -211,7 +213,7 @@ public class BudgetService {
     public Budget createOrUpdateBudget(Budget budget) {
         UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
         budget.setTenantId(tenantId);
-        Optional<Budget> existing = budgetRepository.findByTenantIdAndCategoryAndMonth(tenantId, budget.getCategory(), budget.getMonth());
+        Optional<Budget> existing = budgetRepository.findFirstByTenantIdAndCategoryAndMonthOrderByUpdatedAtDesc(tenantId, budget.getCategory(), budget.getMonth());
         if (existing.isPresent()) {
             Budget b = existing.get();
             b.setAmount(budget.getAmount());

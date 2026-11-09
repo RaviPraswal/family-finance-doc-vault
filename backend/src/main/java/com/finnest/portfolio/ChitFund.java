@@ -22,6 +22,17 @@ public class ChitFund extends TenantBaseEntity {
     private Boolean isAllotted = false;
     private BigDecimal allottedAmount;
 
+    /** Sprint 8: active until marked closed by its owner; closedOn is set by the server. */
+    @jakarta.persistence.Column(name = "is_closed", nullable = false)
+    private Boolean isClosed = false;
+    @jakarta.persistence.Column(name = "closed_on")
+    private LocalDate closedOn;
+
+    public Boolean getIsClosed() { return isClosed; }
+    public void setIsClosed(Boolean isClosed) { this.isClosed = isClosed; }
+    public LocalDate getClosedOn() { return closedOn; }
+    public void setClosedOn(LocalDate closedOn) { this.closedOn = closedOn; }
+
     @jakarta.persistence.Column(columnDefinition = "TEXT")
     private String paymentSchedule;
 

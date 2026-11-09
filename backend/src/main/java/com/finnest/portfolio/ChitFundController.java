@@ -41,6 +41,9 @@ public class ChitFundController {
     public ResponseEntity<ChitFund> create(@RequestBody ChitFund entity) {
         entity.setTenantId(UUID.fromString(TenantContext.getCurrentTenant()));
         guardLinkedAccount(entity);
+        boolean closed = Boolean.TRUE.equals(entity.getIsClosed());
+        entity.setIsClosed(closed);
+        entity.setClosedOn(closed ? java.time.LocalDate.now() : null);
         return ResponseEntity.ok(repository.save(entity));
     }
 
@@ -55,6 +58,11 @@ public class ChitFundController {
         }
         entity.setId(id);
         guardLinkedAccount(entity);
+        // Sprint 8: closing is the owner's call; the server stamps when it happened.
+        boolean closed = Boolean.TRUE.equals(entity.getIsClosed());
+        entity.setIsClosed(closed);
+        entity.setClosedOn(!closed ? null
+                : Boolean.TRUE.equals(existing.getIsClosed()) && existing.getClosedOn() != null ? existing.getClosedOn() : java.time.LocalDate.now());
         entity.setTenantId(existing.getTenantId());
         entity.setCreatedAt(existing.getCreatedAt());
         entity.setUserId(existing.getUserId());

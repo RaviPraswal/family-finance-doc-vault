@@ -9,6 +9,7 @@ import java.util.UUID;
 
 @Repository
 public interface BudgetRepository extends JpaRepository<Budget, UUID> {
-    Optional<Budget> findByTenantIdAndCategoryAndMonth(UUID tenantId, String category, String month);
+    /** Newest row wins if an old duplicate exists (no unique constraint in V1). */
+    Optional<Budget> findFirstByTenantIdAndCategoryAndMonthOrderByUpdatedAtDesc(UUID tenantId, String category, String month);
     List<Budget> findAllByTenantIdAndMonth(UUID tenantId, String month);
 }

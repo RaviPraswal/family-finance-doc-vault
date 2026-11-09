@@ -25,10 +25,10 @@
 |---|---|---|---|---|
 | T1 | CI gate + dependency fixes | 1d | — | ✅ CI green on GitHub |
 | T2 | Paise helpers + schedule libs | 1d | D-04 approved | ✅ |
-| T3 | Ledger drift report (read-only) | 0.5d | D-03 approved | ☐ |
-| T4 | Bank balance derived from ledger | 1d | T3 | ☐ |
-| T5 | Loan outstanding + deposit total derived | 1d | T3 | ☐ |
-| T6 | Paise in cockpit, alerts, net worth, pages | 1d | T2 | ☐ |
+| T3 | Ledger drift report (read-only) | 0.5d | D-03 approved | ✅ |
+| T4 | Bank balance derived from ledger | 1d | T3 | ✅ |
+| T5 | Loan outstanding + deposit total derived | 1d | T3 | ✅ |
+| T6 | Paise in cockpit, alerts, net worth, pages | 1d | T2 | ✅ |
 | T7 | Auth cookie + CSRF (backend, header still accepted) | 1d | T1 | ☐ |
 | T8 | Frontend on cookie; drop localStorage + header path | 0.5d | T7 | ☐ |
 | T9 | AI fails quietly + minimised payload | 1d | T1 | ☐ |

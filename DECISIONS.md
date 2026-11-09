@@ -6,8 +6,8 @@ One line each. Status: **Accepted** (in force) or **Proposed** (needs Ravi's yes
 |---|---|---|
 | D-01 | Monolith: one Spring Boot JAR serves the API and the built React SPA. | Accepted |
 | D-02 | Multi-tenant by `tenant_id` on every row (`TenantBaseEntity`); `TenantGuard` checks ownership on every route; MEMBER sees/edits only own rows. | Accepted |
-| D-03 | ADR-001: the `expenses` ledger is the single source of truth; balances/outstanding/deposited are derived from it, never set directly. Single-entry ledger with typed links — **not** a full double-entry rewrite (P0 applies double-entry discipline: every movement posted once against its account, corrections by reversal). | **Proposed** |
-| D-04 | Money: server keeps `BigDecimal` / `NUMERIC(38,2)` (already exact, no migration); client money maths uses integer paise via `lib/money.ts`; floats only for rates. | **Proposed** |
+| D-03 | ADR-001: the `expenses` ledger is the single source of truth; balances/outstanding/deposited are derived from it, never set directly. Single-entry ledger with typed links — **not** a full double-entry rewrite (P0 applies double-entry discipline: every movement posted once against its account, corrections by reversal). | Accepted (approved 2026-11-09) |
+| D-04 | Money: server keeps `BigDecimal` / `NUMERIC(38,2)` (already exact, no migration); client money maths uses integer paise via `lib/money.ts`; floats only for rates. | Accepted (approved 2026-11-09) |
 | D-05 | Interest rates stored as percent (`9.99` = 9.99%) — Flyway V2. | Accepted |
 | D-06 | Schema changes only through Flyway migrations; Hibernate `validate`; never edit an applied migration. | Accepted |
 | D-07 | Auth is stateless JWT; P0 moves it from `localStorage` to an `HttpOnly; Secure; SameSite=Strict` cookie with CSRF protection. | Accepted (SPEC P0-3) |

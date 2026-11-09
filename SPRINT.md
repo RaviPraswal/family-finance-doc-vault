@@ -23,7 +23,7 @@
 
 | # | Task | Est. | Depends on | Status |
 |---|---|---|---|---|
-| T1 | CI gate + dependency fixes | 1d | — | ☐ |
+| T1 | CI gate + dependency fixes | 1d | — | ✅ (CI runs on first push) |
 | T2 | Paise helpers + schedule libs | 1d | D-04 approved | ☐ |
 | T3 | Ledger drift report (read-only) | 0.5d | D-03 approved | ☐ |
 | T4 | Bank balance derived from ledger | 1d | T3 | ☐ |

@@ -62,15 +62,25 @@ public class SecurityConfig {
         return false;
     }
 
+    /** The XSRF-TOKEN cookie store; shared with AuthController so login and logout can rotate the token. */
+    @Bean
+    public org.springframework.security.web.csrf.CookieCsrfTokenRepository csrfTokenRepository() {
+        return org.springframework.security.web.csrf.CookieCsrfTokenRepository.withHttpOnlyFalse();
+    }
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthFilter)
             throws Exception {
         http
                 // Sprint 7 T7 (D-07): cookie-authenticated writes need the XSRF-TOKEN echoed in X-XSRF-TOKEN.
                 // Bearer-header API clients are not exposed to CSRF and are not asked for it.
+                // Sprint 8 fix: the JWT filter authenticates every request, which Spring treats as a fresh login; its
+                // default CSRF strategy then wiped XSRF-TOKEN on each response and the next save got 403. The token is
+                // rotated explicitly at login/register/logout instead (AuthController).
                 .csrf(csrf -> csrf
-                        .csrfTokenRepository(org.springframework.security.web.csrf.CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .csrfTokenRepository(csrfTokenRepository())
                         .csrfTokenRequestHandler(new org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler())
+                        .sessionAuthenticationStrategy(new org.springframework.security.web.authentication.session.NullAuthenticatedSessionStrategy())
                         .requireCsrfProtectionMatcher(SecurityConfig::needsCsrf))
                 .addFilterAfter(new CsrfCookieFilter(), org.springframework.security.web.csrf.CsrfFilter.class)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

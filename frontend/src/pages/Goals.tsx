@@ -46,6 +46,7 @@ export default function Goals() {
       setGoals(data);
     } catch (error) {
       console.error('Failed to fetch goals', error);
+      useToastStore.getState().error('Could not load goals', (error as Error)?.message || 'Please refresh.');
     } finally {
       setLoading(false);
     }
@@ -81,6 +82,7 @@ export default function Goals() {
           priority
         })
       });
+      useToastStore.getState().success('Goal saved', `${name} is added to your goals.`);
       setShowAddForm(false);
       setName('');
       setTargetAmount('');
@@ -89,7 +91,7 @@ export default function Goals() {
       setPriority('MEDIUM');
       fetchGoals();
     } catch (error) {
-      console.error('Failed to create goal', error);
+      useToastStore.getState().error('Could not save the goal', (error as Error)?.message || 'Please try again.');
     }
   };
 
@@ -102,11 +104,12 @@ export default function Goals() {
           amount: parseFloat(contributionAmount)
         })
       });
+      useToastStore.getState().success('Funds added', `₹${Number(contributionAmount).toLocaleString('en-IN')} added.`);
       setContributingTo(null);
       setContributionAmount('');
       fetchGoals();
     } catch (error) {
-      console.error('Failed to contribute to goal', error);
+      useToastStore.getState().error('Could not add funds', (error as Error)?.message || 'Please try again.');
     }
   };
 
@@ -255,7 +258,7 @@ export default function Goals() {
                     <h3 className="font-semibold text-foreground text-lg">{goal.name}</h3>
                     <div className="flex items-center text-xs text-muted-foreground mt-1 gap-1">
                       <Calendar className="h-3 w-3" />
-                      Target: {new Date(goal.targetDate).toLocaleDateString()}
+                      Target: {new Date(goal.targetDate.slice(0, 10) + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </div>
                   </div>
                   <div className={`p-2 rounded-lg ${isCompleted ? 'bg-green-500/20 text-green-500' : 'bg-primary/10 text-primary'}`}>

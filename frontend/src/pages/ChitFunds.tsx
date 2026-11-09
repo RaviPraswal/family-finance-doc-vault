@@ -4,7 +4,8 @@ import { markPaidThrough } from '../lib/chitSchedule';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
-import { Plus, Users, Trash2, Search, Download, Printer, ChevronDown, ChevronUp, FileText, Wallet } from 'lucide-react';
+import { Plus, Users, Trash2, Search, Download, Printer, ChevronDown, ChevronUp, FileText, Wallet, Pencil, CheckCircle2, RotateCcw } from 'lucide-react';
+import { chitCounts, chitStatusLabel, matchesChitFilter } from '../lib/chitStatus';
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
 
 interface ChitFund {
@@ -20,6 +21,8 @@ interface ChitFund {
   allottedAmount: number | null;
   linkedAccount: { id: string; name?: string; bankName?: string } | null;
   paymentSchedule?: string;
+  isClosed?: boolean;
+  closedOn?: string | null;
 }
 
 interface BankAccount {
@@ -45,6 +48,8 @@ export default function ChitFunds() {
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  /** Sprint 8: the chit being edited; null when adding a new one. */
+  const [editing, setEditing] = useState<ChitFund | null>(null);
   const [formData, setFormData] = useState<Partial<ChitFund & { linkedAccountId: string }>>({
     organizerName: '',
     memberName: '',
@@ -203,7 +208,48 @@ export default function ChitFunds() {
       linkedAccountId: '',
     });
     setScheduleRows(generateDefaultSchedule(20, 300000, today));
+    setEditing(null);
     setIsModalOpen(true);
+  };
+
+  const openEditModal = (cf: ChitFund) => {
+    setFormData({
+      organizerName: cf.organizerName,
+      memberName: cf.memberName,
+      totalValue: cf.totalValue,
+      monthlyInstallment: cf.monthlyInstallment,
+      durationMonths: cf.durationMonths,
+      pendingInstallments: cf.pendingInstallments,
+      startDate: cf.startDate,
+      isAllotted: cf.isAllotted,
+      allottedAmount: cf.allottedAmount,
+      linkedAccountId: cf.linkedAccount?.id ?? '',
+    });
+    setScheduleRows(scheduleOf(cf));
+    setEditing(cf);
+    setIsModalOpen(true);
+  };
+
+  /** Sprint 8: a chit stays active until it is marked closed. */
+  const toggleClosed = (cf: ChitFund) => {
+    const closing = !cf.isClosed;
+    const save = async () => {
+      try {
+        const payload: any = { ...cf, isClosed: closing, linkedAccount: cf.linkedAccount ? { id: cf.linkedAccount.id } : null };
+        await apiClient(`/api/chitfunds/${cf.id}`, { method: 'PUT', body: JSON.stringify(payload) });
+        toast.success(closing ? 'Chit closed' : 'Chit reopened', `${cf.organizerName} is now ${closing ? 'closed' : 'active'}.`);
+        fetchChitFunds();
+      } catch (err: any) {
+        toast.error('Could not update the chit', err.message || 'Please try again.');
+      }
+    };
+    if (!closing) { save(); return; }
+    confirm.show({
+      title: 'Mark chit closed',
+      message: `Mark ${cf.organizerName} as closed? It moves out of your active chits. You can reopen it later.`,
+      confirmLabel: 'Mark closed',
+      onConfirm: save,
+    });
   };
 
   const updateScheduleField = (index: number, field: keyof ScheduleRow, value: any) => {
@@ -265,24 +311,25 @@ export default function ChitFunds() {
       const pendingInstallments = scheduleRows.filter(r => r.status === 'Open / Pending').length;
 
       const payload: any = {
+        ...(editing ?? {}),
         ...formData,
         isAllotted,
         allottedAmount,
         pendingInstallments,
         paymentSchedule: JSON.stringify(scheduleRows),
+        isClosed: editing?.isClosed ?? false,
+        linkedAccount: formData.linkedAccountId ? { id: formData.linkedAccountId } : null,
       };
-      if (formData.linkedAccountId) {
-        payload.linkedAccount = { id: formData.linkedAccountId };
-      }
       delete payload.linkedAccountId;
-      await apiClient('/api/chitfunds', {
-        method: 'POST',
+      await apiClient(editing ? `/api/chitfunds/${editing.id}` : '/api/chitfunds', {
+        method: editing ? 'PUT' : 'POST',
         body: JSON.stringify(payload),
       });
       setIsModalOpen(false);
+      setEditing(null);
       setFormData({ organizerName: '', memberName: '', totalValue: 100000, monthlyInstallment: 8333, durationMonths: 12, pendingInstallments: 12, startDate: new Date().toISOString().split('T')[0], isAllotted: false, allottedAmount: null, linkedAccountId: '' });
       setScheduleRows([]);
-      toast.success('Chit fund saved', 'Your chit fund record has been added successfully.');
+      toast.success('Chit fund saved', editing ? 'Your changes are saved.' : 'Your chit fund record has been added successfully.');
       fetchChitFunds();
     } catch (err: any) {
       toast.error('Failed to save chit fund', err.message || 'Could not save chit fund. Please try again.');
@@ -350,12 +397,7 @@ export default function ChitFunds() {
                           cf.memberName.toLowerCase().includes(search.toLowerCase()) ||
                           (cf.linkedAccount?.name || '').toLowerCase().includes(search.toLowerCase());
     
-    let matchesStatus = true;
-    if (filterStatus === 'ALLOTTED') {
-      matchesStatus = cf.isAllotted;
-    } else if (filterStatus === 'ACTIVE') {
-      matchesStatus = !cf.isAllotted;
-    }
+    const matchesStatus = matchesChitFilter(cf, filterStatus);
 
     return matchesSearch && matchesStatus;
   });
@@ -371,8 +413,7 @@ export default function ChitFunds() {
   const nextDueInstallmentCumulative = filteredChitFunds.reduce((sum, cf) => sum + getChitDetails(cf).upcomingVal, 0);
   const totalOutstandingCumulative = totalChitValue - totalDepositedCumulative;
   
-  const allottedCount = filteredChitFunds.filter(cf => cf.isAllotted).length;
-  const activeCount = filteredChitFunds.length - allottedCount;
+  const counts = chitCounts(chitFunds);
 
   // Exporters
   const handleExportCSV = () => {
@@ -467,10 +508,11 @@ export default function ChitFunds() {
           <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalOutstandingCumulative.toLocaleString()}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
-          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Allocation Status</span>
+          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Chits</span>
           <p className="text-lg font-bold text-foreground mt-1 font-sans">
-            {allottedCount} Matured <span className="text-muted-foreground text-xs font-normal">/ {activeCount} Active</span>
+            <span>{counts.active} Active</span> <span className="text-muted-foreground text-xs font-normal">· {counts.closed} closed</span>
           </p>
+          <p className="text-[11px] text-muted-foreground">{counts.allotted} allotted · {counts.awaiting} awaiting bidding</p>
         </div>
       </div>
 
@@ -493,9 +535,11 @@ export default function ChitFunds() {
             onChange={(e) => setFilterStatus(e.target.value)}
             className="px-3 py-1.5 bg-background/50 border border-border rounded-lg text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer"
           >
-            <option value="ALL">All Bidding Statuses</option>
-            <option value="ALLOTTED">Allotted (Paid Out)</option>
-            <option value="ACTIVE">Active (Accruing)</option>
+            <option value="ALL">All chits</option>
+            <option value="ACTIVE">Active</option>
+            <option value="ALLOTTED">Active · allotted</option>
+            <option value="AWAITING">Active · awaiting bidding</option>
+            <option value="CLOSED">Closed</option>
           </select>
         </div>
 
@@ -614,7 +658,7 @@ export default function ChitFunds() {
                       Outstanding Bal.
                     </th>
                     <th className="px-4 py-2.5 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">
-                      Bidding Payout Status
+                      Status
                     </th>
                     <th className="px-4 py-2.5 text-right text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">
                       Actions
@@ -631,7 +675,7 @@ export default function ChitFunds() {
                       <React.Fragment key={cf.id}>
                         <tr 
                           onClick={() => setExpandedChitFundId(isExpanded ? null : cf.id)}
-                          className={`hover:bg-muted/30 transition-colors group cursor-pointer ${idx % 2 === 0 ? 'bg-background/20' : 'bg-card/10'} ${isExpanded ? 'bg-primary/5' : ''}`}
+                          className={`hover:bg-muted/30 transition-colors group cursor-pointer ${idx % 2 === 0 ? 'bg-background/20' : 'bg-card/10'} ${isExpanded ? 'bg-primary/5' : ''} ${cf.isClosed ? 'opacity-60' : ''}`}
                         >
                           <td className="px-4 py-2.5 text-center">
                             {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
@@ -663,21 +707,39 @@ export default function ChitFunds() {
                             ₹{details.outstandingAmount.toLocaleString()}
                           </td>
                           <td className="px-4 py-2.5 whitespace-nowrap text-xs">
-                            {cf.isAllotted ? (
-                              <span className="text-green-500 font-bold">Allotted (₹{cf.allottedAmount?.toLocaleString()})</span>
-                            ) : (
-                              <span className="text-amber-500 font-medium">Awaiting Bidding</span>
+                            <span className={`font-semibold ${cf.isClosed ? 'text-muted-foreground' : cf.isAllotted ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                              {chitStatusLabel(cf)}
+                            </span>
+                            {cf.isAllotted && cf.allottedAmount != null && (
+                              <span className="block text-[10px] text-muted-foreground">Allotted ₹{Math.round(cf.allottedAmount).toLocaleString('en-IN')}</span>
                             )}
                           </td>
                           <td className="px-4 py-2.5 whitespace-nowrap text-right text-xs font-medium">
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex justify-end gap-2">
+                            <div className="flex justify-end gap-1">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); openEditModal(cf); }}
+                                className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-md p-1.5"
+                                aria-label={`Edit ${cf.organizerName}`}
+                                title="Edit"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); toggleClosed(cf); }}
+                                className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-md p-1.5"
+                                aria-label={cf.isClosed ? `Reopen ${cf.organizerName}` : `Mark ${cf.organizerName} closed`}
+                                title={cf.isClosed ? 'Reopen' : 'Mark closed'}
+                              >
+                                {cf.isClosed ? <RotateCcw className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
+                              </button>
                               <button 
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleDelete(cf.id);
                                 }} 
-                                className="text-muted-foreground hover:text-red-500 transition-colors p-1"
-                                title="Delete Record"
+                                className="text-muted-foreground hover:text-red-500 hover:bg-muted rounded-md p-1.5"
+                                aria-label={`Delete ${cf.organizerName}`}
+                                title="Delete"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </button>
@@ -831,8 +893,8 @@ export default function ChitFunds() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-2xl p-5 max-w-5xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-border">
-            <h2 className="text-lg font-bold text-foreground mb-4">Add Chit Fund</h2>
+          <div role="dialog" aria-modal="true" aria-labelledby="chit-modal-title" className="bg-card rounded-2xl p-5 max-w-5xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-border">
+            <h2 id="chit-modal-title" className="text-lg font-bold text-foreground mb-4">{editing ? 'Edit Chit Fund' : 'Add Chit Fund'}</h2>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               {/* Left Column: Meta Fields */}
               <div className="lg:col-span-5 space-y-4">
@@ -891,8 +953,8 @@ export default function ChitFunds() {
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded-lg text-xs font-semibold">Cancel</button>
-                  <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-xs font-semibold transition-all">Save Chit Fund</button>
+                  <button type="button" onClick={() => { setIsModalOpen(false); setEditing(null); }} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded-lg text-xs font-semibold">Cancel</button>
+                  <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-xs font-semibold transition-all">{editing ? 'Save Changes' : 'Save Chit Fund'}</button>
                 </div>
               </div>
 

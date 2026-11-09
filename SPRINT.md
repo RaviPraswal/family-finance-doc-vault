@@ -58,6 +58,7 @@
 **Files:** modify `portfolio/Loan.java`, `portfolio/Deposit.java`, `expense/ExpenseController.java`, `portfolio/LoanEventListener.java`, `portfolio/DepositEventListener.java`; test `Sprint7DerivedLoanDepositTest.java`.
 **Do:** outstanding = principal − Σ `loan_principal_portion`; deposit total = Σ linked entries; remove direct setters.
 **Accept:** paying 3 IndusInd-style EMIs drops outstanding by exactly their principal portions; deleting one restores it; drift report shows 0 for these.
+Also (Ravi, 2026-11-09): RD rows show both the monthly instalment and the total deposited (derived from linked ledger entries).
 
 ### T6 — Paise in cockpit, alerts, net worth, pages
 **Files:** modify `lib/cockpit.ts`, `lib/alerts.ts`, `lib/netWorth.ts`, `lib/moneyMap.ts`, `components/*ScheduleTable.tsx`, `pages/PortfolioOverview.tsx` (format calls only).

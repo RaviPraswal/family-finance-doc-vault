@@ -43,7 +43,7 @@ public class BankAccountController {
         entity.setTenantId(UUID.fromString(TenantContext.getCurrentTenant()));
         BankAccount saved = repository.save(entity);
         calculateAndSetCurrentBalance(saved);
-        return ResponseEntity.ok(saved);
+        return ResponseEntity.ok(repository.save(saved)); // Sprint 7 T4: store the ledger-derived balance
     }
 
     @PutMapping("/{id}")
@@ -64,7 +64,7 @@ public class BankAccountController {
         }
         BankAccount saved = repository.save(entity);
         calculateAndSetCurrentBalance(saved);
-        return ResponseEntity.ok(saved);
+        return ResponseEntity.ok(repository.save(saved)); // Sprint 7 T4: store the ledger-derived balance
     }
 
     @DeleteMapping("/{id}")

@@ -81,7 +81,9 @@ public class ExpenseController {
         // Adjust balances of linked bank accounts and entities
         adjustLinkedEntityBalances(entity, true);
 
-        return ResponseEntity.ok(repository.save(entity));
+        Expense saved = repository.save(entity);
+        refreshTotals(linksOf(saved));
+        return ResponseEntity.ok(saved);
     }
 
     @PutMapping("/{id}")
@@ -144,6 +146,8 @@ public class ExpenseController {
             entity.setEditHistory(existing.getEditHistory());
         }
 
+        java.util.List<Object> oldLinks = linksOf(existing);
+
         // Give the edited record its id first, so lookups (e.g. "previous EMI") never mistake it for another payment.
         entity.setId(id);
 
@@ -156,7 +160,11 @@ public class ExpenseController {
         entity.setTenantId(existing.getTenantId());
         entity.setCreatedAt(existing.getCreatedAt());
         entity.setUserId(existing.getUserId());
-        return ResponseEntity.ok(repository.save(entity));
+        Expense saved = repository.save(entity);
+        java.util.List<Object> touched = new java.util.ArrayList<>(oldLinks);
+        touched.addAll(linksOf(saved));
+        refreshTotals(touched);
+        return ResponseEntity.ok(saved);
     }
 
     @DeleteMapping("/{id}")
@@ -173,8 +181,46 @@ public class ExpenseController {
         // Reverse old transaction effect
         adjustLinkedEntityBalances(existing, false);
 
+        java.util.List<Object> links = linksOf(existing);
         repository.delete(existing);
+        refreshTotals(links);
         return ResponseEntity.ok().build();
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.finnest.ledger.LedgerTotals ledgerTotals;
+
+    /** The bank account, loan and deposit an entry is linked to (ids only, so later edits can't change them). */
+    private static java.util.List<Object> linksOf(Expense e) {
+        java.util.List<Object> out = new java.util.ArrayList<>();
+        if (e.getLinkedAccount() != null && e.getLinkedAccount().getId() != null) out.add(new LinkRef("account", e.getLinkedAccount().getId()));
+        if (e.getLinkedLoan() != null && e.getLinkedLoan().getId() != null) out.add(new LinkRef("loan", e.getLinkedLoan().getId()));
+        if (e.getLinkedDeposit() != null && e.getLinkedDeposit().getId() != null) out.add(new LinkRef("deposit", e.getLinkedDeposit().getId()));
+        return out;
+    }
+
+    private record LinkRef(String kind, UUID id) {}
+
+    /** Sprint 7 T4/T5 (D-03): stored totals are written only here, recomputed from the ledger. */
+    private void refreshTotals(java.util.List<Object> links) {
+        repository.flush();
+        for (Object o : new java.util.LinkedHashSet<>(links)) {
+            LinkRef ref = (LinkRef) o;
+            switch (ref.kind()) {
+                case "account" -> {
+                    var a = com.finnest.common.TenantGuard.ownedOrNull(bankAccountRepository.findById(ref.id()));
+                    if (a != null) { ledgerTotals.refresh(a); bankAccountRepository.save(a); }
+                }
+                case "loan" -> {
+                    var l = com.finnest.common.TenantGuard.ownedOrNull(loanRepository.findById(ref.id()));
+                    if (l != null) { ledgerTotals.refresh(l); loanRepository.save(l); }
+                }
+                default -> {
+                    var d = com.finnest.common.TenantGuard.ownedOrNull(depositRepository.findById(ref.id()));
+                    if (d != null) { ledgerTotals.refresh(d); depositRepository.save(d); }
+                }
+            }
+        }
     }
 
     private static void requirePositiveAmount(Expense expense) {
@@ -205,24 +251,7 @@ public class ExpenseController {
         if (expense.getLinkedAccount() != null && expense.getLinkedAccount().getId() != null) {
             com.finnest.portfolio.BankAccount account = com.finnest.common.TenantGuard.ownedOrNull(bankAccountRepository.findById(expense.getLinkedAccount().getId()));
             if (account != null) {
-                java.math.BigDecimal currentBalance = account.getCurrentBalance();
-                if (currentBalance == null) {
-                    currentBalance = java.math.BigDecimal.ZERO;
-                }
-                if (isAdd) {
-                    if ("CREDIT".equalsIgnoreCase(type)) {
-                        account.setCurrentBalance(currentBalance.add(amount));
-                    } else {
-                        account.setCurrentBalance(currentBalance.subtract(amount));
-                    }
-                } else { // reverse
-                    if ("CREDIT".equalsIgnoreCase(type)) {
-                        account.setCurrentBalance(currentBalance.subtract(amount));
-                    } else {
-                        account.setCurrentBalance(currentBalance.add(amount));
-                    }
-                }
-                bankAccountRepository.save(account);
+                // Sprint 7 T4: the balance is derived from the ledger after the entry is saved (refreshTotals).
                 expense.setLinkedAccount(account);
             }
         }
@@ -231,31 +260,18 @@ public class ExpenseController {
         if (expense.getLinkedLoan() != null && expense.getLinkedLoan().getId() != null) {
             com.finnest.portfolio.Loan loan = com.finnest.common.TenantGuard.ownedOrNull(loanRepository.findById(expense.getLinkedLoan().getId()));
             if (loan != null) {
-                java.math.BigDecimal outstanding = loan.getOutstandingAmount();
-                if (outstanding == null) outstanding = java.math.BigDecimal.ZERO;
-                if (isAdd) {
-                    if (isDebit) {
-                        // EMI paid: only the principal part reduces the loan; the rest is interest.
-                        long days = daysSincePreviousEmi(loan.getId(), expense);
-                        com.finnest.portfolio.LoanMath.Split split = com.finnest.portfolio.LoanMath.split(
-                                loan.getInterestMethod(), outstanding, loan.getInterestRate(), amount, days);
-                        expense.setLoanPrincipalPortion(split.principal());
-                        expense.setLoanInterestPortion(split.interest());
-                        loan.setOutstandingAmount(outstanding.subtract(split.principal()));
-                    } else {
-                        loan.setOutstandingAmount(outstanding.add(amount));
-                    }
-                } else {
-                    if (isDebit) {
-                        // Reverse exactly what was applied. Older rows without a stored split used the full amount.
-                        java.math.BigDecimal applied = expense.getLoanPrincipalPortion() != null
-                                ? expense.getLoanPrincipalPortion() : amount;
-                        loan.setOutstandingAmount(outstanding.add(applied));
-                    } else {
-                        loan.setOutstandingAmount(outstanding.subtract(amount));
-                    }
+                if (isAdd && isDebit) {
+                    // EMI paid: only the principal part reduces the loan; the rest is interest.
+                    // Sprint 7 T5: split on the ledger-derived outstanding before this entry; the outstanding itself
+                    // is refreshed from the ledger after the entry is saved (refreshTotals).
+                    java.math.BigDecimal outstanding = ledgerTotals.loanOutstandingExcluding(loan, expense.getId());
+                    if (outstanding == null) outstanding = java.math.BigDecimal.ZERO;
+                    long days = daysSincePreviousEmi(loan.getId(), expense);
+                    com.finnest.portfolio.LoanMath.Split split = com.finnest.portfolio.LoanMath.split(
+                            loan.getInterestMethod(), outstanding, loan.getInterestRate(), amount, days);
+                    expense.setLoanPrincipalPortion(split.principal());
+                    expense.setLoanInterestPortion(split.interest());
                 }
-                loanRepository.save(loan);
                 expense.setLinkedLoan(loan);
             }
         }
@@ -344,21 +360,7 @@ public class ExpenseController {
             if (deposit != null) {
                 boolean isRD = "RD".equalsIgnoreCase(deposit.getType());
                 if (isRD) {
-                    java.math.BigDecimal totalDep = deposit.getTotalDeposited();
-                    if (totalDep == null) totalDep = java.math.BigDecimal.ZERO;
-                    if (isAdd) {
-                        if (isDebit) {
-                            deposit.setTotalDeposited(totalDep.add(amount));
-                        } else {
-                            deposit.setTotalDeposited(totalDep.subtract(amount));
-                        }
-                    } else {
-                        if (isDebit) {
-                            deposit.setTotalDeposited(totalDep.subtract(amount));
-                        } else {
-                            deposit.setTotalDeposited(totalDep.add(amount));
-                        }
-                    }
+                    // Sprint 7 T5: an RD's total deposited is derived from the ledger after save (refreshTotals).
                 } else {
                     java.math.BigDecimal principal = deposit.getPrincipalAmount();
                     if (principal == null) principal = java.math.BigDecimal.ZERO;

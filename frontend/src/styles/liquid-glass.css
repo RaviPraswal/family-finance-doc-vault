@@ -393,7 +393,7 @@ html.skin-liquid .lg-sidebar .bg-muted\/30 {
  * scrolls underneath it (Apple's scroll edge effect) — the place where the material reads most clearly.
  */
 html.skin-liquid .lg-content > * > :first-child:has(h1) {
-  position: sticky;
+  position: relative;
   top: 8px;
   z-index: 30;
   margin-bottom: 20px;
@@ -405,10 +405,27 @@ html.skin-liquid .lg-content > * > :first-child:has(h1) {
   border: 0.5px solid var(--lg-edge);
   box-shadow: inset 0 1px 0 var(--lg-rim), inset 0 -1px 0 var(--lg-rim-low), var(--lg-depth);
 }
-/* Scroll edge effect: content fades out as it reaches the top edge, instead of being cut by a hard line. */
-html.skin-liquid .lg-content {
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12px);
-  mask-image: linear-gradient(to bottom, transparent 0, #000 12px);
+/*
+ * Scroll edge effect: a soft blur where content meets the top edge (a separate layer in the layout, so it never
+ * clips or traps the modals that pages render).
+ */
+html.skin-liquid .lg-scroll-edge {
+  display: block;
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 22px;
+  z-index: 20;
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 30%, transparent);
+  mask-image: linear-gradient(to bottom, #000 30%, transparent);
+}
+/* The bar stays at the top only where there is room for it (not on phones). */
+@media (min-width: 768px) {
+  html.skin-liquid .lg-content > * > :first-child:has(h1) {
+    position: sticky;
+  }
 }
 html.skin-liquid .lg-content > * > :first-child:has(h1) h1 {
   font-size: 1.5rem;
@@ -568,14 +585,14 @@ html.skin-liquid .custom-scrollbar::-webkit-scrollbar-thumb {
   }
 }
 /* Pages settle in: a short fade and lift, so moving between screens feels continuous. */
+/* Opacity only, and only before it starts: a transform left on the page would trap its fixed-position modals. */
 @keyframes lg-settle {
   from {
     opacity: 0;
-    transform: translateY(6px);
   }
 }
 html.skin-liquid .lg-content > * {
-  animation: lg-settle 380ms var(--lg-spring) both;
+  animation: lg-settle 280ms ease-out backwards;
 }
 
 /* Reduced motion: no movement, springs or scaling — short cross-fades only. */

@@ -149,7 +149,7 @@ export default function DashboardLayout() {
           </div>
           <div className="flex items-center gap-3">
             {currentUser && (
-              <span className="text-xs font-semibold text-muted-foreground">
+              <span className="hidden sm:inline whitespace-nowrap text-xs font-semibold text-muted-foreground">
                 Hi, {currentUser.name.split(' ')[0]}
               </span>
             )}
@@ -167,6 +167,8 @@ export default function DashboardLayout() {
           </div>
         </div>
         
+        {/* Liquid Glass scroll edge (hidden in other skins) */}
+        <div className="lg-scroll-edge hidden" aria-hidden="true" />
         {/* Page Content */}
         <main className="lg-content flex-1 overflow-y-auto p-4 md:p-8 pt-0 md:pt-4">
           <PageErrorBoundary resetKey={location.pathname}><Outlet /></PageErrorBoundary>

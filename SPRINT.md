@@ -85,15 +85,15 @@ Also (Ravi, 2026-11-09): RD rows show both the monthly instalment and the total 
 ## Definition of done (every task)
 Failing test first → green · `code-review` passed (validation, auth per route, no secrets, parameterised SQL) · frontend tests/tsc/build green · backend suite green (Windows run until CI) · SPRINT.md status ticked · 3-line update to Ravi.
 
-## Sprint 8 backlog (agreed 2026-11-09, after T2–T10)
-| # | Item | Est. |
-|---|---|---|
-| S8-1 | Daily bank balance check: enter each bank's real closing balance; difference posted to the ledger as an adjustment (reconciliation) | 1–1.5d |
-| S8-2 | Upgrade Liquid Glass to an Apple-style liquid glass look with smooth, interruptible motion (apple-design skill) | 2–3d |
-| S8-3 | Tejal / Sukanya dedicated view with every entry made so far | 1d |
-| S8-4 | EMI schedule pagination | 0.5d |
-| S8-5 | Udhaar summary: who owes me, whom I owe, net per person; fix "Total received ₹0" | 1d |
-| S8-6 | Side income list view: upcoming due and last entry per source; fix "-86 days left" (should read overdue) | 1d |
+## Sprint 8 (agreed 2026-11-09, after T2–T10) — branch `feature/s8`
+| # | Item | Est. | Status |
+|---|---|---|---|
+| S8-1 | Daily bank balance check: enter each bank's real closing balance; difference posted to the ledger as an adjustment (reconciliation) | 1–1.5d | ✅ V6 `bank_balance_checks`; panel on Bank Accounts |
+| S8-2 | Upgrade Liquid Glass to an Apple-style liquid glass look with smooth, interruptible motion (apple-design skill) | 2–3d | ✅ CSS springs, press feedback, materialise, a11y media queries |
+| S8-3 | Tejal / Sukanya dedicated view with every entry made so far | 1d | ✅ entries + running total, link stray entries |
+| S8-4 | EMI schedule pagination | 0.5d | ✅ 12 per page, opens on next unpaid EMI |
+| S8-5 | Udhaar summary: who owes me, whom I owe, net per person; fix "Total received ₹0" | 1d | ✅ |
+| S8-6 | Side income list view: upcoming due and last entry per source; fix "-86 days left" (should read overdue) | 1d | ✅ |
 Data fixes done by script (not code): Axis RD ₹5,000, RMC chit allotted Sep 2026, chit renames — `fix-rd-chits.bat`.
 
 ## Carry-over / parked

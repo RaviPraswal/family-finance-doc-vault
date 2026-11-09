@@ -5,6 +5,8 @@
  * at the rate the government sets each quarter (8.2% since 2024).
  */
 
+import { mulRateRupeeP, toPaise } from './money';
+
 export type SsyStatus = 'PAID' | 'OVERDUE' | 'DUE' | 'UPCOMING' | 'GROWING';
 
 export interface SsyTerms {
@@ -46,7 +48,7 @@ export function buildSsySchedule(terms: SsyTerms, today: string | Date = new Dat
   const start = parse(terms.startDate);
   const now = typeof today === 'string' ? parse(today) : new Date(today);
   now.setHours(0, 0, 0, 0);
-  const rate = (terms.ratePercent || SSY_RATE) / 100;
+  const ratePercent = terms.ratePercent || SSY_RATE;
   const paidYears = Math.min(DEPOSIT_YEARS, Math.floor((terms.deposited ?? 0) / yearly));
 
   const rows: SsyRow[] = [];
@@ -58,7 +60,8 @@ export function buildSsySchedule(terms: SsyTerms, today: string | Date = new Dat
     const deposit = year <= DEPOSIT_YEARS ? yearly : 0;
     const depositedSoFar = Math.min(deposit, Math.max(0, unallocated));
     unallocated -= depositedSoFar;
-    const interest = Math.round((balance + deposit) * rate);
+    // Sprint 7 T2: exact paise, rounded to whole rupees half-up
+    const interest = mulRateRupeeP(toPaise(balance + deposit), ratePercent, 1, 1) / 100;
     const status: SsyStatus = year > DEPOSIT_YEARS ? 'GROWING'
       : year <= paidYears ? 'PAID'
       : to <= now ? 'OVERDUE'

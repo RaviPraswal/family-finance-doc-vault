@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import ChitScheduleTable from '../components/ChitScheduleTable';
-import { markPaidThrough } from '../lib/chitSchedule';
+import { markPaidThrough, parseChitSchedule } from '../lib/chitSchedule';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
@@ -143,9 +143,8 @@ export default function ChitFunds() {
     }
   };
 
-  const scheduleOf = (cf: ChitFund): ScheduleRow[] => cf.paymentSchedule
-    ? (JSON.parse(cf.paymentSchedule) as ScheduleRow[])
-    : generateDefaultSchedule(cf.durationMonths || 20, cf.totalValue || 300000, cf.startDate || new Date().toISOString().split('T')[0]);
+  const scheduleOf = (cf: ChitFund): ScheduleRow[] => parseChitSchedule(cf.paymentSchedule,
+    generateDefaultSchedule(cf.durationMonths || 20, cf.totalValue || 300000, cf.startDate || new Date().toISOString().split('T')[0]));
 
   const handleStatusChange = async (cf: ChitFund, rowIndex: number, newStatus: 'Paid & Closed' | 'Allotted' | 'Open / Pending') => {
     const updatedSchedule = [...scheduleOf(cf)];
@@ -356,9 +355,8 @@ export default function ChitFunds() {
 
   // Helper schedule calculations per chit fund
   const getChitDetails = useCallback((cf: ChitFund) => {
-    const schedule = cf.paymentSchedule
-      ? (JSON.parse(cf.paymentSchedule) as ScheduleRow[])
-      : generateDefaultSchedule(cf.durationMonths || 20, cf.totalValue || 300000, cf.startDate || new Date().toISOString().split('T')[0]);
+    const schedule = parseChitSchedule(cf.paymentSchedule,
+      generateDefaultSchedule(cf.durationMonths || 20, cf.totalValue || 300000, cf.startDate || new Date().toISOString().split('T')[0]));
 
     const totalDeposited = schedule.reduce((sum, row) => {
       if (row.status === 'Paid & Closed' || row.status === 'Allotted') {

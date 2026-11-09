@@ -29,7 +29,7 @@ export default function SideIncomeTable({ rows, onRecord, onEdit, onDelete }: Pr
   if (rows.length === 0) return null;
   return (
     <div className="overflow-x-auto rounded-xl border border-border bg-card">
-      <table aria-label="Side income sources" className="min-w-full text-sm tabular-nums">
+      <table aria-label="Side income sources" className="min-w-full text-sm">
         <thead className="bg-muted/50">
           <tr className="text-left text-xs text-muted-foreground uppercase tracking-wider">
             <th className="px-3 py-2">Source</th>
@@ -47,9 +47,9 @@ export default function SideIncomeTable({ rows, onRecord, onEdit, onDelete }: Pr
               <tr className={r.status === 'OVERDUE' ? 'bg-red-500/5' : r.status === 'DUE' ? 'bg-amber-500/10' : ''}>
                 <td className="px-3 py-2 font-semibold">{r.name}<span className="block text-[11px] font-normal text-muted-foreground">{r.frequency}</span></td>
                 <td className="px-3 py-2">{shortDate(r.lastDate)}</td>
-                <td className="px-3 py-2 text-right">{inr(r.lastAmount)}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{inr(r.lastAmount)}</td>
                 <td className="px-3 py-2">{shortDate(r.nextDue)}</td>
-                <td className="px-3 py-2 text-right font-semibold">{inr(r.expected)}</td>
+                <td className="px-3 py-2 text-right font-semibold tabular-nums">{inr(r.expected)}</td>
                 <td className="px-3 py-2">
                   <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold whitespace-nowrap ${PILL[r.status]}`}>{r.label}</span>
                   {r.missed > 1 && <span className="ml-1 text-[11px] text-red-600 dark:text-red-300">{r.missed} payments missed</span>}

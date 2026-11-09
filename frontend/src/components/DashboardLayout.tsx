@@ -1,4 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
+import PageErrorBoundary from './PageErrorBoundary';
 import { 
   FolderOpen, 
   Wallet, 
@@ -167,7 +168,7 @@ export default function DashboardLayout() {
         
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto p-4 md:p-8 pt-0 md:pt-4">
-          <Outlet />
+          <PageErrorBoundary resetKey={location.pathname}><Outlet /></PageErrorBoundary>
         </main>
       </div>
     </div>

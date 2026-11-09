@@ -233,7 +233,7 @@ export default function SideIncome() {
           </div>
         </div>
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
-          <table aria-label="Payments received" className="min-w-full text-sm tabular-nums">
+          <table aria-label="Payments received" className="min-w-full text-sm">
             <thead className="bg-muted/50">
               <tr className="text-left text-xs text-muted-foreground uppercase tracking-wider">
                 <th className="px-3 py-2">Date</th>
@@ -253,7 +253,7 @@ export default function SideIncome() {
                 <tr key={p.id}>
                   <td className="px-3 py-2 whitespace-nowrap">{shortDate(p.expenseDate)}</td>
                   <td className="px-3 py-2 font-semibold">{sourceName(p)}</td>
-                  <td className="px-3 py-2 text-right font-semibold text-emerald-700 dark:text-emerald-400">{inr(p.amount)}</td>
+                  <td className="px-3 py-2 text-right font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">{inr(p.amount)}</td>
                   <td className="px-3 py-2">{p.linkedAccount?.bankName || p.linkedAccount?.name || '—'}</td>
                   <td className="px-3 py-2 text-muted-foreground">{p.description || '—'}</td>
                   <td className="px-3 py-2 text-right">

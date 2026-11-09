@@ -1,12 +1,12 @@
-# Builds the backend JAR on feature branches and keeps it on a DRAFT release (not public),
-# so end-to-end checks can run the real app where Maven Central is not reachable.
+# Builds the backend JAR on feature branches and prints it (gzip + base64) into the job log, so end-to-end
+# checks can run the real app where Maven Central and artifact storage are not reachable. Read-only token.
 name: E2E JAR
 on:
   push:
     branches: ['feature/**']
     paths: ['backend/**', '.github/workflows/e2e-jar.yml']
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: e2e-jar-${{ github.ref }}
   cancel-in-progress: true
@@ -22,12 +22,9 @@ jobs:
           cache: maven
       - name: Build JAR (tests run in CI)
         working-directory: backend
-        run: bash mvnw -B -ntp -DskipTests package
-      - name: Put it on the draft release
-        env:
-          GH_TOKEN: ${{ github.token }}
+        run: bash mvnw -B -ntp -q -DskipTests package
+      - name: Print JAR
         run: |
-          TAG="e2e-${GITHUB_REF_NAME//\//-}"
-          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --draft --title "$TAG (draft, e2e only)" --notes "Build for end-to-end checks. Not a release." --target "$GITHUB_SHA"
-          cp backend/target/*.jar finnest.jar
-          gh release upload "$TAG" finnest.jar --clobber
+          f=$(ls backend/target/*.jar | grep -v original | head -1)
+          ls -la "$f"; sha256sum "$f"
+          echo "JAR-BEGIN"; gzip -9c "$f" | base64 -w 120; echo "JAR-END"

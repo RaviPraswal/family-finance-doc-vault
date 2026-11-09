@@ -4,6 +4,7 @@ import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
 import { Plus, Landmark, Trash2, Search, Download, Printer, FileText } from 'lucide-react';
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
+import BalanceCheckPanel from '../components/BalanceCheckPanel';
 
 interface BankAccount {
   id: string;
@@ -349,6 +350,10 @@ export default function BankAccounts() {
           </button>
         </div>
       </div>
+
+      {accounts.length > 0 && (
+        <BalanceCheckPanel accounts={accounts} onDone={() => { fetchAccounts(); fetchExpenses(); }} />
+      )}
 
       {/* Rule 1: Summary Strip */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">

@@ -1,63 +1,59 @@
 import { create } from 'zustand';
 
+/**
+ * Sprint 7 T8 (SPEC P0-3, D-07): the session lives in an HttpOnly cookie the page cannot read.
+ * The store keeps only who is signed in and when the session ends, loaded from /api/auth/session.
+ * No token is ever written to localStorage.
+ */
 interface User {
-  id: string;
+  id?: string;
   name: string;
   email: string;
   role: string;
 }
 
+export type SessionStatus = 'unknown' | 'in' | 'out';
+
 interface AuthState {
-  token: string | null;
   user: User | null;
-  setToken: (token: string | null) => void;
-  setUser: (user: User | null) => void;
+  expiresAt: number | null;
+  status: SessionStatus;
+  setSession: (user: User | null, expiresAt: number | null) => void;
+  /** Local sign-out (e.g. after a 401); use endSession() to also clear the server cookie. */
   logout: () => void;
 }
 
-function decodeToken(token: string | null): User | null {
-  if (!token) return null;
+export const useAuthStore = create<AuthState>((set) => {
+  try { localStorage.removeItem('token'); } catch { /* storage may be unavailable */ } // drop tokens kept by older versions
+  return {
+    user: null,
+    expiresAt: null,
+    status: 'unknown',
+    setSession: (user, expiresAt) => set({ user, expiresAt, status: user ? 'in' : 'out' }),
+    logout: () => set({ user: null, expiresAt: null, status: 'out' }),
+  };
+});
+
+/** Asks the server who is signed in (the cookie travels with the request). */
+export async function loadSession(): Promise<void> {
   try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      window.atob(base64)
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-    const payload = JSON.parse(jsonPayload);
-    return {
-      id: payload.id,
-      name: payload.name,
-      email: payload.sub,
-      role: payload.role
-    };
-  } catch (e) {
-    console.error('Failed to decode JWT token', e);
-    return null;
+    const res = await fetch('/api/auth/session', { credentials: 'same-origin' });
+    if (!res.ok) {
+      useAuthStore.getState().logout();
+      return;
+    }
+    const s = await res.json();
+    useAuthStore.getState().setSession({ name: s.name, email: s.email, role: s.role }, s.expiresAt ?? null);
+  } catch {
+    useAuthStore.getState().logout();
   }
 }
 
-export const useAuthStore = create<AuthState>((set) => {
-  const initialToken = localStorage.getItem('token');
-  const initialUser = decodeToken(initialToken);
-
-  return {
-    token: initialToken,
-    user: initialUser,
-    setToken: (token) => {
-      if (token) {
-        localStorage.setItem('token', token);
-      } else {
-        localStorage.removeItem('token');
-      }
-      set({ token, user: decodeToken(token) });
-    },
-    setUser: (user) => set({ user }),
-    logout: () => {
-      localStorage.removeItem('token');
-      set({ token: null, user: null });
-    },
-  };
-});
+/** Signs out everywhere: the server clears the cookie, the page forgets the user. */
+export async function endSession(): Promise<void> {
+  try {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+  } finally {
+    useAuthStore.getState().logout();
+  }
+}

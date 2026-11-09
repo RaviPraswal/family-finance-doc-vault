@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import AuthImage from '../components/AuthImage';
 import { useAuthStore } from '../store/authStore';
-import { apiClient } from '../api/client';
+import { apiClient, authFetch } from '../api/client';
 import { useNavigate } from 'react-router-dom';
 import UploadModal from '../components/UploadModal';
 import ShareModal from '../components/ShareModal';
@@ -51,7 +51,6 @@ export default function Dashboard() {
   const [previewDocument, setPreviewDocument] = useState<{id: string, name: string, type: string} | null>(null);
   const logout = useAuthStore((state) => state.logout);
   const navigate = useNavigate();
-  const token = useAuthStore((state) => state.token);
 
   // States for Alert aggregation
 
@@ -90,8 +89,8 @@ export default function Dashboard() {
 
   const handleDownload = async (id: string, name: string) => {
     try {
-      const response = await fetch(`/api/documents/${id}/download`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const response = await authFetch(`/api/documents/${id}/download`, {
+        headers: {}
       });
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);

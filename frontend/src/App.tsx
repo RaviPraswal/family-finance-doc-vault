@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useAuthStore } from './store/authStore';
+import { useAuthStore, loadSession } from './store/authStore';
 import { useThemeStore, applySkin } from './store/themeStore';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
@@ -32,8 +32,9 @@ import Commitments from './pages/Commitments';
 
 // Protected Route wrapper
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
-  const token = useAuthStore((state) => state.token);
-  if (!token) {
+  const status = useAuthStore((state) => state.status);
+  if (status === 'unknown') return null; // still asking the server who is signed in
+  if (status === 'out') {
     return <Navigate to="/login" replace />;
   }
   return children;
@@ -42,6 +43,10 @@ const ProtectedRoute = ({ children }: { children: ReactNode }) => {
 function App() {
   const theme = useThemeStore((state) => state.theme);
   const skin = useThemeStore((state) => state.skin);
+
+  useEffect(() => {
+    loadSession(); // Sprint 7 T8: the cookie, not a stored token, says who is signed in
+  }, []);
 
   useEffect(() => {
     applySkin(skin);

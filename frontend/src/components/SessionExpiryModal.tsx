@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore, loadSession, endSession } from '../store/authStore';
 import { apiClient } from '../api/client';
 
 // How many seconds before expiry to show the warning modal
@@ -7,23 +7,8 @@ const WARN_BEFORE_SECONDS = 120; // 2 minutes
 // Countdown duration shown in the modal (must be <= WARN_BEFORE_SECONDS)
 const COUNTDOWN_SECONDS = 120;
 
-/**
- * Reads the `exp` field from the JWT payload (seconds since epoch).
- * Returns null if token is missing or malformed.
- */
-function getTokenExpiry(token: string | null): number | null {
-  if (!token) return null;
-  try {
-    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-    const payload = JSON.parse(window.atob(base64));
-    return payload.exp ? payload.exp * 1000 : null; // convert to ms
-  } catch {
-    return null;
-  }
-}
-
 export function SessionExpiryModal() {
-  const { token, setToken, logout } = useAuthStore();
+  const { expiresAt, logout } = useAuthStore();
   const [showModal, setShowModal] = useState(false);
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [extending, setExtending] = useState(false);
@@ -39,8 +24,8 @@ export function SessionExpiryModal() {
   const handleExtend = useCallback(async () => {
     setExtending(true);
     try {
-      const data = await apiClient('/api/auth/refresh', { method: 'POST' });
-      setToken(data.token);
+      await apiClient('/api/auth/refresh', { method: 'POST' });
+      await loadSession(); // the server renewed the cookie; pick up the new expiry
       setShowModal(false);
       clearTimers();
     } catch {
@@ -49,13 +34,13 @@ export function SessionExpiryModal() {
     } finally {
       setExtending(false);
     }
-  }, [setToken, logout]);
+  }, [logout]);
 
   const handleLogout = useCallback(() => {
     clearTimers();
     setShowModal(false);
-    logout();
-  }, [logout]);
+    void endSession();
+  }, []);
 
   // Listen to user activity to automatically extend session or dismiss modal
   useEffect(() => {
@@ -86,7 +71,7 @@ export function SessionExpiryModal() {
     clearTimers();
     setShowModal(false);
 
-    const expiry = getTokenExpiry(token);
+    const expiry = expiresAt;
     if (!expiry) return;
 
     const now = Date.now();
@@ -119,7 +104,7 @@ export function SessionExpiryModal() {
     }, msUntilWarn);
 
     return () => clearTimers();
-  }, [token, logout, handleExtend]);
+  }, [expiresAt, logout, handleExtend]);
 
   // Countdown tick when modal is visible
   useEffect(() => {

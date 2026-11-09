@@ -1,25 +1,33 @@
 import { useAuthStore } from '../store/authStore';
 
+const SAFE = ['GET', 'HEAD', 'OPTIONS'];
+
+/** The XSRF-TOKEN cookie set by the server (readable on purpose; the session cookie itself is HttpOnly). */
+const csrfToken = () => document.cookie.split('; ').find((c) => c.startsWith('XSRF-TOKEN='))?.split('=')[1];
+
+/**
+ * Sprint 7 T8: every request to the API goes through here. The session cookie is sent by the browser;
+ * state-changing requests echo the CSRF token. No Authorization header and no token in page memory.
+ */
+export function authFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  const headers: Record<string, string> = { ...(init.headers as Record<string, string>) };
+  const method = (init.method || 'GET').toUpperCase();
+  const token = csrfToken();
+  if (!SAFE.includes(method) && token) headers['X-XSRF-TOKEN'] = decodeURIComponent(token);
+  return fetch(url, { ...init, headers, credentials: 'same-origin' });
+}
+
 export const apiClient = async (endpoint: string, options: RequestInit = {}) => {
-  const token = useAuthStore.getState().token;
-  
   const headers: Record<string, string> = {
     ...options.headers as Record<string, string>,
   };
-
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
 
   // If not sending FormData, default to application/json
   if (!(options.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
   }
 
-  const response = await fetch(endpoint, {
-    ...options,
-    headers,
-  });
+  const response = await authFetch(endpoint, { ...options, headers });
 
   if (!response.ok) {
     const errorBody = await response.text();

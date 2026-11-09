@@ -29,8 +29,8 @@
 | T4 | Bank balance derived from ledger | 1d | T3 | ✅ |
 | T5 | Loan outstanding + deposit total derived | 1d | T3 | ✅ |
 | T6 | Paise in cockpit, alerts, net worth, pages | 1d | T2 | ✅ |
-| T7 | Auth cookie + CSRF (backend, header still accepted) | 1d | T1 | ☐ |
-| T8 | Frontend on cookie; drop localStorage + header path | 0.5d | T7 | ☐ |
+| T7 | Auth cookie + CSRF (backend, header still accepted) | 1d | T1 | ✅ |
+| T8 | Frontend on cookie; drop localStorage + header path | 0.5d | T7 | ✅ |
 | T9 | AI fails quietly + minimised payload | 1d | T1 | ☐ |
 | T10 | N+1 / in-memory filtering fixes | 1d | T1 | ☐ |
 
@@ -70,6 +70,7 @@ Also (Ravi, 2026-11-09): RD rows show both the monthly instalment and the total 
 **Accept:** cookie flags asserted; POST without CSRF → 403; with → 200; logout → next call 401; login rate limit unchanged.
 
 ### T8 — Frontend on cookie
+> Done 2026-11-09. Kept: the backend still accepts `Authorization: Bearer` for non-browser API clients and tests (not exposed to CSRF); the browser never stores or sends a token.
 **Files:** modify `api/client.ts`, `store/authStore.ts`, `components/SessionExpiryModal.tsx`, `components/AuthImage.tsx`; backend `JwtAuthenticationFilter.java` (drop header); tests `__tests__/authCookie.test.ts`.
 **Accept:** `localStorage` never written with a token; requests use `credentials: 'include'` + CSRF header; expiry modal uses `/api/auth/session`; review-focus 4–5 pass.
 

@@ -1,3 +1,4 @@
+import { toPaise, mulRateRupeeP, roundRupeeP } from './money';
 /**
  * A loan's full EMI schedule (Sprint 5): every instalment with its due date, principal and interest split,
  * closing balance, foreclosure amount and whether it is paid. Amounts are whole rupees, as on bank schedules.
@@ -56,13 +57,20 @@ function addMonths(start: Date, k: number): Date {
 
 const daysBetween = (a: Date, b: Date) => Math.round((b.getTime() - a.getTime()) / 86400000);
 
+// Sprint 7 T2: schedule rows stay in whole rupees (as on bank statements), but every product of a rate is
+// computed exactly in paise and rounded half-up once — never on rupee floats.
+const wholeRupees = (rupees: number) => roundRupeeP(toPaise(rupees)) / 100;
+const rateOn = (rupees: number, ratePercent: number, num: number, den: number) =>
+  mulRateRupeeP(toPaise(rupees), ratePercent || 0, num, den) / 100;
+const interestFor = (balance: number, ratePercent: number, daily: boolean, from: Date, to: Date) =>
+  daily ? rateOn(balance, ratePercent, daysBetween(from, to), 365) : rateOn(balance, ratePercent, 1, 12);
+
 export function buildLoanSchedule(terms: LoanTerms, options: ScheduleOptions = {}): InstallmentRow[] {
   const { principal, ratePercent, emi, tenureMonths, firstEmiDate } = terms;
   if (!firstEmiDate || !principal || principal <= 0 || !emi || emi <= 0 || !tenureMonths || tenureMonths <= 0) return [];
 
   const first = parse(firstEmiDate);
   const daily = terms.method === 'DAILY_365';
-  const rate = (ratePercent || 0) / 100;
   const lockIn = terms.foreclosureLockInMonths ?? 0;
   const opening0 = terms.paidInstallmentsOpening ?? 0;
   const paidMonths = new Set(options.paidMonths ?? []);
@@ -70,20 +78,18 @@ export function buildLoanSchedule(terms: LoanTerms, options: ScheduleOptions = {
   today.setHours(0, 0, 0, 0);
 
   const rows: InstallmentRow[] = [];
-  let balance = Math.round(principal);
+  let balance = wholeRupees(principal);
   let previous = terms.disbursementDate ? parse(terms.disbursementDate) : addMonths(first, -1);
 
   for (let no = 1; no <= tenureMonths && balance > 0; no++) {
     const due = addMonths(first, no - 1);
-    const interest = daily
-      ? Math.round((balance * rate * daysBetween(previous, due)) / 365)
-      : Math.round((balance * rate) / 12);
+    const interest = interestFor(balance, ratePercent, daily, previous, due);
     let principalPart = emi - interest;
     if (no === tenureMonths || principalPart >= balance) principalPart = balance;
     principalPart = Math.max(0, principalPart);
 
     const eligible = no > lockIn;
-    const charge = eligible && terms.foreclosureRate ? Math.round((balance * terms.foreclosureRate) / 100) : 0;
+    const charge = eligible && terms.foreclosureRate ? rateOn(balance, terms.foreclosureRate, 1, 1) : 0;
     const dueIso = iso(due);
     const paid = no <= opening0 || paidMonths.has(dueIso.slice(0, 7));
     const sameMonth = due.getFullYear() === today.getFullYear() && due.getMonth() === today.getMonth();
@@ -133,7 +139,6 @@ export interface ProjectionTerms {
 export function projectedSchedule(terms: ProjectionTerms, options: { today?: string | Date } = {}): InstallmentRow[] {
   const { outstanding, emi } = terms;
   if (!outstanding || outstanding <= 0 || !emi || emi <= 0) return [];
-  const rate = (terms.ratePercent || 0) / 100;
   const daily = terms.method === 'DAILY_365';
   const day = Math.min(Math.max(terms.emiDay || 5, 1), 28);
   const today = options.today ? (typeof options.today === 'string' ? parse(options.today) : new Date(options.today)) : new Date();
@@ -143,11 +148,11 @@ export function projectedSchedule(terms: ProjectionTerms, options: { today?: str
   if (first < today) first = addMonths(first, 1);
 
   const rows: InstallmentRow[] = [];
-  let balance = Math.round(outstanding);
+  let balance = wholeRupees(outstanding);
   let previous = addMonths(first, -1);
   for (let no = 1; balance > 0 && no <= 600; no++) {
     const due = addMonths(first, no - 1);
-    const interest = daily ? Math.round((balance * rate * daysBetween(previous, due)) / 365) : Math.round((balance * rate) / 12);
+    const interest = interestFor(balance, terms.ratePercent, daily, previous, due);
     if (no === 1 && emi <= interest) return [];
     const principalPart = Math.min(balance, emi - interest);
     const sameMonth = due.getFullYear() === today.getFullYear() && due.getMonth() === today.getMonth();

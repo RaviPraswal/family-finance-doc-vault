@@ -59,3 +59,11 @@ describe('loan EMI schedule', () => {
     expect(buildLoanSchedule({ principal: 0, ratePercent: 10, emi: 0, tenureMonths: 0, firstEmiDate: undefined, method: 'MONTHLY' })).toEqual([]);
   });
 });
+
+// Sprint 7 T2: rupee floats round 512.5 down to 512 (6250 × 8.2 / 100 = 512.4999… in floating point).
+describe('exact paise maths in schedules', () => {
+  it('foreclosure charge on ₹6,250 at 8.2% is ₹513 (half-up), not ₹512', () => {
+    const rows = buildLoanSchedule({ principal: 6250, ratePercent: 0, emi: 625, tenureMonths: 10, firstEmiDate: '2026-01-05', method: 'MONTHLY', foreclosureRate: 8.2, foreclosureLockInMonths: 0 });
+    expect(rows[0]).toMatchObject({ opening: 6250, foreclosureEligible: true, foreclosureCharge: 513, amountToClose: 6763 });
+  });
+});

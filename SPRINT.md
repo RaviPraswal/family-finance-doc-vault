@@ -24,7 +24,7 @@
 | # | Task | Est. | Depends on | Status |
 |---|---|---|---|---|
 | T1 | CI gate + dependency fixes | 1d | — | ✅ CI green on GitHub |
-| T2 | Paise helpers + schedule libs | 1d | D-04 approved | ☐ |
+| T2 | Paise helpers + schedule libs | 1d | D-04 approved | ✅ |
 | T3 | Ledger drift report (read-only) | 0.5d | D-03 approved | ☐ |
 | T4 | Bank balance derived from ledger | 1d | T3 | ☐ |
 | T5 | Loan outstanding + deposit total derived | 1d | T3 | ☐ |
@@ -58,6 +58,7 @@
 **Files:** modify `portfolio/Loan.java`, `portfolio/Deposit.java`, `expense/ExpenseController.java`, `portfolio/LoanEventListener.java`, `portfolio/DepositEventListener.java`; test `Sprint7DerivedLoanDepositTest.java`.
 **Do:** outstanding = principal − Σ `loan_principal_portion`; deposit total = Σ linked entries; remove direct setters.
 **Accept:** paying 3 IndusInd-style EMIs drops outstanding by exactly their principal portions; deleting one restores it; drift report shows 0 for these.
+Also (Ravi, 2026-11-09): RD rows show both the monthly instalment and the total deposited (derived from linked ledger entries).
 
 ### T6 — Paise in cockpit, alerts, net worth, pages
 **Files:** modify `lib/cockpit.ts`, `lib/alerts.ts`, `lib/netWorth.ts`, `lib/moneyMap.ts`, `components/*ScheduleTable.tsx`, `pages/PortfolioOverview.tsx` (format calls only).
@@ -82,6 +83,17 @@
 
 ## Definition of done (every task)
 Failing test first → green · `code-review` passed (validation, auth per route, no secrets, parameterised SQL) · frontend tests/tsc/build green · backend suite green (Windows run until CI) · SPRINT.md status ticked · 3-line update to Ravi.
+
+## Sprint 8 backlog (agreed 2026-11-09, after T2–T10)
+| # | Item | Est. |
+|---|---|---|
+| S8-1 | Daily bank balance check: enter each bank's real closing balance; difference posted to the ledger as an adjustment (reconciliation) | 1–1.5d |
+| S8-2 | Upgrade Liquid Glass to an Apple-style liquid glass look with smooth, interruptible motion (apple-design skill) | 2–3d |
+| S8-3 | Tejal / Sukanya dedicated view with every entry made so far | 1d |
+| S8-4 | EMI schedule pagination | 0.5d |
+| S8-5 | Udhaar summary: who owes me, whom I owe, net per person; fix "Total received ₹0" | 1d |
+| S8-6 | Side income list view: upcoming due and last entry per source; fix "-86 days left" (should read overdue) | 1d |
+Data fixes done by script (not code): Axis RD ₹5,000, RMC chit allotted Sep 2026, chit renames — `fix-rd-chits.bat`.
 
 ## Carry-over / parked
 OTP/2FA, bank-statement import, Classic density, production rollout — next sprint candidates (Step 3 review decides).

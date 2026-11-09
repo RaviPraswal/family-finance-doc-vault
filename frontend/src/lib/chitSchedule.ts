@@ -1,3 +1,4 @@
+import { addP, fromPaise, toPaise } from './money';
 /** A chit fund's month-by-month schedule with what is paid and what is left (Sprint 5). */
 
 export interface ChitScheduleRow {
@@ -19,14 +20,14 @@ const isPaid = (r: ChitScheduleRow) => r.status === 'Paid & Closed' || r.status 
 
 export function chitRows(schedule: ChitScheduleRow[], today: Date = new Date()): ChitDisplayRow[] {
   const now = today.getFullYear() * 12 + today.getMonth();
-  let deposited = 0;
+  let depositedP = 0; // Sprint 7 T2: sum in paise
   return schedule.map((r) => {
-    if (isPaid(r)) deposited += r.actualAmount || 0;
+    if (isPaid(r)) depositedP = addP(depositedP, toPaise(r.actualAmount));
     const when = r.calendarYear * 12 + monthIndex(r.calendarMonth);
     const display: ChitDisplay = r.status === 'Paid & Closed' ? 'PAID'
       : r.status === 'Allotted' ? 'ALLOTTED'
       : when < now ? 'OVERDUE' : when === now ? 'DUE' : 'UPCOMING';
-    return { ...r, display, depositedToDate: deposited };
+    return { ...r, display, depositedToDate: fromPaise(depositedP) };
   });
 }
 
@@ -38,7 +39,7 @@ export function chitSummary(rows: ChitDisplayRow[]) {
     remaining: pending.length,
     overdue: pending.filter((r) => r.display === 'OVERDUE').length,
     deposited: rows.length ? rows[rows.length - 1].depositedToDate : 0,
-    remainingAmount: pending.reduce((s, r) => s + (r.actualAmount || 0), 0),
+    remainingAmount: fromPaise(addP(...pending.map((r) => toPaise(r.actualAmount)))),
     next: pending[0],
   };
 }

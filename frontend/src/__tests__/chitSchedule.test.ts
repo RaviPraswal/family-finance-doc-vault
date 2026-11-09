@@ -31,3 +31,15 @@ describe('chit schedule', () => {
     expect(next.map((r) => r.status)).toEqual(['Paid & Closed', 'Allotted', 'Paid & Closed', 'Paid & Closed', 'Open / Pending']);
   });
 });
+
+// Sprint 7 T2: totals of instalments with paise must be exact (₹0.10 + ₹0.20 = ₹0.30, not 0.30000000000000004).
+describe('chit totals in exact paise', () => {
+  it('paid-to-date and still-to-pay add up exactly', () => {
+    const row = (srNo: number, amount: number, status: string) =>
+      ({ srNo, monthCycle: `M${srNo}`, calendarMonth: 'Jan', calendarYear: 2026, actualAmount: amount, chitAmountAllocated: 0, status });
+    const schedule = [row(1, 13912.1, 'Paid & Closed'), row(2, 13912.2, 'Paid & Closed'), row(3, 0.1, 'Open / Pending'), row(4, 0.2, 'Open / Pending')];
+    const rows = chitRows(schedule as never, new Date('2026-11-05'));
+    expect(rows[1].depositedToDate).toBe(27824.3);
+    expect(chitSummary(rows)).toMatchObject({ deposited: 27824.3, remainingAmount: 0.3 });
+  });
+});

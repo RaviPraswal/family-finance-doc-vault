@@ -31,8 +31,8 @@
 | T6 | Paise in cockpit, alerts, net worth, pages | 1d | T2 | ✅ |
 | T7 | Auth cookie + CSRF (backend, header still accepted) | 1d | T1 | ✅ |
 | T8 | Frontend on cookie; drop localStorage + header path | 0.5d | T7 | ✅ |
-| T9 | AI fails quietly + minimised payload | 1d | T1 | ☐ |
-| T10 | N+1 / in-memory filtering fixes | 1d | T1 | ☐ |
+| T9 | AI fails quietly + minimised payload | 1d | T1 | ✅ |
+| T10 | N+1 / in-memory filtering fixes | 1d | T1 | ✅ |
 
 ### T1 — CI gate + dependency fixes
 **Files:** create `.github/workflows/ci.yml`; modify `frontend/package.json`, `frontend/package-lock.json`.

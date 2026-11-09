@@ -8,5 +8,6 @@ import java.util.UUID;
 
 @Repository
 public interface ChitFundRepository extends JpaRepository<ChitFund, UUID> {
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = "linkedAccount") // Sprint 7 T10: no query per row
     List<ChitFund> findAllByTenantIdOrderByCreatedAtDesc(UUID tenantId);
 }

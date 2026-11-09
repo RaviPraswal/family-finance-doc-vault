@@ -48,6 +48,18 @@ public class LedgerTotals {
         return opening.add(expenses.netDepositedForDeposit(d.getTenantId(), d.getId()));
     }
 
+    /** Sprint 7 T10: balances of all of a family's accounts with one query. */
+    public java.util.Map<UUID, BigDecimal> bankBalances(UUID tenantId, java.util.List<BankAccount> accounts) {
+        java.util.Map<UUID, BigDecimal> net = new java.util.HashMap<>();
+        for (Object[] row : expenses.netByAccount(tenantId)) net.put((UUID) row[0], (BigDecimal) row[1]);
+        java.util.Map<UUID, BigDecimal> out = new java.util.HashMap<>();
+        for (BankAccount a : accounts) {
+            BigDecimal opening = a.getOpeningBalance() == null ? BigDecimal.ZERO : a.getOpeningBalance();
+            out.put(a.getId(), opening.add(net.getOrDefault(a.getId(), BigDecimal.ZERO)));
+        }
+        return out;
+    }
+
     public void refresh(BankAccount a) { a.setCurrentBalance(bankBalance(a)); }
     public void refresh(Loan l) { if (l.getOpeningOutstanding() != null) l.setOutstandingAmount(loanOutstanding(l)); }
     public void refresh(Deposit d) { if ("RD".equalsIgnoreCase(d.getType())) d.setTotalDeposited(rdDeposited(d)); }

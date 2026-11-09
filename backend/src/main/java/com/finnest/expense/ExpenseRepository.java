@@ -11,7 +11,18 @@ import org.springframework.data.repository.query.Param;
 
 @Repository
 public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
+    // Sprint 7 T10: every link the ledger list sends is loaded in the same query (no query per row).
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"linkedAccount", "linkedLoan", "linkedLoan.linkedAccount", "linkedChitFund", "linkedChitFund.linkedAccount", "linkedPeerLending", "linkedInvestment", "linkedDeposit", "linkedDeposit.linkedAccount", "linkedProject", "linkedIncomeSource", "linkedCreditCard"})
     List<Expense> findAllByTenantIdOrderByExpenseDateDesc(UUID tenantId);
+
+    /** Sprint 7 T10: a member's own entries, filtered in SQL rather than in memory. */
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"linkedAccount", "linkedLoan", "linkedLoan.linkedAccount", "linkedChitFund", "linkedChitFund.linkedAccount", "linkedPeerLending", "linkedInvestment", "linkedDeposit", "linkedDeposit.linkedAccount", "linkedProject", "linkedIncomeSource", "linkedCreditCard"})
+    List<Expense> findAllByTenantIdAndUserIdOrderByExpenseDateDesc(UUID tenantId, UUID userId);
+
+    /** Sprint 7 T10: bank-account nets for a whole family in one grouped query. */
+    @Query("SELECT e.linkedAccount.id, COALESCE(SUM(CASE WHEN UPPER(e.type) = 'CREDIT' THEN e.amount ELSE -e.amount END), 0) FROM Expense e "
+         + "WHERE e.tenantId = :tenantId AND e.linkedAccount IS NOT NULL AND e.amount IS NOT NULL GROUP BY e.linkedAccount.id")
+    List<Object[]> netByAccount(@Param("tenantId") UUID tenantId);
 
     List<Expense> findAllByKindIsNull();
 

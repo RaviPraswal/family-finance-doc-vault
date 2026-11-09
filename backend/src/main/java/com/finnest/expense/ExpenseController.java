@@ -49,12 +49,10 @@ public class ExpenseController {
 
     @GetMapping
     public ResponseEntity<List<Expense>> getAll(@org.springframework.security.core.annotation.AuthenticationPrincipal com.finnest.user.User user) {
-        List<Expense> list = repository.findAllByTenantIdOrderByExpenseDateDesc(UUID.fromString(TenantContext.getCurrentTenant()));
-        if ("MEMBER".equals(user.getRole())) {
-            list = list.stream()
-                    .filter(x -> user.getId().equals(x.getUserId()))
-                    .toList();
-        }
+        UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
+        List<Expense> list = "MEMBER".equals(user.getRole())
+                ? repository.findAllByTenantIdAndUserIdOrderByExpenseDateDesc(tenantId, user.getId())
+                : repository.findAllByTenantIdOrderByExpenseDateDesc(tenantId);
         return ResponseEntity.ok(list);
     }
 

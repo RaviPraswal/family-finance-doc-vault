@@ -1,3 +1,4 @@
+import { readInsights } from '../lib/aiInsights';
 import { useEffect, useMemo, useState } from 'react';
 import { chitPosition, netWorthOf, projectNetWorth } from '../lib/netWorth';
 import { dotLevels, weeklyNet } from '../lib/dotMatrix';
@@ -90,6 +91,7 @@ export default function PortfolioOverview() {
   const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
   const [incomeSources, setIncomeSources] = useState<IncomeSource[]>([]);
   const [insights, setInsights] = useState<Recommendation[]>([]);
+  const [aiNote, setAiNote] = useState<string | null>(null);
   const [members, setMembers] = useState<MapMember[]>([]);
   const [familyName, setFamilyName] = useState('Family');
   /** This month's Monthly Commitments plan; when it has income, the cash flow card follows it. */
@@ -139,7 +141,9 @@ export default function PortfolioOverview() {
       setGoals(Array.isArray(gls) ? gls : []);
       setAllExpenses(Array.isArray(exps) ? exps : []);
       setIncomeSources(Array.isArray(incs) ? incs : []);
-      setInsights(Array.isArray(insRes) ? insRes : []);
+      const ai = readInsights(insRes);
+      setInsights(ai.recommendations);
+      setAiNote(ai.note);
       setChitFunds(Array.isArray(chits) ? chits : []);
       setCreditCards(Array.isArray(cards) ? cards : []);
       setPeerLendings(Array.isArray(peers) ? peers : []);
@@ -781,7 +785,9 @@ export default function PortfolioOverview() {
             <h3 className="text-sm font-bold text-foreground uppercase tracking-wider border-b border-border/30 pb-2 flex items-center gap-1.5">
               <Sparkles className="h-4 w-4 text-purple-500" /> AI Wealth Insights
             </h3>
-            {insights.length === 0 ? (
+            {insights.length === 0 && aiNote ? (
+              <p className="text-xs text-muted-foreground p-3 bg-muted/30 rounded-xl">{aiNote}. Your numbers above are unaffected.</p>
+            ) : insights.length === 0 ? (
               <div className="p-3 bg-purple-500/5 rounded-xl border border-purple-500/10">
                 <p className="text-xs text-muted-foreground leading-relaxed italic">
                   "Maintain 3–6 months expenses as liquid emergency fund, then automate monthly SIP transfers to equity mutual funds."

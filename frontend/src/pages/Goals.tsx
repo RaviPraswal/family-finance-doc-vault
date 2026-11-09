@@ -1,3 +1,5 @@
+import { useToastStore } from '../store/toastStore';
+import { readInsights } from '../lib/aiInsights';
 import React, { useState, useEffect } from 'react';
 import { Target, Plus, TrendingUp, Calendar, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { apiClient } from '../api/client';
@@ -52,8 +54,9 @@ export default function Goals() {
   const fetchInsights = async () => {
     setLoadingInsights(true);
     try {
-      const data = await apiClient('/api/ai/recommendations');
-      setInsights(data);
+      const ai = readInsights(await apiClient('/api/ai/recommendations'));
+      setInsights(ai.recommendations);
+      if (ai.note) useToastStore.getState().info('AI insights', ai.note);
     } catch (error) {
       console.error('Failed to fetch AI insights', error);
     } finally {

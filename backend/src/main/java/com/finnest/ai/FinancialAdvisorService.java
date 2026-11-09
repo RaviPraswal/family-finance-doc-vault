@@ -35,34 +35,32 @@ public class FinancialAdvisorService {
             The 'type' MUST be one of: REALLOCATION, WARNING, OPTIMIZATION.
             """;
 
-        String contextData = buildContextString(goals, projects);
-
-        try {
-            String responseStr = chatClient.prompt()
-                    .system(systemPrompt)
-                    .user("Here is the current state of my goals and projects:\n\n" + contextData + "\n\nProvide recommendations.\n\n" + converter.getFormat())
-                    .call()
-                    .content();
-
-            return converter.convert(responseStr).recommendations();
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to generate AI recommendations: " + e.getMessage(), e);
-        }
+        AiPayloadMinimizer.Payload payload = AiPayloadMinimizer.describe(goals, projects);
+        String responseStr = chatClient.prompt()
+                .system(systemPrompt)
+                .user("Here is the current state of my goals and projects:\n\n" + payload.text() + "\n\nProvide recommendations.\n\n" + converter.getFormat())
+                .call()
+                .content();
+        return converter.convert(responseStr).recommendations().stream()
+                .map(r -> new Recommendation(AiPayloadMinimizer.restore(r.title(), payload.aliases()),
+                        AiPayloadMinimizer.restore(r.description(), payload.aliases()), r.type()))
+                .toList();
     }
 
-    private String buildContextString(List<Goal> goals, List<Project> projects) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("--- GOALS ---\n");
-        for (Goal g : goals) {
-            sb.append(String.format("- %s (Category: %s, Priority: %s): Target=%.2f, Current=%.2f, Deadline=%s\n",
-                    g.getName(), g.getCategory(), g.getPriority(), g.getTargetAmount(), g.getCurrentAmount(), g.getTargetDate()));
+    /** What the advisor screen shows: recommendations, or a short note when the AI is unavailable. */
+    public record Insights(boolean available, String message, List<Recommendation> recommendations) {}
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(FinancialAdvisorService.class);
+
+    /** Sprint 7 T9 (D-10): never fails the screen; one WARN line per failed call, no stack trace. */
+    public Insights insights(List<Goal> goals, List<Project> projects) {
+        try {
+            return new Insights(true, null, getRecommendations(goals, projects));
+        } catch (Exception e) {
+            String reason = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage().lines().findFirst().orElse("");
+            log.warn("AI insights unavailable: {}", reason.length() > 160 ? reason.substring(0, 160) : reason);
+            return new Insights(false, "Insights unavailable today", List.of());
         }
-        sb.append("\n--- PROJECTS ---\n");
-        for (Project p : projects) {
-            sb.append(String.format("- %s (Status: %s, Priority: %s): Budget=%.2f, Start=%s, End=%s\n",
-                    p.getName(), p.getStatus(), p.getPriority(), p.getBudget(), p.getStartDate(), p.getEndDate()));
-        }
-        return sb.toString();
     }
 
     public record Recommendation(

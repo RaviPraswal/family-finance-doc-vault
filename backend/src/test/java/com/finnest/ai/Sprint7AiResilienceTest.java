@@ -61,7 +61,7 @@ class Sprint7AiResilienceTest {
         AiPayloadMinimizer.Payload p = AiPayloadMinimizer.describe(
                 List.of(goal("Tejal Sukanya top-up", 150400, 35600)), List.of(project("Ravi house 4521", 2512345)));
 
-        assertThat(p.text()).contains("Goal 1").contains("Project 1").contains("150k").contains("36k").contains("2512k");
+        assertThat(p.text()).contains("Goal 1").contains("Project 1").contains("150k").contains("36k").contains("2,512k");
         assertThat(p.text()).doesNotContain("Tejal").doesNotContain("Sukanya").doesNotContain("Ravi").doesNotContain("4521");
         assertThat(p.text()).doesNotContainPattern("\\d{4,}");
         assertThat(p.aliases()).containsEntry("Goal 1", "Tejal Sukanya top-up").containsEntry("Project 1", "Ravi house 4521");

@@ -96,5 +96,19 @@ Failing test first → green · `code-review` passed (validation, auth per route
 | S8-6 | Side income list view: upcoming due and last entry per source; fix "-86 days left" (should read overdue) | 1d | ✅ |
 Data fixes done by script (not code): Axis RD ₹5,000, RMC chit allotted Sep 2026, chit renames — `fix-rd-chits.bat`.
 
+### Sprint 8 — fixes after Ravi's review (2026-11-09, as a family member)
+Found by running the real app (CI-built JAR + local Postgres) as owner and member, every page, light/dark, all skins.
+| Fix | Root cause | Test |
+|---|---|---|
+| Second save in a session got 403 (goal Add Funds, side income, chit edits) | Spring's CSRF session strategy cleared XSRF-TOKEN on every JWT request | `Sprint8BrowserSessionTest` (cookie jar) |
+| AI 429 retried with stack traces | default Spring AI retry; no quota pause | `Sprint8AiQuotaTest` |
+| Chits: no edit; "Matured" counted allotted as finished | missing UI; no closed state | V7 `is_closed`; `Sprint8MemberPagesTest`, `sprint8ChitEdit` |
+| Side income: no amount field; payments not listed | form hard-coded ₹0; list filtered one entry type | `sideIncomeEntries`, `sprint8SideIncomePage` |
+| Goal errors invisible | only console.error | on-screen messages |
+| Bank Accounts / Chit Funds crashed on sparse or old data | `null.slice`, unguarded JSON | `sprint8BankNoNumber`, `chitScheduleParse`, `PageErrorBoundary` |
+| ₹300,000 and 11/5/2026 | locale-less formatting (125 calls) | `indianFormat` guard |
+| Liquid Glass "not up to the mark" | glass on every surface | rebuilt: solid content, glass chrome; screenshots checked |
+
+
 ## Carry-over / parked
 OTP/2FA, bank-statement import, Classic density, production rollout — next sprint candidates (Step 3 review decides).

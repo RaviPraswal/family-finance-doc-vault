@@ -46,6 +46,12 @@ html.skin-liquid {
   --lg-track: rgba(40, 50, 110, 0.08);
   --lg-bg1: #e8f0fb;
   --lg-bg2: #e6e1fa;
+
+  /* Sprint 8 · S8-2: Apple-style springs (WWDC "Designing Fluid Interfaces"), sampled into CSS linear().
+     Default: damping 1.0, response 0.4s (no overshoot). Bounce: damping 0.8 — only after a press/flick. */
+  --lg-spring: linear(0, 0.06, 0.186, 0.329, 0.466, 0.584, 0.682, 0.76, 0.821, 0.868, 0.903, 0.929, 0.949, 0.963, 0.973, 0.981, 0.986, 0.99, 0.993, 0.995, 1);
+  --lg-spring-bounce: linear(0, 0.062, 0.202, 0.366, 0.526, 0.664, 0.776, 0.861, 0.922, 0.964, 0.99, 1.005, 1.012, 1.015, 1.015, 1.013, 1.01, 1.008, 1.006, 1.004, 1);
+  --lg-dur: 500ms;
 }
 
 /* ---------- Tokens: Aurora night (dark) ---------- */
@@ -84,6 +90,7 @@ html.skin-liquid.dark {
 /* ---------- Ground, type ---------- */
 html.skin-liquid body {
   font-family: 'Manrope', system-ui, sans-serif;
+  letter-spacing: 0;
   background: radial-gradient(1000px 700px at 12% -10%, var(--lg-bg2), transparent 60%),
     linear-gradient(160deg, var(--lg-bg1), var(--lg-bg2));
   background-attachment: fixed;
@@ -94,6 +101,21 @@ html.skin-liquid h3,
 html.skin-liquid .tabular-nums {
   font-family: 'Sora', 'Manrope', sans-serif;
   letter-spacing: -0.02em;
+}
+/* Tracking by size: large display text tighter, tiny labels slightly open. */
+html.skin-liquid h1 {
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+html.skin-liquid .text-xs,
+html.skin-liquid .text-\[10px\],
+html.skin-liquid .text-\[11px\] {
+  letter-spacing: 0.01em;
+}
+/* Vibrancy: secondary text over glass gets a little more weight to stay legible. */
+html.skin-liquid .bg-card .text-muted-foreground,
+html.skin-liquid .glass-panel .text-muted-foreground {
+  font-weight: 500;
 }
 
 /* Drifting colour light behind the glass (reuses the existing background layer). */
@@ -155,10 +177,28 @@ html.skin-liquid .bg-card::before {
   pointer-events: none;
 }
 html.skin-liquid .bg-card {
-  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s;
+  transition: transform var(--lg-dur) var(--lg-spring), box-shadow var(--lg-dur) var(--lg-spring);
+}
+/* Bigger surfaces read as thicker glass: stronger blur and a deeper shadow than small chips. */
+html.skin-liquid .bg-card.rounded-2xl,
+html.skin-liquid .glass-panel.rounded-2xl {
+  backdrop-filter: blur(34px) saturate(180%);
+  -webkit-backdrop-filter: blur(34px) saturate(180%);
 }
 html.skin-liquid .bg-card:hover {
   box-shadow: inset 0 1px 0 var(--lg-hi), 0 40px 70px -30px var(--lg-shadow);
+}
+/* Sheets and popovers materialise (blur + scale + fade together) instead of just fading in. */
+html.skin-liquid .fixed.inset-0 {
+  animation: lg-fade 220ms ease-out both;
+}
+html.skin-liquid .fixed.inset-0 > .bg-card {
+  transform-origin: 50% 40%;
+  animation: lg-materialize var(--lg-dur) var(--lg-spring) both;
+}
+html.skin-liquid .bg-popover {
+  transform-origin: top center;
+  animation: lg-materialize 360ms var(--lg-spring) both;
 }
 /* Modals and overlays */
 html.skin-liquid .bg-background\/80,
@@ -189,6 +229,20 @@ html.skin-liquid .rounded-lg {
 }
 
 /* ---------- Actions ---------- */
+/* Feedback on press, not on release; springs back (with a hint of bounce) when let go. */
+html.skin-liquid button,
+html.skin-liquid a {
+  -webkit-tap-highlight-color: transparent;
+  transition-property: transform, background-color, color, border-color, box-shadow, filter, opacity;
+  transition-duration: var(--lg-dur);
+  transition-timing-function: var(--lg-spring-bounce);
+}
+html.skin-liquid button:active:not(:disabled),
+html.skin-liquid a:active {
+  transform: scale(0.97);
+  transition-duration: 90ms;
+  transition-timing-function: ease-out;
+}
 html.skin-liquid button.bg-primary,
 html.skin-liquid a.bg-primary {
   color: #0b1030;
@@ -215,6 +269,23 @@ html.skin-liquid .custom-scrollbar::-webkit-scrollbar-thumb {
 }
 
 /* ---------- Motion ---------- */
+@keyframes lg-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes lg-materialize {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
 @keyframes lg-drift {
   to {
     transform: translate(60px, -40px) scale(1.12);
@@ -225,12 +296,61 @@ html.skin-liquid .custom-scrollbar::-webkit-scrollbar-thumb {
     transform: translateY(-18px) rotate(8deg);
   }
 }
+/* Reduced motion: no movement, springs or scaling — short cross-fades only. */
 @media (prefers-reduced-motion: reduce) {
   html.skin-liquid *,
   html.skin-liquid *::before,
   html.skin-liquid *::after,
   html.skin-liquid body::after {
     animation: none !important;
-    transition: none !important;
+    transition-property: opacity, color, background-color, border-color !important;
+    transition-duration: 150ms !important;
+    transition-timing-function: ease !important;
+  }
+  html.skin-liquid button:active:not(:disabled),
+  html.skin-liquid a:active {
+    transform: none;
+  }
+  html.skin-liquid .fixed.inset-0,
+  html.skin-liquid .fixed.inset-0 > .bg-card,
+  html.skin-liquid .bg-popover {
+    animation: lg-fade 150ms ease both !important;
+  }
+}
+
+/* Reduced transparency: frosted panes become solid; the drifting light behind them fades back. */
+@media (prefers-reduced-transparency: reduce) {
+  html.skin-liquid .glass-panel,
+  html.skin-liquid .bg-card,
+  html.skin-liquid .bg-popover,
+  html.skin-liquid .bg-background\/80,
+  html.skin-liquid .bg-background\/90,
+  html.skin-liquid .bg-background\/95 {
+    background: hsl(var(--card)) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  html.skin-liquid .glass-panel::before,
+  html.skin-liquid .bg-card::before,
+  html.skin-liquid body::after {
+    display: none;
+  }
+  html.skin-liquid .mesh-bg::before,
+  html.skin-liquid .mesh-bg::after,
+  html.skin-liquid .mesh-bg .mesh-blob {
+    opacity: 0.2;
+  }
+}
+
+/* More contrast: near-solid surfaces with a clear border. */
+@media (prefers-contrast: more) {
+  html.skin-liquid .glass-panel,
+  html.skin-liquid .bg-card,
+  html.skin-liquid .bg-popover {
+    background: hsl(var(--card)) !important;
+    border: 1px solid hsl(var(--foreground) / 0.55) !important;
+  }
+  html.skin-liquid .text-muted-foreground {
+    color: hsl(var(--foreground) / 0.85);
   }
 }

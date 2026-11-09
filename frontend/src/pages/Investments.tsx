@@ -6,6 +6,8 @@ import { Plus, Briefcase, Trash2, Search, Download, Printer, FileText } from 'lu
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
 import SsyScheduleTable from '../components/SsyScheduleTable';
 import { isSukanya } from '../lib/ssySchedule';
+import SsyEntries from '../components/SsyEntries';
+import { linkPayload, type LedgerEntry } from '../lib/ssyEntries';
 
 interface Investment {
   id: string;
@@ -88,6 +90,18 @@ export default function Investments() {
       fetchInvestments();
     } catch (err: any) {
       toast.error('Failed to save', err.message || 'Could not update the account details.');
+    }
+  };
+
+  // Sprint 8 · S8-3: link a stray ledger entry to the Sukanya account, keeping everything else on it.
+  const linkEntry = async (inv: Investment, entry: LedgerEntry) => {
+    try {
+      await apiClient(`/api/expenses/${entry.id}`, { method: 'PUT', body: JSON.stringify(linkPayload(entry, inv.id)) });
+      toast.success('Linked', `Entry linked to ${inv.name}.`);
+      fetchExpenses();
+      fetchInvestments();
+    } catch (err: any) {
+      toast.error('Failed to link', err.message || 'Could not link the entry.');
     }
   };
 
@@ -822,6 +836,7 @@ export default function Investments() {
         <section key={inv.id} aria-label={`Sukanya Samriddhi: ${inv.name}`} className="mt-6 bg-card border border-border rounded-2xl p-4 space-y-3">
           <h2 className="text-base font-bold text-foreground">Sukanya Samriddhi · {inv.name}</h2>
           <SsyScheduleTable investment={inv} onSaveTerms={(terms) => saveSsyTerms(inv, terms)} />
+          <SsyEntries investment={inv} entries={expenses} onLink={(entry) => linkEntry(inv, entry)} />
         </section>
       ))}
 

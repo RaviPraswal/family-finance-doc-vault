@@ -1,3 +1,5 @@
+import SideIncomeTable from '../components/SideIncomeTable';
+import { sideIncomeRows } from '../lib/sideIncome';
 import { useEffect, useState, useMemo } from 'react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
@@ -190,6 +192,9 @@ export default function SideIncome() {
     return expenses.filter(e => e.type === 'CREDIT' && e.madeAgainst === 'INCOME_SOURCE');
   }, [expenses]);
 
+  // Sprint 8 S8-6: one row per source — last entry, next due, plain overdue wording.
+  const incomeRows = useMemo(() => sideIncomeRows(incomes, expenses), [incomes, expenses]);
+
   // 2. Filter & Sort Inflow History Statement Table
   const filteredTxns = useMemo(() => {
     return creditTransactions
@@ -252,6 +257,11 @@ export default function SideIncome() {
 
 
       {/* Main Single Screen Dense Dashboard Layout */}
+      <section aria-labelledby="side-income-glance" className="mb-6 space-y-2">
+        <h2 id="side-income-glance" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Sources at a glance</h2>
+        <SideIncomeTable rows={incomeRows} />
+      </section>
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
         
         {/* Left Columns (col-span-8): Graphs, Heatmap, Ledger */}
@@ -424,18 +434,7 @@ export default function SideIncome() {
                   return e.linkedIncomeSource?.id === source.id && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
                 });
 
-                // Calculate upcoming projection if pending and monthly
-                let projectionInfo = null;
-                if (!isReceived && source.frequency === 'Monthly') {
-                  const today = new Date();
-                  const lastDate = source.dateReceived ? new Date(source.dateReceived) : new Date(now.getFullYear(), now.getMonth() - 1, 15);
-                  const nextDate = new Date(lastDate.getFullYear(), lastDate.getMonth() + 1, lastDate.getDate());
-                  const daysLeft = Math.ceil((nextDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
-                  projectionInfo = {
-                    nextDate: nextDate.toLocaleDateString(),
-                    daysLeft
-                  };
-                }
+                const row = incomeRows.find(r => r.id === source.id);
 
                 const channelTxns = creditTransactions.filter(e => e.linkedIncomeSource?.id === source.id);
                 const lastTxn = channelTxns.length > 0 
@@ -458,10 +457,8 @@ export default function SideIncome() {
                       <p className="text-[10px] text-muted-foreground mt-0.5 font-medium uppercase">
                         {source.frequency} • {source.ownerName}
                       </p>
-                      {projectionInfo && (
-                        <p className="text-[9px] text-amber-500 font-bold mt-1">
-                          Due: {projectionInfo.nextDate} ({projectionInfo.daysLeft} days left)
-                        </p>
+                      {row && row.status !== 'RECEIVED' && (
+                        <p className={`text-[9px] font-bold mt-1 ${row.status === 'OVERDUE' ? 'text-red-500' : 'text-amber-500'}`}>{row.label}</p>
                       )}
                       <p className="text-[9px] text-muted-foreground font-mono mt-1">
                         Last credit: {lastTxn ? `₹${lastTxn.amount.toLocaleString()} on ${new Date(lastTxn.expenseDate).toLocaleDateString()}` : 'Never'}

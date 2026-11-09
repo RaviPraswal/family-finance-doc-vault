@@ -1,3 +1,6 @@
+import UdhaarPeople from '../components/UdhaarPeople';
+import { udhaarTotals } from '../lib/udhaar';
+import { formatINR, sumRupees, toPaise } from '../lib/money';
 import { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
@@ -15,6 +18,8 @@ interface PeerLending {
   date: string;
   expectedReturnDate: string;
   settled: boolean;
+  principalAmount?: number;
+  repaidAmount?: number;
 }
 
 export default function PeerLending() {
@@ -203,14 +208,13 @@ export default function PeerLending() {
   const totalPages = Math.ceil(sortedLendings.length / itemsPerPage);
 
   // Summary Metrics calculations
-  const totalGivenSum = filteredLendings.filter(l => l.type === 'GIVEN').reduce((sum, l) => sum + l.amount, 0);
-  const totalPendingSum = filteredLendings.filter(l => !l.settled && !isLendingOverdue(l)).reduce((sum, l) => sum + l.amount, 0);
-  const totalOverdueSum = filteredLendings.filter(l => !l.settled && isLendingOverdue(l)).reduce((sum, l) => sum + l.amount, 0);
-  const totalReceivedSum = filteredLendings.filter(l => l.type === 'GIVEN' && l.settled).reduce((sum, l) => sum + l.amount, 0);
-  
-  const outstandingGiven = filteredLendings.filter(l => l.type === 'GIVEN' && !l.settled).reduce((sum, l) => sum + l.amount, 0);
-  const outstandingTaken = filteredLendings.filter(l => l.type === 'TAKEN' && !l.settled).reduce((sum, l) => sum + l.amount, 0);
-  const netOutstanding = outstandingGiven - outstandingTaken;
+  // Sprint 8 S8-5: exact totals; "received" is money actually repaid to you (was the outstanding of settled entries, i.e. ₹0).
+  const totalGivenSum = sumRupees(filteredLendings.filter(l => l.type === 'GIVEN').map(l => l.principalAmount ?? l.amount));
+  const totalPendingSum = sumRupees(filteredLendings.filter(l => !l.settled && !isLendingOverdue(l)).map(l => l.amount));
+  const totalOverdueSum = sumRupees(filteredLendings.filter(l => !l.settled && isLendingOverdue(l)).map(l => l.amount));
+  const udhaar = udhaarTotals(filteredLendings);
+  const totalReceivedSum = udhaar.receivedBack;
+  const netOutstanding = udhaar.net;
 
   const countPending = filteredLendings.filter(l => !l.settled && !isLendingOverdue(l)).length;
   const countOverdue = filteredLendings.filter(l => !l.settled && isLendingOverdue(l)).length;
@@ -287,28 +291,30 @@ export default function PeerLending() {
         </div>
       </div>
 
+      <UdhaarPeople entries={lendings} />
+
       {/* Rule 1: Summary Strip */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Total Given</span>
-          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalGivenSum.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">{formatINR(toPaise(totalGivenSum))}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Total Pending</span>
-          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalPendingSum.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">{formatINR(toPaise(totalPendingSum))}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50 bg-gradient-to-br from-red-500/5 to-transparent">
           <span className="text-[10px] uppercase font-bold text-red-400 tracking-wider block">Total Overdue</span>
-          <p className="text-lg font-mono font-bold text-red-500 mt-1 tabular-nums">₹{totalOverdueSum.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-red-500 mt-1 tabular-nums">{formatINR(toPaise(totalOverdueSum))}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Total Received</span>
-          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalReceivedSum.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">{formatINR(toPaise(totalReceivedSum))}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Net Outstanding</span>
           <p className={`text-lg font-mono font-bold mt-1 tabular-nums ${netOutstanding >= 0 ? 'text-green-500' : 'text-rose-500'}`}>
-            ₹{netOutstanding.toLocaleString()}
+            {formatINR(toPaise(netOutstanding))}
           </p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">

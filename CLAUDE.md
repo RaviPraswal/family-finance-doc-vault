@@ -62,4 +62,4 @@ Totals such as `bank_accounts.current_balance`, `loans.outstanding_amount` are d
 | Backend tests | `cd backend && mvnw test` (needs Docker; Maven Central is blocked in the cloud — run on Windows via `run-sprint3-tests.bat`) |
 | Frontend dev | `cd frontend && npm run dev` |
 | Frontend tests / types / lint / build | `npm test` · `npx tsc --noEmit -p .` · `npm run lint` · `npm run build` |
-| Dependency audit | `npm audit --omit=dev --audit-level=high` |
+| Dependency audit | `npm audit --audit-level=high` |

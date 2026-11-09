@@ -43,8 +43,8 @@ jobs:
       - run: npx tsc --noEmit -p .
       - run: npm test
       - run: npm run build
-      - name: Dependency audit (high and above)
-        run: npm audit --omit=dev --audit-level=high
+      - name: Dependency audit incl. dev tools (high and above)
+        run: npm audit --audit-level=high
 
   backend:
     name: Backend (tests with Testcontainers)

@@ -29,8 +29,8 @@ public class AdvisorController {
     public ResponseEntity<FinancialAdvisorService.Insights> getRecommendations() {
         UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
         
-        var goals = goalRepository.findAllByTenantIdOrderByTargetDateAsc(tenantId);
-        var projects = projectRepository.findAllByTenantIdOrderByCreatedAtDesc(tenantId);
+        var goals = com.finnest.common.MemberScope.visible(goalRepository.findAllByTenantIdOrderByTargetDateAsc(tenantId)); // D-02
+        var projects = com.finnest.common.MemberScope.visible(projectRepository.findAllByTenantIdOrderByCreatedAtDesc(tenantId));
         
         return ResponseEntity.ok(advisorService.insights(goals, projects)); // Sprint 7 T9: never an error page
     }

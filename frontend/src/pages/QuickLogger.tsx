@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
+import { useAuthStore } from '../store/authStore';
 import { PrimaryAction, SecondaryAction } from '../components/ui/LiquidControls';
 
 interface QuickTemplate {
@@ -18,8 +19,14 @@ interface QuickTemplate {
   linkedIncomeSourceId?: string;
 }
 
+const LEGACY_KEY = 'fin_quick_templates';
+/** What the server accepts: no client id. */
+const toRequest = ({ name, amount, category, type, madeAgainst, linkedInvestmentId, linkedIncomeSourceId }: QuickTemplate) =>
+  ({ name, amount, category, type, madeAgainst, linkedInvestmentId, linkedIncomeSourceId });
+
 export default function QuickLogger() {
   const toast = useToastStore();
+  const role = useAuthStore((s) => s.user?.role);
   const [bankAccounts, setBankAccounts] = useState<any[]>([]);
   const [creditCards, setCreditCards] = useState<any[]>([]);
   const [investments, setInvestments] = useState<any[]>([]);
@@ -60,82 +67,44 @@ export default function QuickLogger() {
       }
     };
     fetchData();
-    loadTemplates();
   }, []);
 
-  // Default templates initialization
-  const loadTemplates = () => {
-    const stored = localStorage.getItem('fin_quick_templates');
-    if (stored) {
-      let parsed = JSON.parse(stored);
-      let modified = false;
-      parsed = parsed.map((tpl: any) => {
-        if (tpl.id === 'tpl-1' && tpl.amount === 80000) {
-          tpl.amount = 89706;
-          modified = true;
-        }
-        if (tpl.id === 'tpl-3' && tpl.amount === 1000) {
-          tpl.amount = 700;
-          modified = true;
-        }
-        return tpl;
-      });
-      if (modified) {
-        localStorage.setItem('fin_quick_templates', JSON.stringify(parsed));
-      }
-      setTemplates(parsed);
-    } else {
-      const defaultTemplates: QuickTemplate[] = [
-        {
-          id: 'tpl-1',
-          name: 'Monthly Salary',
-          amount: 89706,
-          category: 'Wages',
-          type: 'CREDIT',
-          madeAgainst: 'INCOME_SOURCE'
-        },
-        {
-          id: 'tpl-2',
-          name: 'Tejal Sukanya SSY',
-          amount: 10000,
-          category: 'Investment',
-          type: 'DEBIT',
-          madeAgainst: 'SIP_INVESTMENT'
-        },
-        {
-          id: 'tpl-3',
-          name: 'Airtel Fiber Internet',
-          amount: 700,
-          category: 'Entertainment',
-          type: 'DEBIT',
-          madeAgainst: 'MANUAL_ENTRY'
-        },
-        {
-          id: 'tpl-4',
-          name: 'Netflix Premium',
-          amount: 649,
-          category: 'Entertainment',
-          type: 'DEBIT',
-          madeAgainst: 'MANUAL_ENTRY'
-        },
-        {
-          id: 'tpl-5',
-          name: 'Mutual Fund SIP',
-          amount: 5000,
-          category: 'Investment',
-          type: 'DEBIT',
-          madeAgainst: 'SIP_INVESTMENT'
-        }
-      ];
-      localStorage.setItem('fin_quick_templates', JSON.stringify(defaultTemplates));
-      setTemplates(defaultTemplates);
+  // the person's own templates, once we know who is signed in
+  useEffect(() => {
+    if (role) loadTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role]);
+
+  /**
+   * Sprint 8: templates are the signed-in person's own, kept on the server (D-02). They used to sit in the browser's
+   * storage, where everyone who used this computer saw them. An owner's old browser templates move to their account
+   * once; a member never sees or touches them.
+   */
+  const loadTemplates = async () => {
+    try {
+      const mine: QuickTemplate[] = await apiClient('/api/quick-templates');
+      const imported = role === 'OWNER' ? await importBrowserTemplates() : [];
+      setTemplates([...mine, ...imported]);
+    } catch (err) {
+      console.error('Failed to load Quick Logger templates', err);
     }
   };
 
-  // Save templates helper
-  const saveTemplates = (newTemplates: QuickTemplate[]) => {
-    localStorage.setItem('fin_quick_templates', JSON.stringify(newTemplates));
-    setTemplates(newTemplates);
+  const importBrowserTemplates = async (): Promise<QuickTemplate[]> => {
+    const raw = localStorage.getItem(LEGACY_KEY);
+    if (!raw) return [];
+    localStorage.removeItem(LEGACY_KEY); // first, so a second render cannot import them twice
+    try {
+      const old: QuickTemplate[] = JSON.parse(raw);
+      const saved: QuickTemplate[] = [];
+      for (const t of old) saved.push(await apiClient('/api/quick-templates', { method: 'POST', body: JSON.stringify(toRequest(t)) }));
+      if (saved.length) toast.success('Templates moved to your account', `${saved.length} template(s) from this browser are now saved to your account.`);
+      return saved;
+    } catch (err) {
+      localStorage.setItem(LEGACY_KEY, raw); // try again next time
+      console.error('Could not move browser templates', err);
+      return [];
+    }
   };
 
   // Unified Accounts and Cards dropdown data
@@ -158,40 +127,42 @@ export default function QuickLogger() {
     return list;
   }, [bankAccounts, creditCards]);
 
-  const handleAddTemplateSubmit = (e: React.FormEvent) => {
+  const handleAddTemplateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!templateName.trim() || !templateAmount) return;
 
-    const newTemplate: QuickTemplate = {
-      id: `tpl-${Date.now()}`,
-      name: templateName,
+    const draft = {
+      name: templateName.trim(),
       amount: parseFloat(templateAmount),
       category: templateCategory,
       type: templateType,
       madeAgainst: templateType === 'CREDIT' ? 'INCOME_SOURCE' : (templateCategory === 'Investment' ? 'SIP_INVESTMENT' : 'MANUAL_ENTRY'),
-      linkedInvestmentId: templateLinkType === 'investment' ? templateLinkId : undefined,
-      linkedIncomeSourceId: templateLinkType === 'income' ? templateLinkId : undefined
+      linkedInvestmentId: templateLinkType === 'investment' ? templateLinkId || undefined : undefined,
+      linkedIncomeSourceId: templateLinkType === 'income' ? templateLinkId || undefined : undefined
     };
-
-    const updated = [...templates, newTemplate];
-    saveTemplates(updated);
-
-    // Reset Form
-    setTemplateName('');
-    setTemplateAmount('');
-    setTemplateLinkType('none');
-    setTemplateLinkId('');
-    setShowAddForm(false);
-    toast.success('Template Created', `Quick template '${newTemplate.name}' created successfully.`);
+    try {
+      const created: QuickTemplate = await apiClient('/api/quick-templates', { method: 'POST', body: JSON.stringify(draft) });
+      setTemplates(prev => [...prev, created]);
+      setTemplateName('');
+      setTemplateAmount('');
+      setTemplateLinkType('none');
+      setTemplateLinkId('');
+      setShowAddForm(false);
+      toast.success('Template Created', `Quick template '${created.name}' created successfully.`);
+    } catch (err: any) {
+      toast.error('Could not save template', err.message || 'Please check the details and try again.');
+    }
   };
 
-  const handleDeleteTemplate = (id: string, name: string) => {
-    const updated = templates.filter(t => t.id !== id);
-    saveTemplates(updated);
-    if (activeTemplateId === id) {
-      setActiveTemplateId(null);
+  const handleDeleteTemplate = async (id: string, name: string) => {
+    try {
+      await apiClient(`/api/quick-templates/${id}`, { method: 'DELETE' });
+      setTemplates(prev => prev.filter(t => t.id !== id));
+      if (activeTemplateId === id) setActiveTemplateId(null);
+      toast.success('Template Removed', `Quick template '${name}' has been deleted.`);
+    } catch (err: any) {
+      toast.error('Could not remove template', err.message || 'Please try again.');
     }
-    toast.success('Template Removed', `Quick template '${name}' has been deleted.`);
   };
 
   const handleTriggerLog = (tpl: QuickTemplate) => {
@@ -237,7 +208,7 @@ export default function QuickLogger() {
         payload.linkedInvestment = { id: tpl.linkedInvestmentId };
       } else if (tpl.linkedIncomeSourceId) {
         payload.linkedIncomeSource = { id: tpl.linkedIncomeSourceId };
-      } else if (tpl.name.toLowerCase().includes('sukanya') || tpl.category === 'Investment') {
+      } else if (tpl.category === 'Investment') {
         // Fallback search: try to match investment by name automatically
         const match = investments.find(i => 
           i.name.toLowerCase().includes(tpl.name.toLowerCase()) || 
@@ -412,6 +383,11 @@ export default function QuickLogger() {
           )}
 
           {/* Grid of existing templates */}
+          {templates.length === 0 && !showAddForm && (
+            <div className="bg-card rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+              No templates yet. Use <span className="font-semibold text-foreground">New Template</span> for the entries you log often.
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {templates.map(tpl => {
               const isDebit = tpl.type === 'DEBIT';
@@ -458,9 +434,11 @@ export default function QuickLogger() {
                       </div>
                     </div>
                     <button 
+                      type="button"
                       onClick={() => handleDeleteTemplate(tpl.id, tpl.name)} 
                       className="text-muted-foreground hover:text-red-500 p-1 rounded-lg transition-colors shrink-0"
                       title="Remove Template"
+                      aria-label={`Remove template ${tpl.name}`}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>

@@ -20,18 +20,18 @@ public class NotificationController {
     @GetMapping
     public ResponseEntity<List<Notification>> getAllNotifications() {
         UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
-        return ResponseEntity.ok(repository.findAllByTenantIdOrderByCreatedAtDesc(tenantId));
+        return ResponseEntity.ok(com.finnest.common.MemberScope.visible(repository.findAllByTenantIdOrderByCreatedAtDesc(tenantId)));
     }
 
     @GetMapping("/unread")
     public ResponseEntity<List<Notification>> getUnreadNotifications() {
         UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
-        return ResponseEntity.ok(repository.findAllByTenantIdAndIsReadFalseOrderByCreatedAtDesc(tenantId));
+        return ResponseEntity.ok(com.finnest.common.MemberScope.visible(repository.findAllByTenantIdAndIsReadFalseOrderByCreatedAtDesc(tenantId)));
     }
 
     @PutMapping("/{id}/read")
     public ResponseEntity<?> markAsRead(@PathVariable UUID id) {
-        var notification = com.finnest.common.TenantGuard.owned(repository.findById(id));
+        var notification = com.finnest.common.MemberScope.owned(repository.findById(id));
         notification.setRead(true);
         repository.save(notification);
         return ResponseEntity.ok().build();
@@ -40,7 +40,7 @@ public class NotificationController {
     @PutMapping("/read-all")
     public ResponseEntity<?> markAllAsRead() {
         UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
-        List<Notification> unread = repository.findAllByTenantIdAndIsReadFalseOrderByCreatedAtDesc(tenantId);
+        List<Notification> unread = com.finnest.common.MemberScope.visible(repository.findAllByTenantIdAndIsReadFalseOrderByCreatedAtDesc(tenantId));
         unread.forEach(n -> n.setRead(true));
         repository.saveAll(unread);
         return ResponseEntity.ok().build();

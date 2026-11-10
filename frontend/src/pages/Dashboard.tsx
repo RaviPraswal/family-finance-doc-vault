@@ -248,7 +248,7 @@ export default function Dashboard() {
                             <p className="text-sm text-foreground leading-relaxed">{n.message}</p>
                             <div className="flex justify-between items-center mt-2">
                               <span className="text-xs text-muted-foreground">{new Date(n.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                              <button onClick={(e) => { e.stopPropagation(); markAsRead(n.id); }} className="text-xs text-primary opacity-0 group-hover:opacity-100 transition-opacity font-medium">Mark as read</button>
+                              <button onClick={(e) => { e.stopPropagation(); markAsRead(n.id); }} className="text-xs text-primary [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity font-medium">Mark as read</button>
                             </div>
                           </div>
                         ))}
@@ -397,7 +397,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                  <div className="flex items-center gap-2 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity shrink-0">
                     <button 
                       onClick={() => setPreviewDocument({ id: doc.id, name: doc.name, type: doc.type })}
                       className="p-2 text-muted-foreground hover:text-primary transition-colors"

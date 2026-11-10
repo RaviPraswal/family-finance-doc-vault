@@ -204,7 +204,7 @@ export default function CreditCards() {
           <h1 className="text-2xl font-bold text-foreground">Credit Cards</h1>
           <p className="text-sm text-muted-foreground">Manage your credit card outstanding balances and statement cycles</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <ViewToggle value={viewMode} onChange={setViewMode} options={[
               { value: 'card', title: 'Card View', icon: <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4zM14 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2v-4z" /> </svg> },
               { value: 'list', title: 'List View', icon: <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /> </svg> },

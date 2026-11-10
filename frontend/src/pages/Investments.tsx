@@ -303,7 +303,7 @@ export default function Investments() {
           <h1 className="text-2xl font-bold text-foreground">Investments</h1>
           <p className="text-sm text-muted-foreground">Track your asset distribution, values and performance</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* View Toggle */}
           <ViewToggle value={viewMode} onChange={setViewMode} options={[
               { value: 'card', title: 'Card View', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg> },

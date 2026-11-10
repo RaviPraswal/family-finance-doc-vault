@@ -2,12 +2,13 @@ import { useEffect, useState, useMemo } from 'react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
-import { Plus, Briefcase, Trash2, Search, Download, Printer, FileText } from 'lucide-react';
+import { Plus, Briefcase, Trash2, Download, Printer, FileText, Pencil } from 'lucide-react';
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
 import SsyScheduleTable from '../components/SsyScheduleTable';
 import { isSukanya } from '../lib/ssySchedule';
 import SsyEntries from '../components/SsyEntries';
 import { linkPayload, type LedgerEntry } from '../lib/ssyEntries';
+import { ViewToggle, PrimaryAction, SearchBox, SecondaryAction, RowActions } from '../components/ui/LiquidControls';
 
 interface Investment {
   id: string;
@@ -20,6 +21,8 @@ interface Investment {
   interestRate?: number | null;
 }
 
+const EMPTY: Partial<Investment> = { type: 'Mutual Fund', name: '', investedAmount: 0, currentValue: 0 };
+
 export default function Investments() {
   const toast = useToastStore();
   const confirm = useConfirmStore();
@@ -29,12 +32,9 @@ export default function Investments() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAssetClassModalOpen, setIsAssetClassModalOpen] = useState(false);
   const [newAssetClassName, setNewAssetClassName] = useState('');
-  const [formData, setFormData] = useState<Partial<Investment>>({
-    type: 'Mutual Fund',
-    name: '',
-    investedAmount: 0,
-    currentValue: 0
-  });
+  const [formData, setFormData] = useState<Partial<Investment>>(EMPTY);
+  /** The record being edited; null when adding a new one. */
+  const [editing, setEditing] = useState<Investment | null>(null);
 
   // Filter & Search States
   const [search, setSearch] = useState('');
@@ -108,13 +108,14 @@ export default function Investments() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiClient('/api/investments', {
-        method: 'POST',
-        body: JSON.stringify(formData)
+      // an edit sends the whole record back, so fields the form does not show stay as they are
+      await apiClient(editing ? `/api/investments/${editing.id}` : '/api/investments', {
+        method: editing ? 'PUT' : 'POST',
+        body: JSON.stringify(editing ? { ...editing, ...formData } : formData)
       });
-      setIsModalOpen(false);
-      setFormData({ type: 'Mutual Fund', name: '', investedAmount: 0, currentValue: 0 });
-      toast.success('Investment saved', 'Your investment record has been added successfully.');
+      const wasEditing = !!editing;
+      closeModal();
+      toast.success('Investment saved', wasEditing ? 'Your changes are saved.' : 'Your investment record has been added successfully.');
       fetchInvestments();
     } catch (err: any) {
       toast.error('Failed to save investment', err.message || 'Could not save investment. Please try again.');
@@ -145,6 +146,17 @@ export default function Investments() {
     } catch (err: any) {
       toast.error('Cannot delete asset class', err.message || 'Failed to delete asset class.');
     }
+  };
+
+  const openAdd = () => { setEditing(null); setFormData(EMPTY); setIsModalOpen(true); };
+  const openEdit = (inv: Investment) => { setEditing(inv); setFormData({ ...inv }); setIsModalOpen(true); };
+  const closeModal = () => { setIsModalOpen(false); setEditing(null); setFormData(EMPTY); };
+  const actionsFor = (inv: Investment) => {
+    const name = inv.name;
+    return <RowActions name={name} actions={[
+      { label: 'Edit', ariaLabel: `Edit ${name}`, icon: <Pencil className="h-4 w-4" />, onSelect: () => openEdit(inv) },
+      { label: 'Delete', ariaLabel: `Delete ${name}`, icon: <Trash2 className="h-4 w-4" />, onSelect: () => handleDelete(inv.id), destructive: true },
+    ]} />;
   };
 
   const handleDelete = async (id: string) => {
@@ -275,9 +287,9 @@ export default function Investments() {
       return [
         inv.name,
         inv.type,
-        `₹${inv.investedAmount.toLocaleString()}`,
-        `₹${inv.currentValue.toLocaleString()}`,
-        `₹${profit.toLocaleString()}`,
+        `₹${inv.investedAmount.toLocaleString('en-IN')}`,
+        `₹${inv.currentValue.toLocaleString('en-IN')}`,
+        `₹${profit.toLocaleString('en-IN')}`,
         `${returnsPercent.toFixed(1)}%`
       ];
     });
@@ -291,31 +303,13 @@ export default function Investments() {
           <h1 className="text-2xl font-bold text-foreground">Investments</h1>
           <p className="text-sm text-muted-foreground">Track your asset distribution, values and performance</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* View Toggle */}
-          <div className="flex items-center gap-1 bg-muted p-1 rounded-lg border border-border">
-            <button
-              onClick={() => setViewMode('card')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'card' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Card View"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="List View (Table)"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>
-            </button>
-            <button
-              onClick={() => setViewMode('detailed')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'detailed' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Detailed View"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg>
-            </button>
-          </div>
+          <ViewToggle value={viewMode} onChange={setViewMode} options={[
+              { value: 'card', title: 'Card View', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg> },
+              { value: 'list', title: 'List View (Table)', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg> },
+              { value: 'detailed', title: 'Detailed View', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg> },
+          ]} />
 
           <button
             onClick={() => setIsAssetClassModalOpen(true)}
@@ -323,12 +317,7 @@ export default function Investments() {
           >
             Manage Asset Classes
           </button>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 text-sm font-medium"
-          >
-            <Plus className="h-4 w-4" /> Add Investment
-          </button>
+          <PrimaryAction onClick={openAdd} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 text-sm font-medium" icon={<Plus className="h-4 w-4" />}>Add Investment</PrimaryAction>
         </div>
       </div>
 
@@ -336,11 +325,11 @@ export default function Investments() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Total Invested (Year)</span>
-          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalInvestedYear.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalInvestedYear.toLocaleString('en-IN')}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Total Invested (Month)</span>
-          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalInvestedMonth.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalInvestedMonth.toLocaleString('en-IN')}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Active SIPs</span>
@@ -352,23 +341,14 @@ export default function Investments() {
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Monthly SIP Outgo</span>
-          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{monthlySipOutgo.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{monthlySipOutgo.toLocaleString('en-IN')}</p>
         </div>
       </div>
 
       {/* Rule 3: Search + Filters Control Row */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6 bg-card/30 p-3 rounded-xl border border-border/50">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search assets..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 pr-3 py-1.5 bg-background/50 border border-border rounded-lg text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none text-foreground w-48 transition-all"
-            />
-          </div>
+          <SearchBox value={search} onChange={setSearch} placeholder="Search assets..." className="relative" iconClassName="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" inputClassName="pl-9 pr-3 py-1.5 bg-background/50 border border-border rounded-lg text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none text-foreground w-48 transition-all" />
 
           <select
             value={filterType}
@@ -384,20 +364,8 @@ export default function Investments() {
 
         <div className="flex items-center gap-2">
           {/* Rule 9: Export Buttons */}
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg text-xs font-medium border border-border/50 transition-all cursor-pointer"
-            title="Export CSV"
-          >
-            <Download className="h-3.5 w-3.5" /> CSV
-          </button>
-          <button
-            onClick={handleExportPDF}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg text-xs font-medium border border-border/50 transition-all cursor-pointer"
-            title="Export PDF/Print"
-          >
-            <Printer className="h-3.5 w-3.5" /> PDF
-          </button>
+          <SecondaryAction onClick={handleExportCSV} className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg text-xs font-medium border border-border/50 transition-all cursor-pointer" title="Export CSV" icon={<Download className="h-3.5 w-3.5" />}>CSV</SecondaryAction>
+          <SecondaryAction onClick={handleExportPDF} className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg text-xs font-medium border border-border/50 transition-all cursor-pointer" title="Export PDF/Print" icon={<Printer className="h-3.5 w-3.5" />}>PDF</SecondaryAction>
         </div>
       </div>
 
@@ -425,24 +393,22 @@ export default function Investments() {
                           <p className="text-[10px] text-muted-foreground uppercase font-bold">{inv.type}</p>
                         </div>
                       </div>
-                      <button onClick={() => handleDelete(inv.id)} className="text-muted-foreground hover:text-red-500 p-1">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {actionsFor(inv)}
                     </div>
 
                     <div className="space-y-1.5 text-xs border-t border-border/30 pt-3">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Invested Amount:</span>
-                        <span className="font-medium text-foreground font-mono tabular-nums">₹{inv.investedAmount.toLocaleString()}</span>
+                        <span className="font-medium text-foreground font-mono tabular-nums">₹{inv.investedAmount.toLocaleString('en-IN')}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Current Value:</span>
-                        <span className="font-bold text-foreground font-mono tabular-nums">₹{inv.currentValue.toLocaleString()}</span>
+                        <span className="font-bold text-foreground font-mono tabular-nums">₹{inv.currentValue.toLocaleString('en-IN')}</span>
                       </div>
                       <div className="flex justify-between pt-1.5 border-t border-border/20">
                         <span className="text-muted-foreground">Profit/Loss:</span>
                         <span className={`font-bold font-mono tabular-nums ${returns >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                          {returns >= 0 ? '+' : ''}₹{returns.toLocaleString()} ({returnsPercent.toFixed(1)}%)
+                          {returns >= 0 ? '+' : ''}₹{returns.toLocaleString('en-IN')} ({returnsPercent.toFixed(1)}%)
                         </span>
                       </div>
                     </div>
@@ -591,24 +557,16 @@ export default function Investments() {
                           {inv.type}
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap font-mono font-bold text-foreground text-sm tabular-nums">
-                          ₹{inv.investedAmount.toLocaleString()}
+                          ₹{inv.investedAmount.toLocaleString('en-IN')}
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap font-mono font-bold text-foreground text-sm tabular-nums">
-                          ₹{inv.currentValue.toLocaleString()}
+                          ₹{inv.currentValue.toLocaleString('en-IN')}
                         </td>
                         <td className={`px-4 py-2.5 whitespace-nowrap font-mono font-bold text-sm tabular-nums ${profit >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                          {profit >= 0 ? '+' : ''}₹{profit.toLocaleString()} ({returnsPercent.toFixed(1)}%)
+                          {profit >= 0 ? '+' : ''}₹{profit.toLocaleString('en-IN')} ({returnsPercent.toFixed(1)}%)
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap text-right text-xs font-medium">
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex justify-end gap-2">
-                            <button 
-                              onClick={() => handleDelete(inv.id)} 
-                              className="text-muted-foreground hover:text-red-500 transition-colors p-1"
-                              title="Delete Record"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
+                          {actionsFor(inv)}
                         </td>
                       </tr>
                     );
@@ -729,20 +687,12 @@ export default function Investments() {
                         <p className="text-[10px] text-muted-foreground uppercase">{inv.type}</p>
                       </div>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(inv.id);
-                      }}
-                      className="text-muted-foreground hover:text-red-500 p-1"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <span onClick={(e) => e.stopPropagation()}>{actionsFor(inv)}</span>
                   </div>
                   <div className="mt-2.5 flex justify-between items-baseline">
                     <span className="text-[10px] text-muted-foreground">Current Value:</span>
                     <span className={`text-xs font-mono font-bold tabular-nums ${returns >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                      ₹{inv.currentValue.toLocaleString()}
+                      ₹{inv.currentValue.toLocaleString('en-IN')}
                     </span>
                   </div>
                 </div>
@@ -761,7 +711,7 @@ export default function Investments() {
                     </div>
                     <div className="text-right">
                       <span className="text-[10px] text-muted-foreground block uppercase">Current Portfolio Value</span>
-                      <span className="text-xl font-mono font-bold text-primary tabular-nums">₹{selectedInvestment.currentValue.toLocaleString()}</span>
+                      <span className="text-xl font-mono font-bold text-primary tabular-nums">₹{selectedInvestment.currentValue.toLocaleString('en-IN')}</span>
                     </div>
                   </div>
                 </div>
@@ -771,12 +721,12 @@ export default function Investments() {
                   <div className="grid grid-cols-3 gap-4 bg-muted/30 p-3 rounded-xl">
                     <div>
                       <span className="text-[10px] text-muted-foreground block uppercase">Invested Amount</span>
-                      <span className="text-xs font-semibold text-foreground font-mono tabular-nums">₹{selectedInvestment.investedAmount.toLocaleString()}</span>
+                      <span className="text-xs font-semibold text-foreground font-mono tabular-nums">₹{selectedInvestment.investedAmount.toLocaleString('en-IN')}</span>
                     </div>
                     <div>
                       <span className="text-[10px] text-muted-foreground block uppercase">Profit / Loss</span>
                       <span className={`text-xs font-bold font-mono tabular-nums ${selectedInvestment.currentValue - selectedInvestment.investedAmount >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        ₹{(selectedInvestment.currentValue - selectedInvestment.investedAmount).toLocaleString()}
+                        ₹{(selectedInvestment.currentValue - selectedInvestment.investedAmount).toLocaleString('en-IN')}
                       </span>
                     </div>
                     <div>
@@ -811,7 +761,7 @@ export default function Investments() {
                                   {exp.description && <p className="text-[10px] text-muted-foreground italic mt-0.5">{exp.description}</p>}
                                 </div>
                                 <span className="font-bold text-xs font-mono text-red-500 tabular-nums">
-                                  -₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                  -₹{exp.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                 </span>
                               </div>
                             );
@@ -842,8 +792,8 @@ export default function Investments() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Add Investment</h2>
+          <div role="dialog" aria-modal="true" aria-labelledby="investment-modal-title" className="bg-card border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h2 id="investment-modal-title" className="text-lg font-semibold text-foreground mb-4">{editing ? 'Edit Investment' : 'Add Investment'}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Asset Class</label>
@@ -868,8 +818,8 @@ export default function Investments() {
                 </div>
               </div>
               <div className="flex justify-end gap-2 mt-6">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors">Cancel</button>
-                <button type="submit" className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">Save Investment</button>
+                <SecondaryAction onClick={closeModal} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors">Cancel</SecondaryAction>
+                <PrimaryAction type="submit" className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">{editing ? 'Save Changes' : 'Save Investment'}</PrimaryAction>
               </div>
             </form>
           </div>
@@ -901,12 +851,7 @@ export default function Investments() {
                     className="flex-1 p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm" 
                     placeholder="e.g. Real Estate, PPF, NPS" 
                   />
-                  <button 
-                    type="submit" 
-                    className="px-4 py-2.5 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-semibold shrink-0"
-                  >
-                    Add
-                  </button>
+                  <PrimaryAction type="submit" className="px-4 py-2.5 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-semibold shrink-0">Add</PrimaryAction>
                 </div>
               </div>
             </form>

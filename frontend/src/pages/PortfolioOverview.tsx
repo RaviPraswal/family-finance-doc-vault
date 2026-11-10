@@ -23,6 +23,8 @@ import {
 
 // ─── Colour palette ───────────────────────────────────────────────────────────
 const PIE_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+// Liquid Glass "salmon dial" palette: salmon, slate, sand, rust, sage, charcoal — distinct in light and dark.
+const DIAL_COLORS = ['#ef957b', '#7d8794', '#d9b99b', '#a9432b', '#8fb3a3', '#4b4f55'];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Goal {
@@ -98,6 +100,7 @@ export default function PortfolioOverview() {
   const [plan, setPlan] = useState<{ income: number; mustPay: number; living: number; pausable: number; totalOutflow: number; plannedSurplus: number } | null>(null);
   // The money map and dot charts belong to the Royal look only; Classic and Liquid Glass stay as they were.
   const royal = useThemeStore((state) => state.skin) === 'royal';
+  const chartColors = useThemeStore((state) => state.skin) === 'liquid' ? DIAL_COLORS : PIE_COLORS;
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   useEffect(() => { fetchAll(); }, []);
@@ -444,7 +447,7 @@ export default function PortfolioOverview() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={pieData} cx="50%" cy="50%" innerRadius={42} outerRadius={68} paddingAngle={3} dataKey="value">
-                      {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                      {pieData.map((_, i) => <Cell key={i} fill={chartColors[i % chartColors.length]} />)}
                     </Pie>
                     <Tooltip formatter={(v: any) => fmt(Number(v))} />
                     <Legend wrapperStyle={{ fontSize: '10px' }} />

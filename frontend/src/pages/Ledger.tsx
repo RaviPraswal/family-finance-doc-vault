@@ -232,7 +232,7 @@ export default function Ledger() {
                               isDueToday ? 'bg-primary/20 text-primary' : 
                               'bg-muted text-muted-foreground'
                             }`}>
-                              Due {new Date(payment.dueDate).toLocaleDateString()}
+                              Due {new Date(payment.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                             </span>
                             <span className="text-xs text-muted-foreground">ID: {payment.referenceId?.substring(0,8) || ''}...</span>
                           </div>
@@ -241,7 +241,7 @@ export default function Ledger() {
                       
                       <div className="flex items-center gap-4">
                         <div className="text-right">
-                          <p className="font-bold text-foreground">₹{payment.amount?.toLocaleString()}</p>
+                          <p className="font-bold text-foreground">₹{payment.amount?.toLocaleString('en-IN')}</p>
                           <p className="text-xs text-muted-foreground">{payment.transactionType}</p>
                         </div>
                         <button

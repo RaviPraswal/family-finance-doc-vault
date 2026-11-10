@@ -48,3 +48,36 @@ export function chitSummary(rows: ChitDisplayRow[]) {
 export function markPaidThrough(schedule: ChitScheduleRow[], srNo: number): ChitScheduleRow[] {
   return schedule.map((r) => (r.srNo <= srNo && r.status === 'Open / Pending' ? { ...r, status: 'Paid & Closed' } : r));
 }
+
+// Sprint 8 hardening: a chit whose stored schedule is malformed (older format, hand-edited, broken JSON) must not
+// crash the page. Missing or odd fields are taken from the generated schedule; numbers are coerced.
+type Status = 'Paid & Closed' | 'Allotted' | 'Open / Pending';
+export interface StoredChitRow {
+  srNo: number; monthCycle: string; calendarMonth: string; calendarYear: number;
+  actualAmount: number; chitAmountAllocated: number; status: Status;
+}
+const STATUSES: Status[] = ['Paid & Closed', 'Allotted', 'Open / Pending'];
+const num = (v: unknown, fallback: number) => {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN;
+  return Number.isFinite(n) ? n : fallback;
+};
+
+export function parseChitSchedule(json: string | null | undefined, generated: StoredChitRow[]): StoredChitRow[] {
+  if (!json) return generated;
+  let raw: unknown;
+  try { raw = JSON.parse(json); } catch { return generated; }
+  if (!Array.isArray(raw)) return generated;
+  return raw.map((r: Record<string, unknown>, i) => {
+    const g = generated[i] ?? generated[generated.length - 1] ?? { srNo: i + 1, monthCycle: `Cycle ${i + 1}`, calendarMonth: '', calendarYear: 0, actualAmount: 0, chitAmountAllocated: 0, status: 'Open / Pending' as Status };
+    const row = (r && typeof r === 'object' ? r : {}) as Record<string, unknown>;
+    return {
+      srNo: num(row.srNo, i + 1),
+      monthCycle: typeof row.monthCycle === 'string' ? row.monthCycle : g.monthCycle,
+      calendarMonth: typeof row.calendarMonth === 'string' ? row.calendarMonth : g.calendarMonth,
+      calendarYear: num(row.calendarYear, g.calendarYear),
+      actualAmount: num(row.actualAmount ?? row.actualDue, g.actualAmount),
+      chitAmountAllocated: num(row.chitAmountAllocated, g.chitAmountAllocated),
+      status: STATUSES.includes(row.status as Status) ? (row.status as Status) : 'Open / Pending',
+    };
+  });
+}

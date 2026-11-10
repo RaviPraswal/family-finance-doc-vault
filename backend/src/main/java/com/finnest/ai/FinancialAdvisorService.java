@@ -14,9 +14,33 @@ import java.util.stream.Collectors;
 public class FinancialAdvisorService {
 
     private final ChatClient chatClient;
+    private final java.time.Clock clock;
+    /** Sprint 8: after a quota error (429), no AI call is made before this instant. */
+    private volatile java.time.Instant pausedUntil = java.time.Instant.MIN;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public FinancialAdvisorService(ChatClient.Builder chatClientBuilder) {
+        this(chatClientBuilder, java.time.Clock.systemUTC());
+    }
+
+    FinancialAdvisorService(ChatClient.Builder chatClientBuilder, java.time.Clock clock) {
         this.chatClient = chatClientBuilder.build();
+        this.clock = clock;
+    }
+
+    private static final java.util.regex.Pattern RETRY_IN =
+            java.util.regex.Pattern.compile("retry in (?:(\\d+)h)?(?:(\\d+)m)?(?:([\\d.]+)s)?");
+
+    /** How long the provider asked us to wait ("Please retry in 19h47m8s"); one hour if it did not say. */
+    static java.time.Duration quotaWait(String message) {
+        java.util.regex.Matcher m = RETRY_IN.matcher(message == null ? "" : message);
+        if (m.find() && (m.group(1) != null || m.group(2) != null || m.group(3) != null)) {
+            long h = m.group(1) == null ? 0 : Long.parseLong(m.group(1));
+            long min = m.group(2) == null ? 0 : Long.parseLong(m.group(2));
+            double sec = m.group(3) == null ? 0 : Double.parseDouble(m.group(3));
+            return java.time.Duration.ofHours(h).plusMinutes(min).plusSeconds((long) Math.ceil(sec));
+        }
+        return java.time.Duration.ofHours(1);
     }
 
     public List<Recommendation> getRecommendations(List<Goal> goals, List<Project> projects) {
@@ -54,11 +78,20 @@ public class FinancialAdvisorService {
 
     /** Sprint 7 T9 (D-10): never fails the screen; one WARN line per failed call, no stack trace. */
     public Insights insights(List<Goal> goals, List<Project> projects) {
+        if (clock.instant().isBefore(pausedUntil)) {
+            return new Insights(false, "Insights unavailable today", List.of()); // quota used up: don't call again
+        }
         try {
             return new Insights(true, null, getRecommendations(goals, projects));
         } catch (Exception e) {
-            String reason = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage().lines().findFirst().orElse("");
-            log.warn("AI insights unavailable: {}", reason.length() > 160 ? reason.substring(0, 160) : reason);
+            String message = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+            if (message.contains("429") || message.contains("RESOURCE_EXHAUSTED")) {
+                pausedUntil = clock.instant().plus(quotaWait(message));
+                log.warn("AI quota used up; insights paused until {}", pausedUntil);
+            } else {
+                String reason = message.lines().findFirst().orElse("");
+                log.warn("AI insights unavailable: {}", reason.length() > 160 ? reason.substring(0, 160) : reason);
+            }
             return new Insights(false, "Insights unavailable today", List.of());
         }
     }

@@ -9,7 +9,7 @@ describe('cockpit maths', () => {
 
   // Sprint 5: a family that started tracking last month has one month of history, not three.
   it('averages only over the months the family has been tracking', () => {
-    expect(averageOverThreeMonths(new Map([['2026-9', 89706]]), 1)).toBe(89706);
+    expect(averageOverThreeMonths(new Map([['2026-9', 50000]]), 1)).toBe(50000);
     expect(monthsTracked('2026-10-03', new Date('2026-11-05'))).toBe(1);
     expect(monthsTracked('2026-02-01', new Date('2026-11-05'))).toBe(3);
     expect(monthsTracked(undefined, new Date('2026-11-05'))).toBe(3);

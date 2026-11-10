@@ -6,6 +6,7 @@ Read this and `SPRINT.md` before every task. Decisions live in `DECISIONS.md` (c
 - **Backend:** Java 21, Spring Boot 3.3.1, Spring Security (stateless JWT, jjwt 0.12), Spring Data JPA/Hibernate 6, Flyway, Spring AI (Gemini via OpenAI-compatible API), Spring Mail.
 - **DB:** PostgreSQL 17 in Docker (`finnest_db`, host port 5435). Schema owned by Flyway; Hibernate `ddl-auto=validate`.
 - **Frontend:** React 18 + TypeScript + Vite, Tailwind, Zustand, Lucide icons, `@fontsource` fonts (no CDN). Tests: Vitest + Testing Library.
+- **Liquid Glass controls:** `glisse` (pinned) through `components/ui/LiquidControls.tsx` only — never import glisse in pages directly (D-18).
 - **Packaging:** SPA built into `backend/src/main/resources/static`, one JAR (`SpaController` serves routes).
 
 ## Folder structure

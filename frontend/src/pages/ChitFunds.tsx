@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import ChitScheduleTable from '../components/ChitScheduleTable';
-import { markPaidThrough } from '../lib/chitSchedule';
+import { markPaidThrough, parseChitSchedule } from '../lib/chitSchedule';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
-import { Plus, Users, Trash2, Search, Download, Printer, ChevronDown, ChevronUp, FileText, Wallet } from 'lucide-react';
+import { Plus, Users, Trash2, Download, Printer, ChevronDown, ChevronUp, FileText, Wallet, Pencil, CheckCircle2, RotateCcw } from 'lucide-react';
+import { chitCounts, chitStatusLabel, matchesChitFilter } from '../lib/chitStatus';
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
+import { ViewToggle, PrimaryAction, SearchBox, RowActions, SecondaryAction } from '../components/ui/LiquidControls';
 
 interface ChitFund {
   id: string;
@@ -20,6 +22,8 @@ interface ChitFund {
   allottedAmount: number | null;
   linkedAccount: { id: string; name?: string; bankName?: string } | null;
   paymentSchedule?: string;
+  isClosed?: boolean;
+  closedOn?: string | null;
 }
 
 interface BankAccount {
@@ -45,6 +49,8 @@ export default function ChitFunds() {
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  /** Sprint 8: the chit being edited; null when adding a new one. */
+  const [editing, setEditing] = useState<ChitFund | null>(null);
   const [formData, setFormData] = useState<Partial<ChitFund & { linkedAccountId: string }>>({
     organizerName: '',
     memberName: '',
@@ -138,9 +144,8 @@ export default function ChitFunds() {
     }
   };
 
-  const scheduleOf = (cf: ChitFund): ScheduleRow[] => cf.paymentSchedule
-    ? (JSON.parse(cf.paymentSchedule) as ScheduleRow[])
-    : generateDefaultSchedule(cf.durationMonths || 20, cf.totalValue || 300000, cf.startDate || new Date().toISOString().split('T')[0]);
+  const scheduleOf = (cf: ChitFund): ScheduleRow[] => parseChitSchedule(cf.paymentSchedule,
+    generateDefaultSchedule(cf.durationMonths || 20, cf.totalValue || 300000, cf.startDate || new Date().toISOString().split('T')[0]));
 
   const handleStatusChange = async (cf: ChitFund, rowIndex: number, newStatus: 'Paid & Closed' | 'Allotted' | 'Open / Pending') => {
     const updatedSchedule = [...scheduleOf(cf)];
@@ -203,7 +208,48 @@ export default function ChitFunds() {
       linkedAccountId: '',
     });
     setScheduleRows(generateDefaultSchedule(20, 300000, today));
+    setEditing(null);
     setIsModalOpen(true);
+  };
+
+  const openEditModal = (cf: ChitFund) => {
+    setFormData({
+      organizerName: cf.organizerName,
+      memberName: cf.memberName,
+      totalValue: cf.totalValue,
+      monthlyInstallment: cf.monthlyInstallment,
+      durationMonths: cf.durationMonths,
+      pendingInstallments: cf.pendingInstallments,
+      startDate: cf.startDate,
+      isAllotted: cf.isAllotted,
+      allottedAmount: cf.allottedAmount,
+      linkedAccountId: cf.linkedAccount?.id ?? '',
+    });
+    setScheduleRows(scheduleOf(cf));
+    setEditing(cf);
+    setIsModalOpen(true);
+  };
+
+  /** Sprint 8: a chit stays active until it is marked closed. */
+  const toggleClosed = (cf: ChitFund) => {
+    const closing = !cf.isClosed;
+    const save = async () => {
+      try {
+        const payload: any = { ...cf, isClosed: closing, linkedAccount: cf.linkedAccount ? { id: cf.linkedAccount.id } : null };
+        await apiClient(`/api/chitfunds/${cf.id}`, { method: 'PUT', body: JSON.stringify(payload) });
+        toast.success(closing ? 'Chit closed' : 'Chit reopened', `${cf.organizerName} is now ${closing ? 'closed' : 'active'}.`);
+        fetchChitFunds();
+      } catch (err: any) {
+        toast.error('Could not update the chit', err.message || 'Please try again.');
+      }
+    };
+    if (!closing) { save(); return; }
+    confirm.show({
+      title: 'Mark chit closed',
+      message: `Mark ${cf.organizerName} as closed? It moves out of your active chits. You can reopen it later.`,
+      confirmLabel: 'Mark closed',
+      onConfirm: save,
+    });
   };
 
   const updateScheduleField = (index: number, field: keyof ScheduleRow, value: any) => {
@@ -265,24 +311,25 @@ export default function ChitFunds() {
       const pendingInstallments = scheduleRows.filter(r => r.status === 'Open / Pending').length;
 
       const payload: any = {
+        ...(editing ?? {}),
         ...formData,
         isAllotted,
         allottedAmount,
         pendingInstallments,
         paymentSchedule: JSON.stringify(scheduleRows),
+        isClosed: editing?.isClosed ?? false,
+        linkedAccount: formData.linkedAccountId ? { id: formData.linkedAccountId } : null,
       };
-      if (formData.linkedAccountId) {
-        payload.linkedAccount = { id: formData.linkedAccountId };
-      }
       delete payload.linkedAccountId;
-      await apiClient('/api/chitfunds', {
-        method: 'POST',
+      await apiClient(editing ? `/api/chitfunds/${editing.id}` : '/api/chitfunds', {
+        method: editing ? 'PUT' : 'POST',
         body: JSON.stringify(payload),
       });
       setIsModalOpen(false);
+      setEditing(null);
       setFormData({ organizerName: '', memberName: '', totalValue: 100000, monthlyInstallment: 8333, durationMonths: 12, pendingInstallments: 12, startDate: new Date().toISOString().split('T')[0], isAllotted: false, allottedAmount: null, linkedAccountId: '' });
       setScheduleRows([]);
-      toast.success('Chit fund saved', 'Your chit fund record has been added successfully.');
+      toast.success('Chit fund saved', editing ? 'Your changes are saved.' : 'Your chit fund record has been added successfully.');
       fetchChitFunds();
     } catch (err: any) {
       toast.error('Failed to save chit fund', err.message || 'Could not save chit fund. Please try again.');
@@ -309,9 +356,8 @@ export default function ChitFunds() {
 
   // Helper schedule calculations per chit fund
   const getChitDetails = useCallback((cf: ChitFund) => {
-    const schedule = cf.paymentSchedule
-      ? (JSON.parse(cf.paymentSchedule) as ScheduleRow[])
-      : generateDefaultSchedule(cf.durationMonths || 20, cf.totalValue || 300000, cf.startDate || new Date().toISOString().split('T')[0]);
+    const schedule = parseChitSchedule(cf.paymentSchedule,
+      generateDefaultSchedule(cf.durationMonths || 20, cf.totalValue || 300000, cf.startDate || new Date().toISOString().split('T')[0]));
 
     const totalDeposited = schedule.reduce((sum, row) => {
       if (row.status === 'Paid & Closed' || row.status === 'Allotted') {
@@ -327,7 +373,7 @@ export default function ChitFunds() {
     const paidRows = schedule.filter(row => row.status === 'Paid & Closed' || row.status === 'Allotted');
     const lastPaidRow = paidRows.length > 0 ? paidRows[paidRows.length - 1] : null;
     const lastPaidText = lastPaidRow
-      ? `₹${lastPaidRow.actualAmount.toLocaleString()} (${lastPaidRow.calendarMonth})`
+      ? `₹${lastPaidRow.actualAmount.toLocaleString('en-IN')} (${lastPaidRow.calendarMonth})`
       : 'N/A';
 
     const outstandingAmount = cf.totalValue - totalDeposited;
@@ -350,12 +396,7 @@ export default function ChitFunds() {
                           cf.memberName.toLowerCase().includes(search.toLowerCase()) ||
                           (cf.linkedAccount?.name || '').toLowerCase().includes(search.toLowerCase());
     
-    let matchesStatus = true;
-    if (filterStatus === 'ALLOTTED') {
-      matchesStatus = cf.isAllotted;
-    } else if (filterStatus === 'ACTIVE') {
-      matchesStatus = !cf.isAllotted;
-    }
+    const matchesStatus = matchesChitFilter(cf, filterStatus);
 
     return matchesSearch && matchesStatus;
   });
@@ -371,8 +412,7 @@ export default function ChitFunds() {
   const nextDueInstallmentCumulative = filteredChitFunds.reduce((sum, cf) => sum + getChitDetails(cf).upcomingVal, 0);
   const totalOutstandingCumulative = totalChitValue - totalDepositedCumulative;
   
-  const allottedCount = filteredChitFunds.filter(cf => cf.isAllotted).length;
-  const activeCount = filteredChitFunds.length - allottedCount;
+  const counts = chitCounts(chitFunds);
 
   // Exporters
   const handleExportCSV = () => {
@@ -400,12 +440,12 @@ export default function ChitFunds() {
       return [
         cf.organizerName,
         cf.memberName,
-        `₹${cf.totalValue.toLocaleString()}`,
+        `₹${cf.totalValue.toLocaleString('en-IN')}`,
         `${cf.durationMonths}m`,
         `${details.paidMonthsCount}/${cf.durationMonths}m`,
-        `₹${details.upcomingVal.toLocaleString()}`,
+        `₹${details.upcomingVal.toLocaleString('en-IN')}`,
         cf.isAllotted ? 'Yes' : 'No',
-        cf.allottedAmount ? `₹${cf.allottedAmount.toLocaleString()}` : '-'
+        cf.allottedAmount ? `₹${cf.allottedAmount.toLocaleString('en-IN')}` : '-'
       ];
     });
     exportToPDF('Chit Funds Ledger Statement', headers, exportData, 'Chit_Funds_Report');
@@ -418,31 +458,14 @@ export default function ChitFunds() {
           <h1 className="text-2xl font-bold text-foreground font-sans">Chit Funds Manager</h1>
           <p className="text-sm text-muted-foreground">Log cooperative contributions, record payouts, and track dynamic installment schedules</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* View Toggle */}
-          <div className="flex items-center gap-1 bg-muted p-1 rounded-lg border border-border">
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Dense List (Table)"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>
-            </button>
-            <button
-              onClick={() => setViewMode('card')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'card' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Compact Cards"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>
-            </button>
-          </div>
+          <ViewToggle value={viewMode} onChange={setViewMode} options={[
+              { value: 'list', title: 'Dense List (Table)', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg> },
+              { value: 'card', title: 'Compact Cards', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg> },
+          ]} />
 
-          <button
-            onClick={openAddModal}
-            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 font-medium text-sm transition-all"
-          >
-            <Plus className="h-4 w-4" /> Add Chit Fund
-          </button>
+          <PrimaryAction onClick={openAddModal} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 font-medium text-sm transition-all" icon={<Plus className="h-4 w-4" />}>Add Chit Fund</PrimaryAction>
         </div>
       </div>
 
@@ -450,68 +473,52 @@ export default function ChitFunds() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Total Pool Value</span>
-          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalChitValue.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalChitValue.toLocaleString('en-IN')}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Deposited / Contributed</span>
-          <p className="text-lg font-mono font-bold text-green-500 mt-1 tabular-nums">₹{totalDepositedCumulative.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-green-500 mt-1 tabular-nums">₹{totalDepositedCumulative.toLocaleString('en-IN')}</p>
         </div>
         <span className="hidden md:block">
           <div className="glass-panel p-4 rounded-xl border border-border/50 h-full">
             <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Upcoming Outgo</span>
-            <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{nextDueInstallmentCumulative.toLocaleString()}</p>
+            <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{nextDueInstallmentCumulative.toLocaleString('en-IN')}</p>
           </div>
         </span>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Outstanding Balances</span>
-          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalOutstandingCumulative.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalOutstandingCumulative.toLocaleString('en-IN')}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
-          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Allocation Status</span>
+          <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Chits</span>
           <p className="text-lg font-bold text-foreground mt-1 font-sans">
-            {allottedCount} Matured <span className="text-muted-foreground text-xs font-normal">/ {activeCount} Active</span>
+            <span>{counts.active} Active</span> <span className="text-muted-foreground text-xs font-normal">· {counts.closed} closed</span>
           </p>
+          <p className="text-[11px] text-muted-foreground">{counts.allotted} allotted · {counts.awaiting} awaiting bidding</p>
         </div>
       </div>
 
       {/* Control Row (Rule 7) */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6 bg-card/30 p-3 rounded-xl border border-border/50">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search organizer or member..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 pr-3 py-1.5 bg-background/50 border border-border rounded-lg text-sm focus:ring-1 focus:ring-primary outline-none text-foreground w-64 transition-all"
-            />
-          </div>
+          <SearchBox value={search} onChange={setSearch} placeholder="Search organizer or member..." className="relative" iconClassName="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" inputClassName="pl-9 pr-3 py-1.5 bg-background/50 border border-border rounded-lg text-sm focus:ring-1 focus:ring-primary outline-none text-foreground w-64 transition-all" />
 
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
             className="px-3 py-1.5 bg-background/50 border border-border rounded-lg text-sm text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer"
           >
-            <option value="ALL">All Bidding Statuses</option>
-            <option value="ALLOTTED">Allotted (Paid Out)</option>
-            <option value="ACTIVE">Active (Accruing)</option>
+            <option value="ALL">All chits</option>
+            <option value="ACTIVE">Active</option>
+            <option value="ALLOTTED">Active · allotted</option>
+            <option value="AWAITING">Active · awaiting bidding</option>
+            <option value="CLOSED">Closed</option>
           </select>
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg text-xs font-medium border border-border/50 transition-all cursor-pointer"
-          >
-            <Download className="h-3.5 w-3.5" /> CSV
-          </button>
-          <button
-            onClick={handleExportPDF}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg text-xs font-medium border border-border/50 transition-all cursor-pointer"
-          >
-            <Printer className="h-3.5 w-3.5" /> PDF
-          </button>
+          <SecondaryAction onClick={handleExportCSV} className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg text-xs font-medium border border-border/50 transition-all cursor-pointer" icon={<Download className="h-3.5 w-3.5" />}>CSV</SecondaryAction>
+          <SecondaryAction onClick={handleExportPDF} className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg text-xs font-medium border border-border/50 transition-all cursor-pointer" icon={<Printer className="h-3.5 w-3.5" />}>PDF</SecondaryAction>
         </div>
       </div>
 
@@ -557,26 +564,26 @@ export default function ChitFunds() {
                     <div className="space-y-1.5 text-xs pt-2.5 border-t border-border/30">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Total Pool Value:</span>
-                        <span className="font-bold text-violet-500 font-mono tabular-nums">₹{cf.totalValue.toLocaleString()}</span>
+                        <span className="font-bold text-violet-500 font-mono tabular-nums">₹{cf.totalValue.toLocaleString('en-IN')}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Total Deposited:</span>
-                        <span className="font-semibold text-foreground font-mono tabular-nums">₹{details.totalDeposited.toLocaleString()}</span>
+                        <span className="font-semibold text-foreground font-mono tabular-nums">₹{details.totalDeposited.toLocaleString('en-IN')}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Outstanding:</span>
-                        <span className="font-semibold text-foreground font-mono tabular-nums">₹{details.outstandingAmount.toLocaleString()}</span>
+                        <span className="font-semibold text-foreground font-mono tabular-nums">₹{details.outstandingAmount.toLocaleString('en-IN')}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Next Installment:</span>
                         <span className="font-semibold text-foreground font-mono">
-                          ₹{details.upcomingVal.toLocaleString()} ({details.upcomingMonth})
+                          ₹{details.upcomingVal.toLocaleString('en-IN')} ({details.upcomingMonth})
                         </span>
                       </div>
                       <div className="flex justify-between pt-1.5 border-t border-border/20">
                         <span className="text-muted-foreground">Allotted Amount:</span>
                         <span className={`font-semibold ${cf.isAllotted ? 'text-green-500' : 'text-amber-500'}`}>
-                          {cf.isAllotted ? `₹${cf.allottedAmount?.toLocaleString()}` : 'Not Allotted'}
+                          {cf.isAllotted ? `₹${cf.allottedAmount?.toLocaleString('en-IN')}` : 'Not Allotted'}
                         </span>
                       </div>
                     </div>
@@ -614,7 +621,7 @@ export default function ChitFunds() {
                       Outstanding Bal.
                     </th>
                     <th className="px-4 py-2.5 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">
-                      Bidding Payout Status
+                      Status
                     </th>
                     <th className="px-4 py-2.5 text-right text-[10px] font-bold text-muted-foreground uppercase tracking-wider select-none">
                       Actions
@@ -631,7 +638,7 @@ export default function ChitFunds() {
                       <React.Fragment key={cf.id}>
                         <tr 
                           onClick={() => setExpandedChitFundId(isExpanded ? null : cf.id)}
-                          className={`hover:bg-muted/30 transition-colors group cursor-pointer ${idx % 2 === 0 ? 'bg-background/20' : 'bg-card/10'} ${isExpanded ? 'bg-primary/5' : ''}`}
+                          className={`hover:bg-muted/30 transition-colors group cursor-pointer ${idx % 2 === 0 ? 'bg-background/20' : 'bg-card/10'} ${isExpanded ? 'bg-primary/5' : ''} ${cf.isClosed ? 'opacity-60' : ''}`}
                         >
                           <td className="px-4 py-2.5 text-center">
                             {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
@@ -646,7 +653,7 @@ export default function ChitFunds() {
                             {cf.memberName}
                           </td>
                           <td className="px-4 py-2.5 whitespace-nowrap font-mono font-bold text-violet-500 text-sm tabular-nums">
-                            ₹{cf.totalValue.toLocaleString()}
+                            ₹{cf.totalValue.toLocaleString('en-IN')}
                           </td>
                           <td className="px-4 py-2.5 whitespace-nowrap">
                             <div className="flex items-center gap-2">
@@ -657,31 +664,27 @@ export default function ChitFunds() {
                             </div>
                           </td>
                           <td className="px-4 py-2.5 whitespace-nowrap font-mono text-xs text-foreground font-medium">
-                            ₹{details.upcomingVal.toLocaleString()} <span className="text-[9px] text-muted-foreground">({details.upcomingMonth})</span>
+                            ₹{details.upcomingVal.toLocaleString('en-IN')} <span className="text-[9px] text-muted-foreground">({details.upcomingMonth})</span>
                           </td>
                           <td className="px-4 py-2.5 whitespace-nowrap font-mono text-xs text-foreground font-bold tabular-nums">
-                            ₹{details.outstandingAmount.toLocaleString()}
+                            ₹{details.outstandingAmount.toLocaleString('en-IN')}
                           </td>
                           <td className="px-4 py-2.5 whitespace-nowrap text-xs">
-                            {cf.isAllotted ? (
-                              <span className="text-green-500 font-bold">Allotted (₹{cf.allottedAmount?.toLocaleString()})</span>
-                            ) : (
-                              <span className="text-amber-500 font-medium">Awaiting Bidding</span>
+                            <span className={`font-semibold ${cf.isClosed ? 'text-muted-foreground' : cf.isAllotted ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                              {chitStatusLabel(cf)}
+                            </span>
+                            {cf.isAllotted && cf.allottedAmount != null && (
+                              <span className="block text-[10px] text-muted-foreground">Allotted ₹{Math.round(cf.allottedAmount).toLocaleString('en-IN')}</span>
                             )}
                           </td>
                           <td className="px-4 py-2.5 whitespace-nowrap text-right text-xs font-medium">
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex justify-end gap-2">
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDelete(cf.id);
-                                }} 
-                                className="text-muted-foreground hover:text-red-500 transition-colors p-1"
-                                title="Delete Record"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
+                            <RowActions name={cf.organizerName} actions={[
+                              { label: 'Edit', ariaLabel: `Edit ${cf.organizerName}`, icon: <Pencil className="h-4 w-4" />, onSelect: () => openEditModal(cf) },
+                              cf.isClosed
+                                ? { label: 'Reopen', ariaLabel: `Reopen ${cf.organizerName}`, icon: <RotateCcw className="h-4 w-4" />, onSelect: () => toggleClosed(cf) }
+                                : { label: 'Mark closed', ariaLabel: `Mark ${cf.organizerName} closed`, icon: <CheckCircle2 className="h-4 w-4" />, onSelect: () => toggleClosed(cf) },
+                              { label: 'Delete', ariaLabel: `Delete ${cf.organizerName}`, icon: <Trash2 className="h-4 w-4" />, onSelect: () => handleDelete(cf.id), destructive: true },
+                            ]} />
                           </td>
                         </tr>
 
@@ -723,7 +726,7 @@ export default function ChitFunds() {
                                             {exp.description && <p className="text-[10px] text-muted-foreground italic mt-0.5">{exp.description}</p>}
                                           </div>
                                           <span className={`font-mono font-bold ${exp.type === 'DEBIT' ? 'text-red-500' : 'text-green-500'}`}>
-                                            {exp.type === 'DEBIT' ? '-' : '+'}₹{exp.amount.toLocaleString()}
+                                            {exp.type === 'DEBIT' ? '-' : '+'}₹{exp.amount.toLocaleString('en-IN')}
                                           </span>
                                         </div>
                                       ))
@@ -831,8 +834,8 @@ export default function ChitFunds() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-2xl p-5 max-w-5xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-border">
-            <h2 className="text-lg font-bold text-foreground mb-4">Add Chit Fund</h2>
+          <div role="dialog" aria-modal="true" aria-labelledby="chit-modal-title" className="bg-card rounded-2xl p-5 max-w-5xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-border">
+            <h2 id="chit-modal-title" className="text-lg font-bold text-foreground mb-4">{editing ? 'Edit Chit Fund' : 'Add Chit Fund'}</h2>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               {/* Left Column: Meta Fields */}
               <div className="lg:col-span-5 space-y-4">
@@ -881,7 +884,7 @@ export default function ChitFunds() {
                   {scheduleRows.some(r => r.status === 'Allotted') && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground font-medium">Net Payout Amount:</span>
-                      <span className="font-semibold text-green-500 font-mono">₹{scheduleRows.find(r => r.status === 'Allotted')?.chitAmountAllocated.toLocaleString()}</span>
+                      <span className="font-semibold text-green-500 font-mono">₹{scheduleRows.find(r => r.status === 'Allotted')?.chitAmountAllocated.toLocaleString('en-IN')}</span>
                     </div>
                   )}
                   <div className="flex justify-between">
@@ -891,8 +894,8 @@ export default function ChitFunds() {
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded-lg text-xs font-semibold">Cancel</button>
-                  <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-xs font-semibold transition-all">Save Chit Fund</button>
+                  <SecondaryAction onClick={() => { setIsModalOpen(false); setEditing(null); }} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded-lg text-xs font-semibold">Cancel</SecondaryAction>
+                  <PrimaryAction type="submit" className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-xs font-semibold transition-all">{editing ? 'Save Changes' : 'Save Chit Fund'}</PrimaryAction>
                 </div>
               </div>
 

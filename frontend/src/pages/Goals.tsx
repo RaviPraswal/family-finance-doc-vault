@@ -3,6 +3,7 @@ import { readInsights } from '../lib/aiInsights';
 import React, { useState, useEffect } from 'react';
 import { Target, Plus, TrendingUp, Calendar, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { apiClient } from '../api/client';
+import { PrimaryAction, SecondaryAction } from '../components/ui/LiquidControls';
 
 interface Goal {
   id: string;
@@ -46,6 +47,7 @@ export default function Goals() {
       setGoals(data);
     } catch (error) {
       console.error('Failed to fetch goals', error);
+      useToastStore.getState().error('Could not load goals', (error as Error)?.message || 'Please refresh.');
     } finally {
       setLoading(false);
     }
@@ -81,6 +83,7 @@ export default function Goals() {
           priority
         })
       });
+      useToastStore.getState().success('Goal saved', `${name} is added to your goals.`);
       setShowAddForm(false);
       setName('');
       setTargetAmount('');
@@ -89,7 +92,7 @@ export default function Goals() {
       setPriority('MEDIUM');
       fetchGoals();
     } catch (error) {
-      console.error('Failed to create goal', error);
+      useToastStore.getState().error('Could not save the goal', (error as Error)?.message || 'Please try again.');
     }
   };
 
@@ -102,11 +105,12 @@ export default function Goals() {
           amount: parseFloat(contributionAmount)
         })
       });
+      useToastStore.getState().success('Funds added', `₹${Number(contributionAmount).toLocaleString('en-IN')} added.`);
       setContributingTo(null);
       setContributionAmount('');
       fetchGoals();
     } catch (error) {
-      console.error('Failed to contribute to goal', error);
+      useToastStore.getState().error('Could not add funds', (error as Error)?.message || 'Please try again.');
     }
   };
 
@@ -125,12 +129,7 @@ export default function Goals() {
           >
             {loadingInsights ? 'Analyzing...' : <><Sparkles className="h-4 w-4" /> Get AI Insights</>}
           </button>
-          <button
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="px-4 py-2 bg-primary text-primary-foreground font-medium rounded-xl hover:opacity-90 transition-opacity flex items-center gap-2"
-          >
-            {showAddForm ? 'Cancel' : <><Plus className="h-4 w-4" /> Create Goal</>}
-          </button>
+          <PrimaryAction onClick={() => setShowAddForm(!showAddForm)} className="px-4 py-2 bg-primary text-primary-foreground font-medium rounded-xl hover:opacity-90 transition-opacity flex items-center gap-2" icon={showAddForm ? undefined : <Plus className="h-4 w-4" />}>{showAddForm ? 'Cancel' : 'Create Goal'}</PrimaryAction>
         </div>
       </div>
 
@@ -215,12 +214,7 @@ export default function Goals() {
               </select>
             </div>
             <div className="flex items-end">
-              <button
-                type="submit"
-                className="w-full py-2 bg-primary text-primary-foreground font-medium rounded-xl hover:opacity-90 transition-opacity"
-              >
-                Save Goal
-              </button>
+              <PrimaryAction type="submit" className="w-full py-2 bg-primary text-primary-foreground font-medium rounded-xl hover:opacity-90 transition-opacity">Save Goal</PrimaryAction>
             </div>
           </form>
         </div>
@@ -255,7 +249,7 @@ export default function Goals() {
                     <h3 className="font-semibold text-foreground text-lg">{goal.name}</h3>
                     <div className="flex items-center text-xs text-muted-foreground mt-1 gap-1">
                       <Calendar className="h-3 w-3" />
-                      Target: {new Date(goal.targetDate).toLocaleDateString()}
+                      Target: {new Date(goal.targetDate.slice(0, 10) + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </div>
                   </div>
                   <div className={`p-2 rounded-lg ${isCompleted ? 'bg-green-500/20 text-green-500' : 'bg-primary/10 text-primary'}`}>
@@ -266,11 +260,11 @@ export default function Goals() {
                 <div className="flex justify-between items-end mb-2">
                   <div>
                     <p className="text-2xl font-bold text-foreground">
-                      ₹{goal.currentAmount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      ₹{goal.currentAmount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm text-muted-foreground">of ₹{goal.targetAmount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                    <p className="text-sm text-muted-foreground">of ₹{goal.targetAmount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
                   </div>
                 </div>
 
@@ -298,16 +292,8 @@ export default function Goals() {
                         className="w-full px-3 py-1.5 text-sm bg-background/50 border border-border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
                         placeholder="Amount"
                       />
-                      <button type="submit" className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90">
-                        Add
-                      </button>
-                      <button 
-                        type="button" 
-                        onClick={() => { setContributingTo(null); setContributionAmount(''); }}
-                        className="px-3 py-1.5 text-sm bg-muted text-muted-foreground rounded-lg hover:bg-muted/80"
-                      >
-                        Cancel
-                      </button>
+                      <PrimaryAction type="submit" className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90">Add</PrimaryAction>
+                      <SecondaryAction onClick={() => { setContributingTo(null); setContributionAmount(''); }} className="px-3 py-1.5 text-sm bg-muted text-muted-foreground rounded-lg hover:bg-muted/80">Cancel</SecondaryAction>
                     </form>
                   ) : (
                     <button

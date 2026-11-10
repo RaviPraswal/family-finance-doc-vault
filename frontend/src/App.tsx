@@ -58,6 +58,8 @@ function App() {
     } else {
       document.documentElement.classList.remove('dark');
     }
+    // glisse (Liquid Glass controls) reads data-theme
+    document.documentElement.dataset.theme = theme;
   }, [theme]);
 
   return (

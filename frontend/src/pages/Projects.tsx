@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { Plus, Building, Edit2 } from 'lucide-react';
+import { ViewToggle, PrimaryAction, SecondaryAction } from '../components/ui/LiquidControls';
 
 interface Project {
   id: string;
@@ -169,38 +170,15 @@ export default function Projects() {
           <h1 className="text-2xl font-bold text-foreground">Projects & Big Expenses</h1>
           <p className="text-sm text-muted-foreground">Track sinking budgets and itemized logs for your long-term projects</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* View Toggle */}
-          <div className="flex items-center gap-1 bg-muted p-1 rounded-lg border border-border">
-            <button
-              onClick={() => setViewMode('card')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'card' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Card View"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="List View"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>
-            </button>
-            <button
-              onClick={() => setViewMode('detailed')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'detailed' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Detailed View"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg>
-            </button>
-          </div>
+          <ViewToggle value={viewMode} onChange={setViewMode} options={[
+              { value: 'card', title: 'Card View', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg> },
+              { value: 'list', title: 'List View', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg> },
+              { value: 'detailed', title: 'Detailed View', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg> },
+          ]} />
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90"
-          >
-            <Plus className="h-4 w-4" /> Add Project
-          </button>
+          <PrimaryAction onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90" icon={<Plus className="h-4 w-4" />}>Add Project</PrimaryAction>
         </div>
       </div>
 
@@ -246,8 +224,8 @@ export default function Projects() {
                     </div>
                   </div>
                   <div className="space-y-2 text-sm text-muted-foreground mb-4">
-                    <p>Budget: <span className="font-semibold text-foreground">₹{project.budget.toLocaleString()}</span></p>
-                    <p>Start Date: <span className="font-medium text-foreground">{new Date(project.startDate).toLocaleDateString()}</span></p>
+                    <p>Budget: <span className="font-semibold text-foreground">₹{project.budget.toLocaleString('en-IN')}</span></p>
+                    <p>Start Date: <span className="font-medium text-foreground">{new Date(project.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span></p>
                   </div>
                 </div>
 
@@ -294,7 +272,7 @@ export default function Projects() {
                                     <span className="font-medium text-foreground">{exp.category}</span>
                                     <span className="text-[10px] text-muted-foreground block">{exp.expenseDate}</span>
                                   </div>
-                                  <span className="font-semibold text-red-500">-₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                  <span className="font-semibold text-red-500">-₹{exp.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                 </div>
                                 {Object.keys(customData).length > 0 && (
                                   <div className="flex flex-wrap gap-1 mt-1">
@@ -435,10 +413,10 @@ export default function Projects() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap font-semibold text-foreground text-sm">
-                        ₹{project.budget.toLocaleString()}
+                        ₹{project.budget.toLocaleString('en-IN')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                        {new Date(project.startDate).toLocaleDateString()}
+                        {new Date(project.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <span className={`px-2.5 py-0.5 text-xs font-semibold rounded-full ${
@@ -457,7 +435,7 @@ export default function Projects() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap font-medium text-red-500 text-sm">
-                        ₹{totalSpent.toLocaleString()}
+                        ₹{totalSpent.toLocaleString('en-IN')}
                       </td>
                     </tr>
                   );
@@ -584,7 +562,7 @@ export default function Projects() {
                 </div>
                 <div className="mt-3 flex justify-between items-baseline">
                   <span className="text-xs text-muted-foreground">Budget:</span>
-                  <span className="text-sm font-bold text-foreground">₹{project.budget.toLocaleString()}</span>
+                  <span className="text-sm font-bold text-foreground">₹{project.budget.toLocaleString('en-IN')}</span>
                 </div>
               </div>
             ))}
@@ -606,11 +584,11 @@ export default function Projects() {
                           <Edit2 className="h-4 w-4" />
                         </button>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">Project Timeline | Start Date: {new Date(selectedProject.startDate).toLocaleDateString()}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Project Timeline | Start Date: {new Date(selectedProject.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                     </div>
                     <div className="text-right">
                       <span className="text-xs text-muted-foreground block">Allocated Budget</span>
-                      <span className="text-2xl font-bold text-primary">₹{selectedProject.budget.toLocaleString()}</span>
+                      <span className="text-2xl font-bold text-primary">₹{selectedProject.budget.toLocaleString('en-IN')}</span>
                     </div>
                   </div>
                 </div>
@@ -629,12 +607,12 @@ export default function Projects() {
                         <div className="grid grid-cols-3 gap-4 bg-muted/30 p-4 rounded-xl">
                           <div>
                             <span className="text-xs text-muted-foreground block">Total Disbursed</span>
-                            <span className="text-base font-semibold text-foreground">₹{totalSpent.toLocaleString()}</span>
+                            <span className="text-base font-semibold text-foreground">₹{totalSpent.toLocaleString('en-IN')}</span>
                           </div>
                           <div>
                             <span className="text-xs text-muted-foreground block">Remaining Budget</span>
                             <span className={`text-base font-bold ${remaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                              ₹{remaining.toLocaleString()}
+                              ₹{remaining.toLocaleString('en-IN')}
                             </span>
                           </div>
                           <div>
@@ -701,7 +679,7 @@ export default function Projects() {
                                     {exp.description && <p className="text-xs text-muted-foreground italic mt-1">{exp.description}</p>}
                                   </div>
                                   <span className="font-bold text-sm text-red-500">
-                                    -₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    -₹{exp.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                   </span>
                                 </div>
                                 {Object.keys(customData).length > 0 && (
@@ -803,8 +781,8 @@ export default function Projects() {
               </div>
 
               <div className="flex justify-end gap-2 mt-6">
-                <button type="button" onClick={() => { setIsModalOpen(false); setEditingProject(null); setFormData({ name: '', budget: '', status: 'IN_PROGRESS', startDate: '', priority: 'MEDIUM' }); setCustomFields([]); }} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">{editingProject ? 'Update Project' : 'Save Project'}</button>
+                <SecondaryAction onClick={() => { setIsModalOpen(false); setEditingProject(null); setFormData({ name: '', budget: '', status: 'IN_PROGRESS', startDate: '', priority: 'MEDIUM' }); setCustomFields([]); }} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded">Cancel</SecondaryAction>
+                <PrimaryAction type="submit" className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">{editingProject ? 'Update Project' : 'Save Project'}</PrimaryAction>
               </div>
             </form>
           </div>
@@ -891,8 +869,8 @@ export default function Projects() {
               })()}
 
               <div className="flex justify-end gap-2 mt-6">
-                <button type="button" onClick={() => setIsExpenseModalOpen(false)} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">Log Expense</button>
+                <SecondaryAction onClick={() => setIsExpenseModalOpen(false)} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded">Cancel</SecondaryAction>
+                <PrimaryAction type="submit" className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">Log Expense</PrimaryAction>
               </div>
             </form>
           </div>

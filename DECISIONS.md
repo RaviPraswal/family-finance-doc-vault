@@ -21,6 +21,7 @@ One line each. Status: **Accepted** (in force) or **Proposed** (needs Ravi's yes
 | D-15 | Git: feature branch per task → `develop`; never push to `main`; push only on Ravi's say-so. | Accepted |
 | D-16 | Never commit `*.xlsx`, bank statements, `private-data/` or real user data; never test with Ravi's real account. | Accepted |
 | D-17 | CI gate on every push/PR: lint, typecheck, tests, build, `npm audit --audit-level=high`, backend `mvn verify`. | Accepted (SPEC P0-6) |
+| D-18 | Liquid Glass skin uses **glisse** (MIT, pinned 0.5.0) for interactive controls via `components/ui/LiquidControls` (one switch point); Classic/Royal keep their controls (D-12). Skin CSS uses the `--fn-*` / `fn-*` prefix — `lg-` belongs to glisse. | Accepted (Ravi, 2026-11-10) |
 
 ### Why D-03 and D-04 are proposed (needs a yes)
 - **D-03 single ledger vs double-entry:** a full double-entry journal (every movement = balanced debit+credit across accounts) is the textbook model, but it means a new journal schema, migrating every existing entry and rewriting every screen — weeks, not one sprint. Deriving totals from the existing ledger removes the actual bug (drift) in ~3 days. Revisit if FinNest ever needs P&L/balance-sheet reports.

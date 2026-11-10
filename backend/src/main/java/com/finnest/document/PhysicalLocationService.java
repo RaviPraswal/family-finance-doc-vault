@@ -24,14 +24,13 @@ public class PhysicalLocationService {
     }
 
     public Optional<PhysicalLocation> getPhysicalLocation(UUID documentId) {
-        com.finnest.common.TenantGuard.owned(documentRepository.findById(documentId));
+        com.finnest.common.MemberScope.owned(documentRepository.findById(documentId)); // D-02
         return locationRepository.findByDocumentId(documentId);
     }
 
     @Transactional
     public PhysicalLocation assignPhysicalLocation(UUID documentId, PhysicalLocation locationData, User user) {
-        Document document = documentRepository.findById(documentId)
-                .orElseThrow(() -> new RuntimeException("Document not found"));
+        Document document = com.finnest.common.MemberScope.owned(documentRepository.findById(documentId)); // family + D-02
 
         // Tenant check
         UUID currentTenantId = UUID.fromString(TenantContext.getCurrentTenant());
@@ -71,8 +70,7 @@ public class PhysicalLocationService {
 
     @Transactional
     public PhysicalLocation checkOutDocument(UUID documentId, String borrowerName, String notes, User user) {
-        Document document = documentRepository.findById(documentId)
-                .orElseThrow(() -> new RuntimeException("Document not found"));
+        Document document = com.finnest.common.MemberScope.owned(documentRepository.findById(documentId)); // family + D-02
 
         UUID currentTenantId = UUID.fromString(TenantContext.getCurrentTenant());
         if (!document.getTenantId().equals(currentTenantId)) {
@@ -107,8 +105,7 @@ public class PhysicalLocationService {
 
     @Transactional
     public PhysicalLocation checkInDocument(UUID documentId, PhysicalLocation checkInLocation, String notes, User user) {
-        Document document = documentRepository.findById(documentId)
-                .orElseThrow(() -> new RuntimeException("Document not found"));
+        Document document = com.finnest.common.MemberScope.owned(documentRepository.findById(documentId)); // family + D-02
 
         UUID currentTenantId = UUID.fromString(TenantContext.getCurrentTenant());
         if (!document.getTenantId().equals(currentTenantId)) {
@@ -148,13 +145,13 @@ public class PhysicalLocationService {
     }
 
     public List<PhysicalDocumentLog> getLogs(UUID documentId) {
-        com.finnest.common.TenantGuard.owned(documentRepository.findById(documentId));
+        com.finnest.common.MemberScope.owned(documentRepository.findById(documentId)); // D-02
         return logRepository.findAllByDocumentIdOrderByCreatedAtDesc(documentId);
     }
 
     public Map<String, Object> getDashboardStats() {
         UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
-        List<Document> allDocs = documentRepository.findAllByTenantIdOrderByCreatedAtDesc(tenantId);
+        List<Document> allDocs = com.finnest.common.MemberScope.visible(documentRepository.findAllByTenantIdOrderByCreatedAtDesc(tenantId)); // D-02
 
         long totalDocuments = allDocs.size();
         long digitalOnly = 0;

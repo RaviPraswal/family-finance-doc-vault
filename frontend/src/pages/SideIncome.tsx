@@ -1,11 +1,13 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Plus, Trash2, Download, Printer, Banknote } from 'lucide-react';
 import SideIncomeTable from '../components/SideIncomeTable';
-import { sideIncomeRows } from '../lib/sideIncome';
-import { useEffect, useState, useMemo } from 'react';
+import { FREQUENCIES, shortDate, sideIncomeEntries, sideIncomeRows, sideIncomeTotals, type Entry } from '../lib/sideIncome';
+import { formatINR, toPaise } from '../lib/money';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
-import { Plus, Banknote, Trash2, Search, Download, Printer } from 'lucide-react';
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
+import { PrimaryAction, SearchBox, SecondaryAction } from '../components/ui/LiquidControls';
 
 interface IncomeSource {
   id: string;
@@ -13,553 +15,327 @@ interface IncomeSource {
   ownerName: string;
   amount: number;
   frequency: string;
-  dateReceived: string;
+  dateReceived?: string | null;
 }
+interface BankAccount { id: string; name?: string; bankName: string }
+type Payment = Entry & { id: string; expenseDate: string; amount: number };
 
-interface BankAccount {
-  id: string;
-  name: string;
-  bankName: string;
-}
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+const inr = (n: number) => formatINR(toPaise(n));
+const PAGE = 10;
+const field = 'w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary outline-none text-sm';
+const labelCls = 'block text-xs font-semibold text-muted-foreground mb-1';
 
+/**
+ * Sprint 8 rebuild (reported by Ravi as a family member, 2026-11-09): one list of sources with Record payment, Edit and
+ * Delete on each row; the add/edit form has the expected amount and how often it comes; every payment received is
+ * listed with its date, source, amount and bank.
+ */
 export default function SideIncome() {
   const toast = useToastStore();
   const confirm = useConfirmStore();
-  const [incomes, setIncomes] = useState<IncomeSource[]>([]);
-  const [expenses, setExpenses] = useState<any[]>([]);
-  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
-  
-  // Modals / Quick Actions
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isReceiveOpen, setIsReceiveOpen] = useState(false);
-  const [selectedSourceId, setSelectedSourceId] = useState<string>('');
-  
-  // Form states
-  const [formData, setFormData] = useState<Partial<IncomeSource>>({
-    sourceName: '',
-    ownerName: ''
-  });
+  const [sources, setSources] = useState<IncomeSource[]>([]);
+  const [expenses, setExpenses] = useState<Payment[]>([]);
+  const [banks, setBanks] = useState<BankAccount[]>([]);
 
-  const [receiveForm, setReceiveForm] = useState({
-    amount: '',
-    bankAccountId: '',
-    expenseDate: new Date().toISOString().split('T')[0],
-    description: '',
-    category: 'Side Income'
-  });
+  const [sourceForm, setSourceForm] = useState<{ open: boolean; editing: IncomeSource | null; sourceName: string; ownerName: string; amount: string; frequency: string }>(
+    { open: false, editing: null, sourceName: '', ownerName: '', amount: '', frequency: 'Monthly' });
+  const [payForm, setPayForm] = useState<{ source: IncomeSource | null; amount: string; bankAccountId: string; date: string; note: string }>(
+    { source: null, amount: '', bankAccountId: '', date: today(), note: '' });
+  const [saving, setSaving] = useState(false);
 
-  // Table filtering and pagination states
   const [search, setSearch] = useState('');
   const [filterSourceId, setFilterSourceId] = useState('ALL');
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [page, setPage] = useState(1);
 
-  useEffect(() => {
-    fetchIncomes();
-    fetchExpenses();
-    fetchBankAccounts();
-  }, []);
+  const load = async () => {
+    const [s, e, b] = await Promise.allSettled([apiClient('/api/incomesources'), apiClient('/api/expenses'), apiClient('/api/bankaccounts')]);
+    if (s.status === 'fulfilled') setSources(s.value ?? []);
+    if (e.status === 'fulfilled') setExpenses(e.value ?? []);
+    if (b.status === 'fulfilled') setBanks(b.value ?? []);
+    if ([s, e, b].some((r) => r.status === 'rejected')) toast.error('Could not load everything', 'Some side income data did not load. Please refresh.');
+  };
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const fetchIncomes = async () => {
-    try {
-      const data = await apiClient('/api/incomesources');
-      setIncomes(data);
-    } catch (err) {
-      console.error(err);
-    }
+  const rows = useMemo(() => sideIncomeRows(sources, expenses), [sources, expenses]);
+  const payments = useMemo(() => sideIncomeEntries(expenses), [expenses]);
+  const totals = useMemo(() => sideIncomeTotals(payments), [payments]);
+  const overdue = rows.filter((r) => r.status === 'OVERDUE').length;
+
+  const filtered = useMemo(() => payments.filter((p) => {
+    const q = search.trim().toLowerCase();
+    const text = `${p.linkedIncomeSource?.sourceName ?? ''} ${p.category ?? ''} ${p.description ?? ''} ${p.linkedAccount?.bankName ?? ''}`.toLowerCase();
+    return (!q || text.includes(q)) && (filterSourceId === 'ALL' || p.linkedIncomeSource?.id === filterSourceId);
+  }), [payments, search, filterSourceId]);
+  const pages = Math.max(1, Math.ceil(filtered.length / PAGE));
+  const shown = filtered.slice((page - 1) * PAGE, page * PAGE);
+  const sourceName = (p: Payment) => p.linkedIncomeSource?.sourceName
+    || sources.find((s) => s.id === p.linkedIncomeSource?.id)?.sourceName || p.category || 'Side income';
+
+  const openAdd = () => setSourceForm({ open: true, editing: null, sourceName: '', ownerName: '', amount: '', frequency: 'Monthly' });
+  const openEdit = (id: string) => {
+    const s = sources.find((x) => x.id === id);
+    if (s) setSourceForm({ open: true, editing: s, sourceName: s.sourceName, ownerName: s.ownerName ?? '', amount: s.amount ? String(s.amount) : '', frequency: s.frequency || 'Monthly' });
+  };
+  const openPayment = (id: string) => {
+    const s = sources.find((x) => x.id === id) ?? null;
+    const expected = rows.find((r) => r.id === id)?.expected;
+    setPayForm({ source: s, amount: expected ? String(expected) : '', bankAccountId: '', date: today(), note: '' });
   };
 
-  const fetchExpenses = async () => {
-    try {
-      const data = await apiClient('/api/expenses');
-      setExpenses(data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const fetchBankAccounts = async () => {
-    try {
-      const data = await apiClient('/api/bankaccounts');
-      setBankAccounts(data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const saveSource = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaving(true);
+    const body = { sourceName: sourceForm.sourceName.trim(), ownerName: sourceForm.ownerName.trim(), amount: Number(sourceForm.amount) || 0, frequency: sourceForm.frequency };
     try {
-      await apiClient('/api/incomesources', {
-        method: 'POST',
-        body: JSON.stringify({
-          ...formData,
-          amount: 0,
-          frequency: 'One-time'
-        })
-      });
-      setIsModalOpen(false);
-      setFormData({ sourceName: '', ownerName: '' });
-      toast.success('Income source saved', 'Your side income source has been added successfully.');
-      fetchIncomes();
+      if (sourceForm.editing) {
+        await apiClient(`/api/incomesources/${sourceForm.editing.id}`, { method: 'PUT', body: JSON.stringify({ ...sourceForm.editing, ...body }) });
+      } else {
+        await apiClient('/api/incomesources', { method: 'POST', body: JSON.stringify(body) });
+      }
+      toast.success('Source saved', `${body.sourceName} is saved.`);
+      setSourceForm((f) => ({ ...f, open: false }));
+      load();
     } catch (err: any) {
-      toast.error('Failed to save', err.message || 'Could not save income source. Please try again.');
+      toast.error('Could not save the source', err.message || 'Please try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleReceiveSubmit = async (e: React.FormEvent) => {
+  const savePayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSourceId) return;
+    if (!payForm.source) return;
+    setSaving(true);
     try {
       await apiClient('/api/expenses', {
         method: 'POST',
         body: JSON.stringify({
-          amount: parseFloat(receiveForm.amount),
-          category: receiveForm.category,
-          expenseDate: receiveForm.expenseDate,
-          description: receiveForm.description,
+          amount: Number(payForm.amount),
+          category: 'Side Income',
+          expenseDate: payForm.date,
+          description: payForm.note || null,
           type: 'CREDIT',
           madeAgainst: 'INCOME_SOURCE',
-          linkedAccount: receiveForm.bankAccountId ? { id: receiveForm.bankAccountId } : null,
-          linkedIncomeSource: { id: selectedSourceId }
-        })
+          linkedAccount: payForm.bankAccountId ? { id: payForm.bankAccountId } : null,
+          linkedIncomeSource: { id: payForm.source.id },
+        }),
       });
-
-      // Update dateReceived in the income source
-      const matchedSource = incomes.find(i => i.id === selectedSourceId);
-      if (matchedSource) {
-        await apiClient(`/api/incomesources/${selectedSourceId}`, {
-          method: 'PUT',
-          body: JSON.stringify({
-            ...matchedSource,
-            dateReceived: receiveForm.expenseDate
-          })
-        });
-      }
-
-      setIsReceiveOpen(false);
-      setReceiveForm({ amount: '', bankAccountId: '', expenseDate: new Date().toISOString().split('T')[0], description: '', category: 'Side Income' });
-      toast.success('Inflow recorded', 'The credit transaction was successfully logged.');
-      fetchExpenses();
-      fetchIncomes();
+      toast.success('Payment recorded', `${inr(Number(payForm.amount))} from ${payForm.source.sourceName}.`);
+      setPayForm((f) => ({ ...f, source: null }));
+      load();
     } catch (err: any) {
-      toast.error('Failed to save credit transaction', err.message || 'Error occurred.');
+      toast.error('Could not record the payment', err.message || 'Please try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const deleteSource = (id: string) => {
+    const s = sources.find((x) => x.id === id);
     confirm.show({
-      title: 'Delete Income Source',
-      message: 'Are you sure you want to delete this income source? This action cannot be undone.',
+      title: 'Delete income source',
+      message: `Delete ${s?.sourceName ?? 'this source'}? Payments already recorded stay in your ledger.`,
       confirmLabel: 'Delete',
       danger: true,
       onConfirm: async () => {
         try {
           await apiClient(`/api/incomesources/${id}`, { method: 'DELETE' });
-          toast.success('Income source deleted', 'The income source has been removed.');
-          fetchIncomes();
+          toast.success('Source deleted', `${s?.sourceName ?? 'The source'} was removed.`);
+          load();
         } catch (err: any) {
-          toast.error('Cannot delete income source', err.message || 'Failed to delete income source.');
+          toast.error('Could not delete the source', err.message || 'It may still have payments linked to it.');
         }
       },
     });
   };
 
-  const handleDeleteTx = async (id: string) => {
+  const deletePayment = (p: Payment) => {
     confirm.show({
-      title: 'Delete Transaction',
-      message: 'Are you sure you want to delete this credit statement entry?',
+      title: 'Delete payment',
+      message: `Delete the payment of ${inr(p.amount)} on ${shortDate(p.expenseDate)}? Your bank balance will be adjusted.`,
       confirmLabel: 'Delete',
       danger: true,
       onConfirm: async () => {
         try {
-          await apiClient(`/api/expenses/${id}`, { method: 'DELETE' });
-          toast.success('Transaction deleted', 'The entry has been deleted.');
-          fetchExpenses();
+          await apiClient(`/api/expenses/${p.id}`, { method: 'DELETE' });
+          toast.success('Payment deleted', 'The entry was removed from your ledger.');
+          load();
         } catch (err: any) {
-          toast.error('Cannot delete transaction', err.message || 'Failed.');
+          toast.error('Could not delete the payment', err.message || 'Please try again.');
         }
-      }
+      },
     });
   };
 
-  // 1. Expected and Received Income Calculations
-  const now = new Date();
-  const currentMonth = now.getMonth();
-  const currentYear = now.getFullYear();
-
-  const creditTransactions = useMemo(() => {
-    return expenses.filter(e => e.type === 'CREDIT' && e.madeAgainst === 'INCOME_SOURCE');
-  }, [expenses]);
-
-  // Sprint 8 S8-6: one row per source — last entry, next due, plain overdue wording.
-  const incomeRows = useMemo(() => sideIncomeRows(incomes, expenses), [incomes, expenses]);
-
-  // 2. Filter & Sort Inflow History Statement Table
-  const filteredTxns = useMemo(() => {
-    return creditTransactions
-      .filter(tx => {
-        const sourceName = tx.linkedIncomeSource?.sourceName || '';
-        const matchesSearch = sourceName.toLowerCase().includes(search.toLowerCase()) ||
-                              (tx.category || '').toLowerCase().includes(search.toLowerCase()) ||
-                              (tx.description || '').toLowerCase().includes(search.toLowerCase());
-        const matchesSource = filterSourceId === 'ALL' || tx.linkedIncomeSource?.id === filterSourceId;
-        return matchesSearch && matchesSource;
-      })
-      .sort((a, b) => new Date(b.expenseDate).getTime() - new Date(a.expenseDate).getTime());
-  }, [creditTransactions, search, filterSourceId]);
-
-  // Paginated Ledger History
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedTxns = filteredTxns.slice(startIndex, startIndex + itemsPerPage);
-  const totalPages = Math.ceil(filteredTxns.length / itemsPerPage);
-
-  // Exporters
-  const handleExportCSV = () => {
-    const headers = ['Date', 'Source Channel', 'Inflow Category', 'Bank Received', 'Description', 'Amount Received'];
-    const exportData = filteredTxns.map(tx => [
-      tx.expenseDate,
-      tx.linkedIncomeSource?.sourceName || 'Direct',
-      tx.category,
-      tx.linkedAccount?.name || '-',
-      tx.description || '',
-      tx.amount
-    ]);
-    exportToCSV(exportData, headers, 'Side_Income_Statement');
-  };
-
-  const handleExportPDF = () => {
-    const headers = ['Date', 'Source Channel', 'Category', 'Bank account', 'Amount'];
-    const exportData = filteredTxns.map(tx => [
-      tx.expenseDate,
-      tx.linkedIncomeSource?.sourceName || 'Direct',
-      tx.category,
-      tx.linkedAccount?.name || '-',
-      `₹${tx.amount.toLocaleString()}`
-    ]);
-    exportToPDF('Side Inflows Statement Ledger', headers, exportData, 'Side_Income_Statement');
-  };
+  const exportRows = () => filtered.map((p) => [p.expenseDate, sourceName(p), p.amount, p.linkedAccount?.bankName ?? '', p.description ?? '']);
+  const headers = ['Date', 'Source', 'Amount', 'Bank', 'Note'];
 
   return (
-    <div className="min-h-full flex flex-col">
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
+    <div className="min-h-full flex flex-col gap-6">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground font-sans">Side Income Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Monitor freelancing, rental yields, and business cashflow with real-time statement ledgers</p>
+          <h1 className="text-2xl font-bold text-foreground">Side Income</h1>
+          <p className="text-sm text-muted-foreground">Each source, when it last paid, what is due next, and every payment received.</p>
         </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 text-sm font-medium transition-all"
-        >
-          <Plus className="h-4 w-4" /> Add Income Channel
-        </button>
+        <PrimaryAction onClick={openAdd} className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90" icon={<Plus className="h-4 w-4" />}>Add source</PrimaryAction>
       </div>
 
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-xs font-semibold text-muted-foreground">Received this month</p>
+          <p className="text-xl font-bold tabular-nums mt-1">{inr(totals.thisMonth)}</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-xs font-semibold text-muted-foreground">Received this financial year</p>
+          <p className="text-xl font-bold tabular-nums mt-1">{inr(totals.thisYear)}</p>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4">
+          <p className="text-xs font-semibold text-muted-foreground">Sources</p>
+          <p className="text-xl font-bold mt-1">{sources.length} <span className={`text-sm font-semibold ${overdue ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>· {overdue} overdue</span></p>
+        </div>
+      </div>
 
-      {/* Main Single Screen Dense Dashboard Layout */}
-      <section aria-labelledby="side-income-glance" className="mb-6 space-y-2">
-        <h2 id="side-income-glance" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Sources at a glance</h2>
-        <SideIncomeTable rows={incomeRows} />
+      <section aria-labelledby="sources-title" className="space-y-2">
+        <h2 id="sources-title" className="text-sm font-bold text-foreground">Sources</h2>
+        {sources.length === 0 ? (
+          <div className="bg-card border border-dashed border-border rounded-xl p-8 text-center text-sm text-muted-foreground">
+            <Banknote className="h-6 w-6 mx-auto mb-2 opacity-60" />
+            No side income sources yet. Add one to track when it pays.
+          </div>
+        ) : (
+          <SideIncomeTable rows={rows} onRecord={openPayment} onEdit={openEdit} onDelete={deleteSource} />
+        )}
       </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0">
-        
-        {/* Left Columns (col-span-8): Graphs, Heatmap, Ledger */}
-        <div className="lg:col-span-8 flex flex-col gap-6 h-full min-h-0">
-          
-
-          {/* Bottom Panel: Ledger history list table */}
-          <div className="bg-card border border-border/50 rounded-2xl flex-1 flex flex-col min-h-0 overflow-hidden">
-            <div className="p-3.5 border-b border-border/50 flex flex-wrap items-center justify-between gap-3 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Search history..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="pl-8 pr-2.5 py-1 bg-background border border-border rounded text-xs outline-none focus:ring-1 focus:ring-primary w-48 text-foreground"
-                  />
-                </div>
-                
-                <select
-                  value={filterSourceId}
-                  onChange={(e) => setFilterSourceId(e.target.value)}
-                  className="px-2 py-1 bg-background border border-border rounded text-xs text-foreground outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-                >
-                  <option value="ALL">All Source Channels</option>
-                  {incomes.map(inc => (
-                    <option key={inc.id} value={inc.id}>{inc.sourceName}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleExportCSV}
-                  className="flex items-center gap-1.5 px-2.5 py-1 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded text-[10px] font-medium border border-border/50 transition-all cursor-pointer"
-                >
-                  <Download className="h-3 w-3" /> CSV
-                </button>
-                <button
-                  onClick={handleExportPDF}
-                  className="flex items-center gap-1.5 px-2.5 py-1 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded text-[10px] font-medium border border-border/50 transition-all cursor-pointer"
-                >
-                  <Printer className="h-3 w-3" /> PDF
-                </button>
-              </div>
-            </div>
-
-            <div className="overflow-auto custom-scrollbar flex-1">
-              <table className="min-w-full divide-y divide-border dense-table">
-                <thead className="bg-muted/30 sticky top-0 z-10 backdrop-blur-md">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Date</th>
-                    <th className="px-4 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Income Source</th>
-                    <th className="px-4 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Category</th>
-                    <th className="px-4 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Target Bank</th>
-                    <th className="px-4 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Description</th>
-                    <th className="px-4 py-2 text-left text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Inflow credit</th>
-                    <th className="px-4 py-2 text-right text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-16"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border bg-card/50">
-                  {paginatedTxns.map((tx, idx) => (
-                    <tr key={tx.id} className={`hover:bg-muted/30 transition-colors group ${idx % 2 === 0 ? 'bg-background/20' : 'bg-card/10'}`}>
-                      <td className="px-4 py-2 whitespace-nowrap font-mono text-xs text-muted-foreground">
-                        {tx.expenseDate}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap">
-                        <div className="flex items-center text-xs font-semibold text-foreground">
-                          <Banknote className="h-3.5 w-3.5 text-muted-foreground mr-1.5 shrink-0" />
-                          {tx.linkedIncomeSource?.sourceName || 'Direct Inflow'}
-                        </div>
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-xs text-foreground font-medium">
-                        {tx.category}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap text-xs text-muted-foreground font-medium">
-                        {tx.linkedAccount?.name || '-'}
-                      </td>
-                      <td className="px-4 py-2 text-xs text-muted-foreground max-w-[150px] truncate" title={tx.description}>
-                        {tx.description || '-'}
-                      </td>
-                      <td className="px-4 py-2 whitespace-nowrap font-mono font-bold text-green-500 text-sm tabular-nums">
-                        +₹{tx.amount.toLocaleString()}
-                      </td>
-                      <td className="px-4 py-2 text-right text-xs whitespace-nowrap">
-                        <button 
-                          onClick={() => handleDeleteTx(tx.id)} 
-                          className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-500 transition-all p-0.5"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            {filteredTxns.length > 0 && (
-              <div className="flex items-center justify-between border-t border-border/50 p-2.5 bg-muted/10 shrink-0 text-xs">
-                <div className="flex flex-1 justify-between sm:hidden">
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                    className="relative inline-flex items-center rounded border border-border bg-card px-3 py-1.5 font-medium text-foreground hover:bg-muted disabled:opacity-50"
-                  >
-                    Prev
-                  </button>
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    className="relative inline-flex items-center rounded border border-border bg-card px-3 py-1.5 font-medium text-foreground hover:bg-muted disabled:opacity-50"
-                  >
-                    Next
-                  </button>
-                </div>
-                <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between font-sans">
-                  <p className="text-muted-foreground">
-                    Showing <span className="font-semibold text-foreground">{startIndex + 1}</span> to{' '}
-                    <span className="font-semibold text-foreground">{Math.min(startIndex + itemsPerPage, filteredTxns.length)}</span> of{' '}
-                    <span className="font-semibold text-foreground">{filteredTxns.length}</span> results
-                  </p>
-                  {totalPages > 1 && (
-                    <nav className="isolate inline-flex -space-x-px rounded shadow-xs" aria-label="Pagination">
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                        disabled={currentPage === 1}
-                        className="relative inline-flex items-center px-2 py-1.5 text-muted-foreground ring-1 ring-inset ring-border bg-card hover:bg-muted disabled:opacity-50 rounded-l"
-                      >
-                        <span className="sr-only">Previous</span>
-                        <svg className="h-4.5 w-4.5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                        disabled={currentPage === totalPages}
-                        className="relative inline-flex items-center px-2 py-1.5 text-muted-foreground ring-1 ring-inset ring-border bg-card hover:bg-muted disabled:opacity-50 rounded-r"
-                      >
-                        <span className="sr-only">Next</span>
-                        <svg className="h-4.5 w-4.5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                    </nav>
-                  )}
-                </div>
-              </div>
-            )}
+      <section aria-labelledby="payments-title" className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="payments-title" className="text-sm font-bold text-foreground">Payments received</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <SearchBox value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search" ariaLabel="Search payments"
+              iconClassName="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" inputClassName="pl-8 pr-3 py-1.5 bg-background border border-border rounded-lg text-sm w-48" />
+            <select aria-label="Filter by source" value={filterSourceId} onChange={(e) => { setFilterSourceId(e.target.value); setPage(1); }}
+              className="px-3 py-1.5 bg-background border border-border rounded-lg text-sm">
+              <option value="ALL">All sources</option>
+              {sources.map((s) => <option key={s.id} value={s.id}>{s.sourceName}</option>)}
+            </select>
+            <SecondaryAction onClick={() => exportToCSV(exportRows(), headers, 'Side_Income_Payments')} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-xs font-semibold hover:bg-muted" icon={<Download className="h-3.5 w-3.5" />}>CSV</SecondaryAction>
+            <SecondaryAction onClick={() => exportToPDF('Side income payments', headers, exportRows(), 'Side_Income_Payments')} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-xs font-semibold hover:bg-muted" icon={<Printer className="h-3.5 w-3.5" />}>PDF</SecondaryAction>
           </div>
         </div>
-
-        {/* Right Column (col-span-4): Source Channels Directory, Projections, Share */}
-        <div className="lg:col-span-4 flex flex-col gap-6 h-full min-h-0 overflow-y-auto pr-1 custom-scrollbar">
-          
-          {/* Income Source Channels */}
-          <div className="bg-card border border-border/50 rounded-xl p-4 flex flex-col">
-            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3.5 flex items-center justify-between">
-              <span>Income Channels Directory</span>
-              <span className="text-[10px] text-muted-foreground font-mono">{incomes.length} channels</span>
-            </h3>
-
-            <div className="space-y-2">
-              {incomes.map(source => {
-                const isReceived = creditTransactions.some(e => {
-                  const d = new Date(e.expenseDate);
-                  return e.linkedIncomeSource?.id === source.id && d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-                });
-
-                const row = incomeRows.find(r => r.id === source.id);
-
-                const channelTxns = creditTransactions.filter(e => e.linkedIncomeSource?.id === source.id);
-                const lastTxn = channelTxns.length > 0 
-                  ? [...channelTxns].sort((a, b) => new Date(b.expenseDate).getTime() - new Date(a.expenseDate).getTime())[0]
-                  : null;
-
-                const totalCollected = channelTxns.reduce((sum, e) => sum + e.amount, 0);
-
-                return (
-                  <div key={source.id} className="p-3 rounded-lg border border-border/40 bg-card/65 hover:bg-muted/15 transition-all flex items-center justify-between group">
-                    <div>
-                      <h4 className="text-xs font-bold text-foreground leading-tight flex items-center gap-1.5">
-                        {source.sourceName}
-                        {isReceived ? (
-                          <span className="text-[8px] bg-green-500/10 text-green-500 font-bold px-1 rounded uppercase">Collected</span>
-                        ) : (
-                          <span className="text-[8px] bg-amber-500/10 text-amber-500 font-bold px-1 rounded uppercase">Pending</span>
-                        )}
-                      </h4>
-                      <p className="text-[10px] text-muted-foreground mt-0.5 font-medium uppercase">
-                        {source.frequency} • {source.ownerName}
-                      </p>
-                      {row && row.status !== 'RECEIVED' && (
-                        <p className={`text-[9px] font-bold mt-1 ${row.status === 'OVERDUE' ? 'text-red-500' : 'text-amber-500'}`}>{row.label}</p>
-                      )}
-                      <p className="text-[9px] text-muted-foreground font-mono mt-1">
-                        Last credit: {lastTxn ? `₹${lastTxn.amount.toLocaleString()} on ${new Date(lastTxn.expenseDate).toLocaleDateString()}` : 'Never'}
-                      </p>
-                    </div>
-
-                    <div className="text-right flex flex-col items-end gap-1.5">
-                      <span className="text-xs font-mono font-bold text-green-500 tabular-nums">
-                        ₹{totalCollected.toLocaleString()}
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => {
-                            setSelectedSourceId(source.id);
-                            setReceiveForm(prev => ({
-                              ...prev,
-                              amount: '0'
-                            }));
-                            setIsReceiveOpen(true);
-                          }}
-                          className="opacity-0 group-hover:opacity-100 text-[10px] bg-primary/10 text-primary hover:bg-primary hover:text-white px-2 py-0.5 rounded font-bold transition-all cursor-pointer"
-                        >
-                          + Receive
-                        </button>
-                        <button
-                          onClick={() => handleDelete(source.id)}
-                          className="text-muted-foreground hover:text-red-500"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+          <table aria-label="Payments received" className="min-w-full text-sm">
+            <thead className="bg-muted/50">
+              <tr className="text-left text-xs text-muted-foreground uppercase tracking-wider">
+                <th className="px-3 py-2">Date</th>
+                <th className="px-3 py-2">Source</th>
+                <th className="px-3 py-2 text-right">Amount</th>
+                <th className="px-3 py-2">Bank</th>
+                <th className="px-3 py-2">Note</th>
+                <th className="px-3 py-2"><span className="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60">
+              {shown.length === 0 ? (
+                <tr><td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
+                  {payments.length === 0 ? 'No payments recorded yet. Use “Payment” on a source to record one.' : 'No payments match your search.'}
+                </td></tr>
+              ) : shown.map((p) => (
+                <tr key={p.id}>
+                  <td className="px-3 py-2 whitespace-nowrap">{shortDate(p.expenseDate)}</td>
+                  <td className="px-3 py-2 font-semibold">{sourceName(p)}</td>
+                  <td className="px-3 py-2 text-right font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">{inr(p.amount)}</td>
+                  <td className="px-3 py-2">{p.linkedAccount?.bankName || p.linkedAccount?.name || '—'}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{p.description || '—'}</td>
+                  <td className="px-3 py-2 text-right">
+                    <button type="button" onClick={() => deletePayment(p)} aria-label={`Delete payment of ${inr(p.amount)} on ${shortDate(p.expenseDate)}`}
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-muted"><Trash2 className="h-4 w-4" /></button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {filtered.length > PAGE && (
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>Payments {(page - 1) * PAGE + 1}–{Math.min(page * PAGE, filtered.length)} of {filtered.length}</span>
+            <div className="flex gap-1">
+              <button type="button" disabled={page === 1} onClick={() => setPage(page - 1)} className="px-3 py-1 border border-border rounded-lg disabled:opacity-40">Previous</button>
+              <button type="button" disabled={page === pages} onClick={() => setPage(page + 1)} className="px-3 py-1 border border-border rounded-lg disabled:opacity-40">Next</button>
             </div>
           </div>
+        )}
+      </section>
 
-
-
-        </div>
-      </div>
-
-      {/* Add Income Source Modal */}
-      {isModalOpen && (
+      {sourceForm.open && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-2xl p-5 max-w-sm w-full shadow-2xl">
-            <h2 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">Add Side Income Channel</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
+          <div role="dialog" aria-modal="true" aria-labelledby="source-form-title" className="bg-card rounded-2xl p-6 max-w-md w-full shadow-2xl border border-border">
+            <h2 id="source-form-title" className="text-lg font-bold mb-4">{sourceForm.editing ? 'Edit income source' : 'Add income source'}</h2>
+            <form onSubmit={saveSource} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Source Name</label>
-                <input required value={formData.sourceName} onChange={e => setFormData({...formData, sourceName: e.target.value})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary outline-none transition-all text-xs" placeholder="e.g. Rent, Freelancing" />
+                <label htmlFor="src-name" className={labelCls}>Source name</label>
+                <input id="src-name" required value={sourceForm.sourceName} onChange={(e) => setSourceForm({ ...sourceForm, sourceName: e.target.value })} className={field} placeholder="e.g. Tuition, Rent, Freelance" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Owner Name</label>
-                <input required value={formData.ownerName} onChange={e => setFormData({...formData, ownerName: e.target.value})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary outline-none transition-all text-xs" placeholder="e.g. Self, Partner" />
+                <label htmlFor="src-from" className={labelCls}>Received from</label>
+                <input id="src-from" required value={sourceForm.ownerName} onChange={(e) => setSourceForm({ ...sourceForm, ownerName: e.target.value })} className={field} placeholder="e.g. Dinesh, Tenant" />
               </div>
-              {/* Removed Expected Amount and Frequency fields */}
-              <div className="flex justify-end gap-2 mt-6">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-xs text-muted-foreground hover:bg-muted rounded-lg font-semibold">Cancel</button>
-                <button type="submit" className="px-4 py-2 text-xs bg-primary text-white rounded-lg hover:bg-primary/90 font-bold transition-all">Save Channel</button>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="src-amount" className={labelCls}>Expected amount (₹)</label>
+                  <input id="src-amount" required type="number" min="0" step="0.01" inputMode="decimal" value={sourceForm.amount}
+                    onChange={(e) => setSourceForm({ ...sourceForm, amount: e.target.value })} className={field} placeholder="15000" />
+                </div>
+                <div>
+                  <label htmlFor="src-freq" className={labelCls}>How often</label>
+                  <select id="src-freq" value={sourceForm.frequency} onChange={(e) => setSourceForm({ ...sourceForm, frequency: e.target.value })} className={field}>
+                    {FREQUENCIES.map((f) => <option key={f} value={f}>{f}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <SecondaryAction onClick={() => setSourceForm({ ...sourceForm, open: false })} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg font-semibold">Cancel</SecondaryAction>
+                <PrimaryAction type="submit" disabled={saving} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold disabled:opacity-50">Save source</PrimaryAction>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Quick Receive Collection Modal */}
-      {isReceiveOpen && (
+      {payForm.source && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-2xl p-5 max-w-sm w-full shadow-2xl">
-            <h2 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">Log Received credit Inflow</h2>
-            <form onSubmit={handleReceiveSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Inflow Amount (₹)</label>
-                <input required type="number" value={receiveForm.amount} onChange={e => setReceiveForm({...receiveForm, amount: e.target.value})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary outline-none transition-all text-xs font-mono" />
+          <div role="dialog" aria-modal="true" aria-labelledby="pay-form-title" className="bg-card rounded-2xl p-6 max-w-md w-full shadow-2xl border border-border">
+            <h2 id="pay-form-title" className="text-lg font-bold mb-1">Record payment</h2>
+            <p className="text-sm text-muted-foreground mb-4">{payForm.source.sourceName}</p>
+            <form onSubmit={savePayment} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="pay-amount" className={labelCls}>Amount received (₹)</label>
+                  <input id="pay-amount" required type="number" min="0.01" step="0.01" inputMode="decimal" value={payForm.amount}
+                    onChange={(e) => setPayForm({ ...payForm, amount: e.target.value })} className={field} />
+                </div>
+                <div>
+                  <label htmlFor="pay-date" className={labelCls}>Date received</label>
+                  <input id="pay-date" required type="date" value={payForm.date} onChange={(e) => setPayForm({ ...payForm, date: e.target.value })} className={field} />
+                </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Receive Bank Account</label>
-                <select required value={receiveForm.bankAccountId} onChange={e => setReceiveForm({...receiveForm, bankAccountId: e.target.value})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary outline-none transition-all text-xs cursor-pointer">
-                  <option value="">-- Select Destination Bank --</option>
-                  {bankAccounts.map(ba => (
-                    <option key={ba.id} value={ba.id}>{ba.name} ({ba.bankName})</option>
-                  ))}
+                <label htmlFor="pay-bank" className={labelCls}>Into bank account (optional)</label>
+                <select id="pay-bank" value={payForm.bankAccountId} onChange={(e) => setPayForm({ ...payForm, bankAccountId: e.target.value })} className={field}>
+                  <option value="">Cash / not in a bank</option>
+                  {banks.map((b) => <option key={b.id} value={b.id}>{b.bankName}{b.name ? ` · ${b.name}` : ''}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Receive Date</label>
-                <input required type="date" value={receiveForm.expenseDate} onChange={e => setReceiveForm({...receiveForm, expenseDate: e.target.value})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary outline-none transition-all text-xs" />
+                <label htmlFor="pay-note" className={labelCls}>Note (optional)</label>
+                <input id="pay-note" value={payForm.note} onChange={(e) => setPayForm({ ...payForm, note: e.target.value })} className={field} placeholder="e.g. November fee" />
               </div>
-              <div>
-                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Credit Category</label>
-                <input required value={receiveForm.category} onChange={e => setReceiveForm({...receiveForm, category: e.target.value})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary outline-none transition-all text-xs" placeholder="e.g. Side Income, Rental Inflow" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Optional Memo / Description</label>
-                <textarea value={receiveForm.description} onChange={e => setReceiveForm({...receiveForm, description: e.target.value})} className="w-full p-2 rounded-lg bg-background text-foreground border border-border focus:border-primary outline-none text-xs" placeholder="Transaction details..." rows={2} />
-              </div>
-              <div className="flex justify-end gap-2 mt-6">
-                <button type="button" onClick={() => setIsReceiveOpen(false)} className="px-4 py-2 text-xs text-muted-foreground hover:bg-muted rounded-lg font-semibold">Cancel</button>
-                <button type="submit" className="px-4 py-2 text-xs bg-primary text-white rounded-lg hover:bg-primary/90 font-bold transition-all">Submit Inflow</button>
+              <div className="flex justify-end gap-2 pt-2">
+                <SecondaryAction onClick={() => setPayForm({ ...payForm, source: null })} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg font-semibold">Cancel</SecondaryAction>
+                <PrimaryAction type="submit" disabled={saving} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold disabled:opacity-50">Save payment</PrimaryAction>
               </div>
             </form>
           </div>

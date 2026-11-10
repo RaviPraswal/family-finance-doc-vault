@@ -185,3 +185,20 @@
   padding: 8px 12px;
   font-size: 13px;
 }
+
+/* ---------- Phones and short windows (every look) ---------- */
+/* A dialog never runs off the screen: it fits the window and scrolls inside, so its title and buttons are always reachable. */
+.fixed.inset-0 > .bg-card:not(.fn-drawer),
+.fixed.inset-0 > [role='dialog']:not(.fn-drawer) {
+  max-height: calc(100dvh - 1.5rem);
+}
+.fixed.inset-0 > .bg-card:not(.overflow-hidden, .fn-drawer),
+.fixed.inset-0 > [role='dialog']:not(.overflow-hidden, .fn-drawer) {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+@media (max-width: 480px) {
+  .fixed.inset-0.p-4 { padding: 0.75rem; }
+  .fixed.inset-0 > .bg-card.p-6:not(.fn-drawer),
+  .fixed.inset-0 > [role='dialog'].p-6:not(.fn-drawer) { padding: 1.25rem; }
+}

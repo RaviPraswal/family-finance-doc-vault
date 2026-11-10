@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { loadSession } from '../store/authStore';
 import { apiClient } from '../api/client';
 import { useNavigate, Link } from 'react-router-dom';
+import { PrimaryAction } from '../components/ui/LiquidControls';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -53,12 +54,7 @@ export default function Login() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          <button
-            type="submit"
-            className="w-full bg-primary text-primary-foreground p-3 rounded-md font-semibold hover:bg-primary/90 transition-all hover:scale-[1.02]"
-          >
-            Log In
-          </button>
+          <PrimaryAction type="submit" className="w-full bg-primary text-primary-foreground p-3 rounded-md font-semibold hover:bg-primary/90 transition-all hover:scale-[1.02]">Log In</PrimaryAction>
         </form>
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Don't have an account? <Link to="/register" className="text-primary hover:underline">Register here</Link>

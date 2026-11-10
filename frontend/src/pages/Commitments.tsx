@@ -3,6 +3,7 @@ import { CalendarClock, Plus, Pause, Play, Pencil, Trash2 } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
+import { PrimaryAction } from '../components/ui/LiquidControls';
 
 type Group = 'INCOME' | 'MUST_PAY' | 'LIVING' | 'PAUSABLE';
 type Frequency = 'MONTHLY' | 'DAILY' | 'EVERY_N_MONTHS';
@@ -170,12 +171,7 @@ export default function Commitments() {
         </div>
         <div className="flex gap-2 items-center">
           <input type="month" value={month} onChange={e => setMonth(e.target.value)} className={input} aria-label="Month" />
-          <button
-            onClick={() => { setShowForm(!showForm); setEditingId(null); setForm(emptyForm); }}
-            className="px-4 py-2 bg-primary text-primary-foreground font-medium rounded-xl hover:opacity-90 flex items-center gap-2 whitespace-nowrap"
-          >
-            {showForm ? 'Cancel' : <><Plus className="h-4 w-4" /> Add</>}
-          </button>
+          <PrimaryAction onClick={() => { setShowForm(!showForm); setEditingId(null); setForm(emptyForm); }} className="px-4 py-2 bg-primary text-primary-foreground font-medium rounded-xl hover:opacity-90 flex items-center gap-2 whitespace-nowrap" icon={showForm ? undefined : <Plus className="h-4 w-4" />}>{showForm ? 'Cancel' : 'Add'}</PrimaryAction>
         </div>
       </div>
 
@@ -249,9 +245,7 @@ export default function Commitments() {
             <input value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} className={input} />
           </label>
           <div className="flex items-end">
-            <button type="submit" className="w-full px-4 py-2 bg-primary text-primary-foreground font-medium rounded-xl hover:opacity-90">
-              {editingId ? 'Save changes' : 'Add commitment'}
-            </button>
+            <PrimaryAction type="submit" className="w-full px-4 py-2 bg-primary text-primary-foreground font-medium rounded-xl hover:opacity-90">{editingId ? 'Save changes' : 'Add commitment'}</PrimaryAction>
           </div>
         </form>
       )}

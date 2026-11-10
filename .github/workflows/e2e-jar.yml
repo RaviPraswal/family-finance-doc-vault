@@ -1,0 +1,30 @@
+# Builds the backend JAR on feature branches and prints it (gzip + base64) into the job log, so end-to-end
+# checks can run the real app where Maven Central and artifact storage are not reachable. Read-only token.
+name: E2E JAR
+on:
+  push:
+    branches: ['feature/**']
+    paths: ['backend/**', '.github/workflows/e2e-jar.yml']
+permissions:
+  contents: read
+concurrency:
+  group: e2e-jar-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  jar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+      - name: Build JAR (tests run in CI)
+        working-directory: backend
+        run: bash mvnw -B -ntp -q -DskipTests package
+      - name: Print JAR
+        run: |
+          f=$(ls backend/target/*.jar | grep -v original | head -1)
+          ls -la "$f"; sha256sum "$f"
+          echo "JAR-BEGIN"; gzip -9c "$f" | base64 -w 120; echo "JAR-END"

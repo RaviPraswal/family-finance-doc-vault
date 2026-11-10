@@ -2,9 +2,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
-import { Plus, Landmark, Trash2, Search, Download, Printer, FileText } from 'lucide-react';
+import { Plus, Landmark, Trash2, Download, Printer, FileText, Pencil } from 'lucide-react';
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
 import BalanceCheckPanel from '../components/BalanceCheckPanel';
+import { ViewToggle, PrimaryAction, SearchBox, SecondaryAction, RowActions } from '../components/ui/LiquidControls';
 
 interface BankAccount {
   id: string;
@@ -15,6 +16,8 @@ interface BankAccount {
   currentBalance: number;
   openingBalance: number;
 }
+
+const EMPTY_ACCOUNT: Partial<BankAccount> = { bankName: '', accountHolderName: '', accountNumber: '', accountType: 'Savings', currentBalance: 0, openingBalance: 0 };
 
 export default function BankAccounts() {
   const toast = useToastStore();
@@ -40,14 +43,9 @@ export default function BankAccounts() {
   const [txnItemsPerPage, setTxnItemsPerPage] = useState(15);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState<Partial<BankAccount>>({
-    bankName: '',
-    accountHolderName: '',
-    accountNumber: '',
-    accountType: 'Savings',
-    currentBalance: 0,
-    openingBalance: 0
-  });
+  const [formData, setFormData] = useState<Partial<BankAccount>>(EMPTY_ACCOUNT);
+  /** The account being edited; null when adding a new one. */
+  const [editing, setEditing] = useState<BankAccount | null>(null);
 
   const [viewMode, setViewMode] = useState<'card' | 'list' | 'detailed'>('detailed');
   const [currentPage, setCurrentPage] = useState(1);
@@ -83,18 +81,29 @@ export default function BankAccounts() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiClient('/api/bankaccounts', {
-        method: 'POST',
-        body: JSON.stringify(formData)
+      // an edit sends the whole record; the masked number tells the server to keep the stored one,
+      // and the balance is worked out again from the ledger
+      await apiClient(editing ? `/api/bankaccounts/${editing.id}` : '/api/bankaccounts', {
+        method: editing ? 'PUT' : 'POST',
+        body: JSON.stringify(editing ? { ...editing, ...formData } : formData)
       });
-      setIsModalOpen(false);
-      setFormData({ bankName: '', accountHolderName: '', accountNumber: '', accountType: 'Savings', currentBalance: 0, openingBalance: 0 });
-      toast.success('Bank account saved', 'Your bank account has been added successfully.');
+      closeModal();
+      toast.success('Bank account saved', editing ? 'Your changes are saved.' : 'Your bank account has been added successfully.');
       fetchAccounts();
     } catch (err: any) {
       toast.error('Failed to save', err.message || 'Could not save bank account. Please try again.');
     }
   };
+
+  const openAdd = () => { setEditing(null); setFormData(EMPTY_ACCOUNT); setIsModalOpen(true); };
+  const openEdit = (acc: BankAccount) => { setEditing(acc); setFormData({ ...acc }); setIsModalOpen(true); };
+  const closeModal = () => { setIsModalOpen(false); setEditing(null); setFormData(EMPTY_ACCOUNT); };
+  const actionsFor = (acc: BankAccount) => (
+    <RowActions name={acc.bankName} actions={[
+      { label: 'Edit', ariaLabel: `Edit ${acc.bankName}`, icon: <Pencil className="h-4 w-4" />, onSelect: () => openEdit(acc) },
+      { label: 'Delete', ariaLabel: `Delete ${acc.bankName}`, icon: <Trash2 className="h-4 w-4" />, onSelect: () => handleDelete(acc.id), destructive: true },
+    ]} />
+  );
 
   const handleDelete = async (id: string) => {
     confirm.show({
@@ -282,7 +291,7 @@ export default function BankAccounts() {
     if (accTx.length === 0) return 'No tx';
     const dates = accTx.map(e => new Date(e.expenseDate).getTime());
     const latest = new Date(Math.max(...dates));
-    return latest.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return latest.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
   }, [expenses]);
 
   // Export handlers
@@ -305,13 +314,13 @@ export default function BankAccounts() {
     if (!selectedAccount) return;
     const headers = ['Date', 'Description', 'Category', 'Ref/UTR', 'Debit', 'Credit', 'Running Balance'];
     const exportData = filteredLedgerTxns.map(tx => [
-      new Date(tx.expenseDate).toLocaleDateString(),
+      new Date(tx.expenseDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
       tx.description || 'No description',
       tx.category,
       tx.referenceNumber || tx.utr || '-',
-      tx.type === 'DEBIT' ? `₹${tx.amount.toLocaleString()}` : '-',
-      tx.type === 'CREDIT' ? `₹${tx.amount.toLocaleString()}` : '-',
-      `₹${tx.runningBalance.toLocaleString()}`
+      tx.type === 'DEBIT' ? `₹${tx.amount.toLocaleString('en-IN')}` : '-',
+      tx.type === 'CREDIT' ? `₹${tx.amount.toLocaleString('en-IN')}` : '-',
+      `₹${tx.runningBalance.toLocaleString('en-IN')}`
     ]);
     exportToPDF(`${selectedAccount.bankName} - Statement Ledger`, headers, exportData, `${selectedAccount.bankName}_Ledger_Report`);
   };
@@ -323,31 +332,14 @@ export default function BankAccounts() {
           <h1 className="text-2xl font-bold text-foreground">Bank Accounts</h1>
           <p className="text-sm text-muted-foreground">Manage your bank balances and view transaction sub-ledgers</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* View Toggle */}
-          <div className="flex items-center gap-1 bg-muted p-1 rounded-lg border border-border">
-            <button
-              onClick={() => setViewMode('card')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'card' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Card View"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>
-            </button>
-            <button
-              onClick={() => setViewMode('detailed')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'detailed' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Detailed Split-Ledger View (Default)"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg>
-            </button>
-          </div>
+          <ViewToggle value={viewMode} onChange={setViewMode} options={[
+              { value: 'card', title: 'Card View', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg> },
+              { value: 'detailed', title: 'Detailed Split-Ledger View (Default)', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg> },
+          ]} />
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 text-sm font-medium"
-          >
-            <Plus className="h-4 w-4" /> Add Account
-          </button>
+          <PrimaryAction onClick={openAdd} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 text-sm font-medium" icon={<Plus className="h-4 w-4" />}>Add Account</PrimaryAction>
         </div>
       </div>
 
@@ -359,15 +351,15 @@ export default function BankAccounts() {
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Total Balance</span>
-          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalBalanceAll.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-foreground mt-1 tabular-nums">₹{totalBalanceAll.toLocaleString('en-IN')}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">This Month Inflow</span>
-          <p className="text-lg font-mono font-bold text-green-500 mt-1 tabular-nums">+₹{thisMonthInflow.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-green-500 mt-1 tabular-nums">+₹{thisMonthInflow.toLocaleString('en-IN')}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">This Month Outflow</span>
-          <p className="text-lg font-mono font-bold text-red-500 mt-1 tabular-nums">-₹{thisMonthOutflow.toLocaleString()}</p>
+          <p className="text-lg font-mono font-bold text-red-500 mt-1 tabular-nums">-₹{thisMonthOutflow.toLocaleString('en-IN')}</p>
         </div>
         <div className="glass-panel p-4 rounded-xl border border-border/50">
           <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Net Monthly Delta</span>
@@ -402,9 +394,7 @@ export default function BankAccounts() {
                         <p className="text-[10px] text-muted-foreground uppercase font-bold">{acc.accountType}</p>
                       </div>
                     </div>
-                    <button onClick={() => handleDelete(acc.id)} className="text-muted-foreground hover:text-red-500 p-1">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {actionsFor(acc)}
                   </div>
 
                   <div className="mb-4">
@@ -419,7 +409,7 @@ export default function BankAccounts() {
                     </div>
                     <div className="text-right">
                       <span className="text-[10px] text-muted-foreground uppercase">Balance</span>
-                      <p className="font-mono font-bold text-sm text-foreground tabular-nums">₹{(acc.currentBalance ?? 0).toLocaleString()}</p>
+                      <p className="font-mono font-bold text-sm text-foreground tabular-nums">₹{(acc.currentBalance ?? 0).toLocaleString('en-IN')}</p>
                     </div>
                   </div>
                 </div>
@@ -503,16 +493,7 @@ export default function BankAccounts() {
           <div className="lg:col-span-4 flex flex-col gap-3 min-h-0 bg-card/20 border border-border/50 p-3 rounded-2xl">
             {/* Search & Sort above account list */}
             <div className="space-y-2">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Search accounts..."
-                  value={accountSearch}
-                  onChange={(e) => setAccountSearch(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 w-full bg-background border border-border rounded-lg text-xs outline-none focus:ring-1 focus:ring-primary text-foreground"
-                />
-              </div>
+              <SearchBox value={accountSearch} onChange={setAccountSearch} placeholder="Search accounts..." className="relative" iconClassName="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" inputClassName="pl-8 pr-3 py-1.5 w-full bg-background border border-border rounded-lg text-xs outline-none focus:ring-1 focus:ring-primary text-foreground" />
               <select
                 value={accountSort}
                 onChange={(e) => setAccountSort(e.target.value as any)}
@@ -546,7 +527,7 @@ export default function BankAccounts() {
                     </div>
                     <div className="text-right shrink-0">
                       <span className="text-xs font-mono font-bold text-foreground tabular-nums">
-                        ₹{(acc.currentBalance ?? 0).toLocaleString()}
+                        ₹{(acc.currentBalance ?? 0).toLocaleString('en-IN')}
                       </span>
                     </div>
                   </div>
@@ -554,22 +535,13 @@ export default function BankAccounts() {
                   {/* Line 2: Last 4 digits • Last transaction date • Sparkline */}
                   <div className="mt-2.5 pt-2 border-t border-border/30 flex items-center justify-between text-[10px] text-muted-foreground">
                     <div className="flex items-center gap-1.5 truncate">
-                      <span className="font-mono">**{acc.accountNumber.slice(-4)}</span>
-                      <span>•</span>
+                      {acc.accountNumber && (<><span className="font-mono">**{String(acc.accountNumber).slice(-4)}</span>
+                      <span>•</span></>)}
                       <span>Last: {getAccountLastTxDate(acc.id)}</span>
                     </div>
                     <div className="shrink-0 flex items-center">
                       {renderSparkline(acc.id)}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(acc.id);
-                        }}
-                        className="text-muted-foreground hover:text-red-500 p-1 ml-2 rounded hover:bg-muted"
-                        title="Delete Bank Account"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      <span className="ml-2" onClick={(e) => e.stopPropagation()}>{actionsFor(acc)}</span>
                     </div>
                   </div>
                 </div>
@@ -595,13 +567,13 @@ export default function BankAccounts() {
                       <div>
                         <span className="text-[9px] uppercase tracking-wider text-muted-foreground block font-bold leading-tight">Opening Balance</span>
                         <span className="text-xs font-semibold text-foreground font-mono tabular-nums">
-                          ₹{(selectedAccount.openingBalance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          ₹{(selectedAccount.openingBalance ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </span>
                       </div>
                       <div>
                         <span className="text-[9px] uppercase tracking-wider text-muted-foreground block font-bold leading-tight">Current Balance</span>
                         <span className="text-sm font-bold text-primary font-mono tabular-nums">
-                          ₹{(selectedAccount.currentBalance ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          ₹{(selectedAccount.currentBalance ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </span>
                       </div>
                     </div>
@@ -611,16 +583,7 @@ export default function BankAccounts() {
                 {/* Ledger Filters + Export Options */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3 bg-muted/20 p-2.5 rounded-xl border border-border/50 shrink-0">
                   {/* Search Description */}
-                  <div className="relative md:col-span-1">
-                    <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
-                    <input
-                      type="text"
-                      placeholder="Search ledger..."
-                      value={ledgerSearch}
-                      onChange={(e) => setLedgerSearch(e.target.value)}
-                      className="pl-7 pr-2 py-1 w-full bg-background border border-border rounded text-xs outline-none focus:ring-1 focus:ring-primary text-foreground"
-                    />
-                  </div>
+                  <SearchBox value={ledgerSearch} onChange={setLedgerSearch} placeholder="Search ledger..." className="relative md:col-span-1" iconClassName="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" inputClassName="pl-7 pr-2 py-1 w-full bg-background border border-border rounded text-xs outline-none focus:ring-1 focus:ring-primary text-foreground" />
 
                   {/* Filter Selects */}
                   <select
@@ -646,20 +609,8 @@ export default function BankAccounts() {
 
                   {/* Export Options */}
                   <div className="flex items-center justify-end gap-1.5 md:col-span-1">
-                    <button
-                      onClick={handleExportLedgerCSV}
-                      className="flex items-center gap-1 px-2.5 py-1 bg-muted hover:bg-muted/80 border border-border/50 text-muted-foreground hover:text-foreground text-[10px] font-bold uppercase rounded cursor-pointer transition-colors"
-                      title="Export CSV"
-                    >
-                      <Download className="h-3 w-3" /> CSV
-                    </button>
-                    <button
-                      onClick={handleExportLedgerPDF}
-                      className="flex items-center gap-1 px-2.5 py-1 bg-muted hover:bg-muted/80 border border-border/50 text-muted-foreground hover:text-foreground text-[10px] font-bold uppercase rounded cursor-pointer transition-colors"
-                      title="Export PDF"
-                    >
-                      <Printer className="h-3 w-3" /> PDF
-                    </button>
+                    <SecondaryAction onClick={handleExportLedgerCSV} className="flex items-center gap-1 px-2.5 py-1 bg-muted hover:bg-muted/80 border border-border/50 text-muted-foreground hover:text-foreground text-[10px] font-bold uppercase rounded cursor-pointer transition-colors" title="Export CSV" icon={<Download className="h-3 w-3" />}>CSV</SecondaryAction>
+                    <SecondaryAction onClick={handleExportLedgerPDF} className="flex items-center gap-1 px-2.5 py-1 bg-muted hover:bg-muted/80 border border-border/50 text-muted-foreground hover:text-foreground text-[10px] font-bold uppercase rounded cursor-pointer transition-colors" title="Export PDF" icon={<Printer className="h-3 w-3" />}>PDF</SecondaryAction>
                   </div>
                 </div>
 
@@ -696,7 +647,7 @@ export default function BankAccounts() {
                               className={`hover:bg-muted/30 transition-colors ${idx % 2 === 0 ? 'bg-background/25' : 'bg-card/15'}`}
                             >
                               <td className="px-3 py-2 whitespace-nowrap font-mono tabular-nums text-muted-foreground text-xs">
-                                {new Date(tx.expenseDate).toLocaleDateString()}
+                                {new Date(tx.expenseDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                               </td>
                               <td className="px-3 py-2 text-foreground font-medium text-xs max-w-[150px] truncate" title={tx.description}>
                                 {tx.description || '-'}
@@ -710,13 +661,13 @@ export default function BankAccounts() {
                                 {tx.referenceNumber || tx.utr || '-'}
                               </td>
                               <td className="px-3 py-2 whitespace-nowrap text-right font-mono text-red-500 font-semibold tabular-nums text-xs">
-                                {isDebit ? `₹${tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '-'}
+                                {isDebit ? `₹${tx.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
                               </td>
                               <td className="px-3 py-2 whitespace-nowrap text-right font-mono text-green-500 font-semibold tabular-nums text-xs">
-                                {!isDebit ? `₹${tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '-'}
+                                {!isDebit ? `₹${tx.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
                               </td>
                               <td className="px-3 py-2 whitespace-nowrap text-right font-mono text-foreground font-bold tabular-nums text-xs">
-                                ₹{tx.runningBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                ₹{tx.runningBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                               </td>
                             </tr>
                           );
@@ -794,8 +745,8 @@ export default function BankAccounts() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Add Bank Account</h2>
+          <div role="dialog" aria-modal="true" aria-labelledby="account-modal-title" className="bg-card border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h2 id="account-modal-title" className="text-lg font-semibold text-foreground mb-4">{editing ? 'Edit Bank Account' : 'Add Bank Account'}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Bank Name</label>
@@ -808,6 +759,7 @@ export default function BankAccounts() {
               <div>
                 <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Account Number</label>
                 <input required value={formData.accountNumber} onChange={e => setFormData({ ...formData, accountNumber: e.target.value })} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm" placeholder="Full Account Number" />
+                {editing && <p className="text-[11px] text-muted-foreground mt-1">Leave as shown to keep the saved number.</p>}
               </div>
               <div>
                 <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Account Type</label>
@@ -823,14 +775,14 @@ export default function BankAccounts() {
                   <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Opening Balance (₹)</label>
                   <input required type="number" value={formData.openingBalance || ''} onChange={e => setFormData({ ...formData, openingBalance: parseFloat(e.target.value) })} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm" placeholder="0.00" />
                 </div>
-                <div>
+                {!editing && <div>
                   <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Current Balance (₹)</label>
                   <input required type="number" value={formData.currentBalance || ''} onChange={e => setFormData({ ...formData, currentBalance: parseFloat(e.target.value) })} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm" placeholder="0.00" />
-                </div>
+                </div>}
               </div>
               <div className="flex justify-end gap-2 mt-6">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors">Cancel</button>
-                <button type="submit" className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">Save Account</button>
+                <SecondaryAction onClick={closeModal} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors">Cancel</SecondaryAction>
+                <PrimaryAction type="submit" className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">{editing ? 'Save Changes' : 'Save Account'}</PrimaryAction>
               </div>
             </form>
           </div>

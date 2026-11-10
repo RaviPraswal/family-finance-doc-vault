@@ -106,6 +106,7 @@ public class AiExtractionService {
                     if (daysUntil <= 30 && daysUntil >= 0) {
                         Notification notification = new Notification();
                         notification.setTenantId(document.getTenantId());
+                        notification.setUserId(document.getUserId()); // the document's owner sees it (D-02)
                         notification.setMessage("Action Required: Document '" + document.getName() + "' is expiring on " + expiryDate + ".");
                         notification.setRead(false);
                         notification.setDocumentId(document.getId());

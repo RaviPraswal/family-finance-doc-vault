@@ -56,6 +56,7 @@ public class ReminderScheduler {
                     // Create Notification
                     Notification notification = new Notification();
                     notification.setTenantId(doc.getTenantId());
+                    notification.setUserId(doc.getUserId()); // the document's owner sees it (D-02)
                     notification.setDocumentId(doc.getId());
                     notification.setMessage("Document '" + doc.getName() + "' is expiring in " + daysUntilExpiry + " days.");
                     notificationRepository.save(notification);

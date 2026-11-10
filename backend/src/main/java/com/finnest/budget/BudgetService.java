@@ -51,18 +51,20 @@ public class BudgetService {
         LocalDate end = targetMonth.atEndOfMonth();
 
         // 1. Get all expenses for this tenant in this month
-        List<Expense> expenses = expenseRepository.findByTenantIdAndExpenseDateBetween(tenantId, start, end);
+        List<Expense> expenses = visibleExpenses(tenantId, start, end);
         Map<String, BigDecimal> expensesByCategory = expenses.stream()
                 .filter(e -> "DEBIT".equalsIgnoreCase(e.getType()) && e.getKind() == com.finnest.expense.EntryKind.EXPENSE)
                 .collect(Collectors.groupingBy(
-                        Expense::getCategory,
-                        Collectors.reducing(BigDecimal.ZERO, Expense::getAmount, BigDecimal::add)
+                        e -> e.getCategory() == null || e.getCategory().isBlank() ? "Uncategorised" : e.getCategory(),
+                        Collectors.reducing(BigDecimal.ZERO, e -> e.getAmount() == null ? BigDecimal.ZERO : e.getAmount(), BigDecimal::add)
                 ));
 
         // 2. Get all budgets defined for this month
-        List<Budget> budgets = budgetRepository.findAllByTenantIdAndMonth(tenantId, monthStr);
+        List<Budget> budgets = visibleBudgets(tenantId, monthStr);
         Map<String, Budget> budgetsByCategory = budgets.stream()
-                .collect(Collectors.toMap(Budget::getCategory, b -> b));
+                .collect(Collectors.toMap(Budget::getCategory, b -> b, (a, b) ->
+                        // an old duplicate row: keep the most recently updated one
+                        a.getUpdatedAt() != null && b.getUpdatedAt() != null && a.getUpdatedAt().isAfter(b.getUpdatedAt()) ? a : b));
 
         // Get a distinct set of all categories that have either a budget or an expense
         Set<String> allCategories = new HashSet<>(expensesByCategory.keySet());
@@ -92,13 +94,13 @@ public class BudgetService {
                 // Fetch previous month's budget
                 YearMonth prevMonth = targetMonth.minusMonths(1);
                 String prevMonthStr = prevMonth.format(DateTimeFormatter.ofPattern("yyyy-MM"));
-                Optional<Budget> prevBudgetOpt = budgetRepository.findByTenantIdAndCategoryAndMonth(tenantId, category, prevMonthStr);
+                Optional<Budget> prevBudgetOpt = latest(visibleBudgets(tenantId, prevMonthStr), category);
                 if (prevBudgetOpt.isPresent()) {
                     Budget prevBudget = prevBudgetOpt.get();
                     // Get previous month's expenses
-                    List<Expense> prevExpenses = expenseRepository.findByTenantIdAndExpenseDateBetween(tenantId, prevMonth.atDay(1), prevMonth.atEndOfMonth());
+                    List<Expense> prevExpenses = visibleExpenses(tenantId, prevMonth.atDay(1), prevMonth.atEndOfMonth());
                     BigDecimal prevSpent = prevExpenses.stream()
-                            .filter(e -> category.equalsIgnoreCase(e.getCategory()) && "DEBIT".equalsIgnoreCase(e.getType())
+                            .filter(e -> category.equalsIgnoreCase(e.getCategory()) && "DEBIT".equalsIgnoreCase(e.getType()) && e.getAmount() != null
                                     && e.getKind() == com.finnest.expense.EntryKind.EXPENSE)
                             .map(Expense::getAmount)
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -211,7 +213,8 @@ public class BudgetService {
     public Budget createOrUpdateBudget(Budget budget) {
         UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
         budget.setTenantId(tenantId);
-        Optional<Budget> existing = budgetRepository.findByTenantIdAndCategoryAndMonth(tenantId, budget.getCategory(), budget.getMonth());
+        // D-02: a member's budget is their own; it never overwrites the family (owner) budget for the same category
+        Optional<Budget> existing = latest(visibleBudgets(tenantId, budget.getMonth()), budget.getCategory());
         if (existing.isPresent()) {
             Budget b = existing.get();
             b.setAmount(budget.getAmount());
@@ -223,7 +226,7 @@ public class BudgetService {
     }
 
     public void deleteBudget(UUID id) {
-        budgetRepository.delete(com.finnest.common.TenantGuard.owned(budgetRepository.findById(id)));
+        budgetRepository.delete(com.finnest.common.MemberScope.owned(budgetRepository.findById(id)));
     }
 
     public RecurringObligationsResponse getRecurringObligations(String monthStr) {
@@ -232,8 +235,9 @@ public class BudgetService {
         LocalDate start = targetMonth.atDay(1);
         LocalDate end = targetMonth.atEndOfMonth();
 
-        List<ScheduledPayment> obligations = scheduledPaymentRepository.findAll().stream()
-                .filter(p -> tenantId.equals(p.getTenantId()) &&
+        List<ScheduledPayment> obligations = com.finnest.common.MemberScope.visible(scheduledPaymentRepository.findAll().stream()
+                .filter(p -> tenantId.equals(p.getTenantId())).toList()).stream()
+                .filter(p ->
                              p.getStatus() == com.finnest.scheduler.ScheduledPaymentStatus.PENDING && 
                              !p.getDueDate().isBefore(start) && 
                              !p.getDueDate().isAfter(end))
@@ -256,5 +260,27 @@ public class BudgetService {
         response.setBreakdown(breakdown);
         response.setObligations(obligations);
         return response;
+    }
+
+    /** D-02: a member's own entries; the whole family's for an owner or the daily job. */
+    private List<Expense> visibleExpenses(UUID tenantId, LocalDate start, LocalDate end) {
+        return com.finnest.common.MemberScope.visible(expenseRepository.findByTenantIdAndExpenseDateBetween(tenantId, start, end));
+    }
+
+    /** D-02: a member's own budgets; for an owner (and the daily job) the family budgets, i.e. not the members' own. */
+    private List<Budget> visibleBudgets(UUID tenantId, String month) {
+        List<Budget> all = budgetRepository.findAllByTenantIdAndMonth(tenantId, month);
+        if (com.finnest.common.MemberScope.memberId().isPresent()) {
+            return com.finnest.common.MemberScope.visible(all);
+        }
+        Set<UUID> members = userRepository.findAllByTenantIdAndRole(tenantId, "MEMBER").stream().map(User::getId).collect(Collectors.toSet());
+        return all.stream().filter(b -> b.getUserId() == null || !members.contains(b.getUserId())).toList();
+    }
+
+    /** Newest row for the category (an old duplicate may exist). */
+    private static Optional<Budget> latest(List<Budget> budgets, String category) {
+        return budgets.stream()
+                .filter(b -> Objects.equals(b.getCategory(), category))
+                .max(Comparator.comparing(Budget::getUpdatedAt, Comparator.nullsFirst(Comparator.naturalOrder())));
     }
 }

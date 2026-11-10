@@ -18,9 +18,25 @@ public class AuthController {
     private final LoginAttemptService loginAttempts;
     @org.springframework.beans.factory.annotation.Autowired
     private JwtService jwtService;
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.security.web.csrf.CookieCsrfTokenRepository csrfTokens;
+
+    /** Sprint 8: a new CSRF token at login/register (no token survives across sign-ins); null clears it at logout. */
+    private void rotateCsrf(boolean issueNew) {
+        var attrs = (org.springframework.web.context.request.ServletRequestAttributes)
+                org.springframework.web.context.request.RequestContextHolder.currentRequestAttributes();
+        var req = attrs.getRequest();
+        var res = attrs.getResponse();
+        csrfTokens.saveToken(issueNew ? csrfTokens.generateToken(req) : null, req, res);
+    }
 
     /** Sprint 7 T7: every response that issues a token also sets it as the HttpOnly session cookie. */
     private ResponseEntity<AuthResponse> withSession(AuthResponse response) {
+        return withSession(response, true);
+    }
+
+    private ResponseEntity<AuthResponse> withSession(AuthResponse response, boolean newCsrf) {
+        if (newCsrf) rotateCsrf(true);
         long ttl = jwtService.expiresAt(response.token()) - System.currentTimeMillis();
         return ResponseEntity.ok().header(org.springframework.http.HttpHeaders.SET_COOKIE, SessionCookies.set(response.token(), ttl)).body(response);
     }
@@ -65,7 +81,7 @@ public class AuthController {
     public ResponseEntity<AuthResponse> refresh(@AuthenticationPrincipal UserDetails userDetails,
                                                 @RequestHeader(value = "Authorization", required = false) String authorization,
                                                 jakarta.servlet.http.HttpServletRequest httpRequest) {
-        return withSession(service.refresh(userDetails, tokenOf(authorization, httpRequest)));
+        return withSession(service.refresh(userDetails, tokenOf(authorization, httpRequest)), false); // keep the token: writes may be in flight
     }
 
     /** Sprint 7 T7: who is signed in and when the session ends — the SPA no longer decodes the token itself. */
@@ -83,6 +99,7 @@ public class AuthController {
     /** Sprint 7 T7: ends the browser session by clearing the cookie. */
     @PostMapping("/logout")
     public ResponseEntity<Void> logout() {
+        rotateCsrf(false);
         return ResponseEntity.ok().header(org.springframework.http.HttpHeaders.SET_COOKIE, SessionCookies.clear()).build();
     }
 }

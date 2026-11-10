@@ -76,7 +76,7 @@ function ToastItem({ toast }: { toast: Toast }) {
   const s = styles[toast.type];
 
   return (
-    <div
+    <div role={toast.type === 'error' ? 'alert' : 'status'}
       className={`
         relative overflow-hidden rounded-xl w-80 max-w-[calc(100vw-2rem)] backdrop-blur-sm
         transition-all duration-300 ease-out

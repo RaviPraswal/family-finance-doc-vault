@@ -5,8 +5,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
-import { Plus, Trash2, ArrowRightLeft, Download, Printer, Search, FileText } from 'lucide-react';
+import { Plus, Trash2, ArrowRightLeft, Download, Printer, FileText, Pencil } from 'lucide-react';
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
+import { ViewToggle, PrimaryAction, SearchBox, SecondaryAction, RowActions } from '../components/ui/LiquidControls';
 
 
 interface PeerLending {
@@ -22,21 +23,17 @@ interface PeerLending {
   repaidAmount?: number;
 }
 
+const EMPTY: Partial<PeerLending> = { type: 'GIVEN', personName: '', ownerName: '', amount: 0, date: '', expectedReturnDate: '', settled: false };
+
 export default function PeerLending() {
   const toast = useToastStore();
   const confirm = useConfirmStore();
   const [lendings, setLendings] = useState<PeerLending[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState<Partial<PeerLending>>({
-    type: 'GIVEN',
-    personName: '',
-    ownerName: '',
-    amount: 0,
-    date: '',
-    expectedReturnDate: '',
-    settled: false
-  });
+  const [formData, setFormData] = useState<Partial<PeerLending>>(EMPTY);
+  /** The record being edited; null when adding a new one. */
+  const [editing, setEditing] = useState<PeerLending | null>(null);
 
   // Filter States
   const [search, setSearch] = useState('');
@@ -81,13 +78,14 @@ export default function PeerLending() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiClient('/api/peerlendings', {
-        method: 'POST',
-        body: JSON.stringify(formData)
+      // an edit sends the whole record back, so fields the form does not show stay as they are
+      await apiClient(editing ? `/api/peerlendings/${editing.id}` : '/api/peerlendings', {
+        method: editing ? 'PUT' : 'POST',
+        body: JSON.stringify(editing ? { ...editing, ...formData } : formData)
       });
-      setIsModalOpen(false);
-      setFormData({ type: 'GIVEN', personName: '', ownerName: '', amount: 0, date: '', expectedReturnDate: '', settled: false });
-      toast.success('Record saved', 'Udhaar record has been added successfully.');
+      const wasEditing = !!editing;
+      closeModal();
+      toast.success('Record saved', wasEditing ? 'Your changes are saved.' : 'Udhaar record has been added successfully.');
       fetchLendings();
     } catch (err: any) {
       toast.error('Failed to save record', err.message || 'Could not save. Please try again.');
@@ -108,6 +106,17 @@ export default function PeerLending() {
     } catch (err: any) {
       toast.error('Failed to update status', err.message || 'Could not update record.');
     }
+  };
+
+  const openAdd = () => { setEditing(null); setFormData(EMPTY); setIsModalOpen(true); };
+  const openEdit = (lending: PeerLending) => { setEditing(lending); setFormData({ ...lending }); setIsModalOpen(true); };
+  const closeModal = () => { setIsModalOpen(false); setEditing(null); setFormData(EMPTY); };
+  const actionsFor = (lending: PeerLending) => {
+    const name = lending.personName;
+    return <RowActions name={name} actions={[
+      { label: 'Edit', ariaLabel: `Edit ${name}`, icon: <Pencil className="h-4 w-4" />, onSelect: () => openEdit(lending) },
+      { label: 'Delete', ariaLabel: `Delete ${name}`, icon: <Trash2 className="h-4 w-4" />, onSelect: () => handleDelete(lending.id), destructive: true },
+    ]} />;
   };
 
   const handleDelete = async (id: string) => {
@@ -241,9 +250,9 @@ export default function PeerLending() {
     const exportData = sortedLendings.map(l => [
       l.personName,
       l.type === 'GIVEN' ? 'Given (Lent)' : 'Taken (Borrowed)',
-      `₹${l.amount.toLocaleString()}`,
-      new Date(l.date).toLocaleDateString(),
-      new Date(l.expectedReturnDate).toLocaleDateString(),
+      `₹${l.amount.toLocaleString('en-IN')}`,
+      new Date(l.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+      new Date(l.expectedReturnDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
       l.settled ? 'Settled' : (isLendingOverdue(l) ? 'Overdue' : 'Pending')
     ]);
     exportToPDF('Udhaar (Peer Lending) Report', headers, exportData, 'Udhaar_Report');
@@ -256,38 +265,15 @@ export default function PeerLending() {
           <h1 className="text-2xl font-bold text-foreground">Udhaar (Given & Taken)</h1>
           <p className="text-sm text-muted-foreground">Manage peer-to-peer loans, expectations and settlement statuses</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* View Toggle */}
-          <div className="flex items-center gap-1 bg-muted p-1 rounded-lg border border-border">
-            <button
-              onClick={() => setViewMode('card')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'card' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Card View"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="List View (Table)"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>
-            </button>
-            <button
-              onClick={() => setViewMode('detailed')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'detailed' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Detailed View"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg>
-            </button>
-          </div>
+          <ViewToggle value={viewMode} onChange={setViewMode} options={[
+              { value: 'card', title: 'Card View', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg> },
+              { value: 'list', title: 'List View (Table)', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg> },
+              { value: 'detailed', title: 'Detailed View', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg> },
+          ]} />
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 text-sm"
-          >
-            <Plus className="h-4 w-4" /> Add Record
-          </button>
+          <PrimaryAction onClick={openAdd} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 text-sm" icon={<Plus className="h-4 w-4" />}>Add Record</PrimaryAction>
         </div>
       </div>
 
@@ -330,16 +316,7 @@ export default function PeerLending() {
       {/* Rule 3: Search + Filter + Sort Row */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6 bg-card/30 p-3 rounded-xl border border-border/50">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search by name..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 pr-3 py-1.5 bg-background/50 border border-border rounded-lg text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none text-foreground w-48 transition-all"
-            />
-          </div>
+          <SearchBox value={search} onChange={setSearch} placeholder="Search by name..." className="relative" iconClassName="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" inputClassName="pl-9 pr-3 py-1.5 bg-background/50 border border-border rounded-lg text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none text-foreground w-48 transition-all" />
 
           <select
             value={filterStatus}
@@ -384,20 +361,8 @@ export default function PeerLending() {
 
         <div className="flex items-center gap-2">
           {/* Rule 9: Export Buttons */}
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg text-xs font-medium border border-border/50 transition-all cursor-pointer"
-            title="Export CSV"
-          >
-            <Download className="h-3.5 w-3.5" /> CSV
-          </button>
-          <button
-            onClick={handleExportPDF}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg text-xs font-medium border border-border/50 transition-all cursor-pointer"
-            title="Export PDF/Print"
-          >
-            <Printer className="h-3.5 w-3.5" /> PDF
-          </button>
+          <SecondaryAction onClick={handleExportCSV} className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg text-xs font-medium border border-border/50 transition-all cursor-pointer" title="Export CSV" icon={<Download className="h-3.5 w-3.5" />}>CSV</SecondaryAction>
+          <SecondaryAction onClick={handleExportPDF} className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg text-xs font-medium border border-border/50 transition-all cursor-pointer" title="Export PDF/Print" icon={<Printer className="h-3.5 w-3.5" />}>PDF</SecondaryAction>
         </div>
       </div>
 
@@ -427,15 +392,13 @@ export default function PeerLending() {
                           </p>
                         </div>
                       </div>
-                      <button onClick={() => handleDelete(lending.id)} className="text-muted-foreground hover:text-red-500 p-1">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {actionsFor(lending)}
                     </div>
                     
                     <div className="flex items-center justify-between mb-3 pb-3 border-b border-border/50">
                       <div>
                         <p className="text-[10px] text-muted-foreground uppercase font-medium">Amount</p>
-                        <p className="text-base font-mono font-bold text-foreground tabular-nums">₹{lending.amount.toLocaleString()}</p>
+                        <p className="text-base font-mono font-bold text-foreground tabular-nums">₹{lending.amount.toLocaleString('en-IN')}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-[10px] text-muted-foreground uppercase font-medium mb-0.5">Status</p>
@@ -457,12 +420,12 @@ export default function PeerLending() {
                     <div className="space-y-1 text-xs">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Date:</span>
-                        <span className="font-medium text-foreground font-mono tabular-nums">{new Date(lending.date).toLocaleDateString()}</span>
+                        <span className="font-medium text-foreground font-mono tabular-nums">{new Date(lending.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Expected Return:</span>
                         <span className={`font-semibold font-mono tabular-nums ${isOverdue ? 'text-red-500' : 'text-foreground'}`}>
-                          {new Date(lending.expectedReturnDate).toLocaleDateString()}
+                          {new Date(lending.expectedReturnDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </span>
                       </div>
                     </div>
@@ -627,14 +590,14 @@ export default function PeerLending() {
                           </span>
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap font-mono font-bold text-foreground text-sm tabular-nums">
-                          ₹{lending.amount.toLocaleString()}
+                          ₹{lending.amount.toLocaleString('en-IN')}
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap text-xs text-muted-foreground font-mono tabular-nums">
-                          {new Date(lending.date).toLocaleDateString()}
+                          {new Date(lending.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap text-xs text-muted-foreground font-mono tabular-nums">
                           <span className={isOverdue ? 'text-red-500 font-bold' : ''}>
-                            {new Date(lending.expectedReturnDate).toLocaleDateString()}
+                            {new Date(lending.expectedReturnDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                           </span>
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap text-xs">
@@ -653,15 +616,7 @@ export default function PeerLending() {
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap text-right text-xs font-medium">
                           {/* Reveal on hover */}
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex justify-end gap-2">
-                            <button 
-                              onClick={() => handleDelete(lending.id)} 
-                              className="text-muted-foreground hover:text-red-500 transition-colors p-1"
-                              title="Delete Record"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
+                          {actionsFor(lending)}
                         </td>
                       </tr>
                     );
@@ -783,18 +738,10 @@ export default function PeerLending() {
                         <p className="text-[10px] text-muted-foreground">{isGiven ? 'Given' : 'Taken'}</p>
                       </div>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(lending.id);
-                      }}
-                      className="text-muted-foreground hover:text-red-500 p-1"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <span onClick={(e) => e.stopPropagation()}>{actionsFor(lending)}</span>
                   </div>
                   <div className="mt-2 flex justify-between items-baseline">
-                    <span className="text-[10px] font-mono font-bold text-foreground tabular-nums">₹{lending.amount.toLocaleString()}</span>
+                    <span className="text-[10px] font-mono font-bold text-foreground tabular-nums">₹{lending.amount.toLocaleString('en-IN')}</span>
                     <span className={`text-[10px] font-bold uppercase ${
                       lending.settled 
                         ? 'text-green-500' 
@@ -821,7 +768,7 @@ export default function PeerLending() {
                     </div>
                     <div className="text-right">
                       <span className="text-[10px] text-muted-foreground block uppercase">Principal Amount</span>
-                      <span className="text-xl font-mono font-bold text-foreground tabular-nums">₹{selectedLending.amount.toLocaleString()}</span>
+                      <span className="text-xl font-mono font-bold text-foreground tabular-nums">₹{selectedLending.amount.toLocaleString('en-IN')}</span>
                     </div>
                   </div>
                 </div>
@@ -831,12 +778,12 @@ export default function PeerLending() {
                   <div className="grid grid-cols-3 gap-4 bg-muted/30 p-3 rounded-xl">
                     <div>
                       <span className="text-[10px] text-muted-foreground block uppercase">Date Logged</span>
-                      <span className="text-xs font-semibold text-foreground font-mono tabular-nums">{new Date(selectedLending.date).toLocaleDateString()}</span>
+                      <span className="text-xs font-semibold text-foreground font-mono tabular-nums">{new Date(selectedLending.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                     </div>
                     <div>
                       <span className="text-[10px] text-muted-foreground block uppercase">Expected Settlement</span>
                       <span className={`text-xs font-semibold font-mono tabular-nums ${isLendingOverdue(selectedLending) ? 'text-red-500' : 'text-foreground'}`}>
-                        {new Date(selectedLending.expectedReturnDate).toLocaleDateString()}
+                        {new Date(selectedLending.expectedReturnDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </span>
                     </div>
                     <div>
@@ -882,7 +829,7 @@ export default function PeerLending() {
                                   {exp.description && <p className="text-[10px] text-muted-foreground italic mt-0.5">{exp.description}</p>}
                                 </div>
                                 <span className={`font-bold text-xs font-mono tabular-nums ${isRepayment ? 'text-green-500' : 'text-red-500'}`}>
-                                  {isRepayment ? '+' : '-'}₹{exp.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                  {isRepayment ? '+' : '-'}₹{exp.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                 </span>
                               </div>
                             );
@@ -904,8 +851,8 @@ export default function PeerLending() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Add Udhaar Record</h2>
+          <div role="dialog" aria-modal="true" aria-labelledby="lending-modal-title" className="bg-card border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h2 id="lending-modal-title" className="text-lg font-semibold text-foreground mb-4">{editing ? 'Edit Udhaar Record' : 'Add Udhaar Record'}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Type</label>
@@ -939,8 +886,8 @@ export default function PeerLending() {
                 </div>
               </div>
               <div className="flex justify-end gap-2 mt-6">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors">Cancel</button>
-                <button type="submit" className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">Save Record</button>
+                <SecondaryAction onClick={closeModal} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors">Cancel</SecondaryAction>
+                <PrimaryAction type="submit" className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">{editing ? 'Save Changes' : 'Save Record'}</PrimaryAction>
               </div>
             </form>
           </div>

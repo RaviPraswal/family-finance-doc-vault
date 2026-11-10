@@ -3,6 +3,7 @@ import { CheckCircle2, Scale } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { formatINR, toPaise } from '../lib/money';
 import { checkStatus, cleanAmount, differenceP } from '../lib/balanceCheck';
+import { PrimaryAction } from './ui/LiquidControls';
 
 interface Account { id: string; bankName: string; currentBalance: number }
 interface LatestCheck { accountId: string; checkDate: string; difference: number }
@@ -121,14 +122,13 @@ export default function BalanceCheckPanel({ accounts, today = localToday(), onDo
       </div>
 
       <div className="flex items-center gap-3">
-        <button
-          type="button"
+        <PrimaryAction
           onClick={save}
           disabled={saving || toSave.length === 0}
           className="px-4 py-2 text-sm font-semibold bg-primary text-white rounded-lg disabled:opacity-50"
         >
           {saving ? 'Saving…' : 'Save balances'}
-        </button>
+        </PrimaryAction>
         {result && <p role="status" className="text-xs text-muted-foreground">{result}</p>}
       </div>
     </section>

@@ -15,6 +15,8 @@ import {
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
+import { PrimaryAction } from '../components/ui/LiquidControls';
+import { Toggle } from '../components/ui/LiquidControls';
 
 interface BudgetSummary {
   id?: string;
@@ -426,17 +428,12 @@ export default function Budgets() {
               <div className="space-y-3.5 bg-muted/20 border border-border/40 p-3 rounded-xl">
                 <div className="flex items-center justify-between">
                   <div>
-                    <label className="block text-xs font-bold text-foreground">surplus Rollover</label>
+                    <label className="block text-xs font-bold text-foreground">Surplus rollover</label>
                     <span className="block text-[9px] text-muted-foreground mt-0.5">
                       Carry forward unused budget left from previous month.
                     </span>
                   </div>
-                  <input 
-                    type="checkbox"
-                    checked={modalRollover}
-                    onChange={(e) => setModalRollover(e.target.checked)}
-                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                  />
+                  <Toggle checked={modalRollover} onChange={setModalRollover} ariaLabel="Surplus rollover" className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
                 </div>
 
                 <div className="flex items-center justify-between pt-2.5 border-t border-border/20">
@@ -446,12 +443,7 @@ export default function Budgets() {
                       Get alert warnings by email when spend reaches 80% or exceeds limit.
                     </span>
                   </div>
-                  <input 
-                    type="checkbox"
-                    checked={modalEmailAlert}
-                    onChange={(e) => setModalEmailAlert(e.target.checked)}
-                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                  />
+                  <Toggle checked={modalEmailAlert} onChange={setModalEmailAlert} ariaLabel="Email alert notification" className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
                 </div>
               </div>
 
@@ -468,12 +460,7 @@ export default function Budgets() {
                   <div />
                 )}
 
-                <button
-                  type="submit"
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm"
-                >
-                  Save Budget Cap
-                </button>
+                <PrimaryAction type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm">Save Budget Cap</PrimaryAction>
               </div>
             </form>
           </div>

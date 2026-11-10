@@ -10,3 +10,10 @@ globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {
 Element.prototype.setPointerCapture ??= function () {};
 Element.prototype.releasePointerCapture ??= function () {};
 Element.prototype.hasPointerCapture ??= () => false;
+// glisse's Menu hit-tests the pointer with elementFromPoint (not in jsdom): answer with the element the
+// latest pointer event hit, which is what a browser would return at that point.
+let lastPointerTarget: Element | null = null;
+for (const type of ['pointerdown', 'pointermove', 'pointerup', 'click'] as const) {
+  document.addEventListener(type, (e) => { lastPointerTarget = e.target as Element; }, true);
+}
+document.elementFromPoint ??= () => lastPointerTarget;

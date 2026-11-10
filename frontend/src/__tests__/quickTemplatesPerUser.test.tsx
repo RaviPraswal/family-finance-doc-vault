@@ -96,6 +96,6 @@ describe('Quick Logger templates belong to the signed-in person', () => {
 
   it('keeps no one\'s personal data in the code', () => {
     const src = readFileSync(resolve(__dirname, '../pages/QuickLogger.tsx'), 'utf8');
-    expect(src).not.toMatch(/89706|Tejal|Sukanya/i);
+    expect(src).not.toMatch(/defaultTemplates|Sukanya|amount:\s*\d{3,}/i);
   });
 });

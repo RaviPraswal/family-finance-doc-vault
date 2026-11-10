@@ -4,9 +4,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
-import { Plus, Wallet, Trash2, Download, Printer, FileText } from 'lucide-react';
+import { Plus, Wallet, Trash2, Download, Printer, FileText, Pencil } from 'lucide-react';
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
-import { ViewToggle, PrimaryAction, SearchBox, SecondaryAction } from '../components/ui/LiquidControls';
+import { ViewToggle, PrimaryAction, SearchBox, SecondaryAction, RowActions } from '../components/ui/LiquidControls';
 
 interface Deposit {
   id: string;
@@ -22,22 +22,17 @@ interface Deposit {
   monthlyDepositAmount?: number;
 }
 
+const EMPTY_DEPOSIT: Partial<Deposit> = { type: 'FD', institution: '', accountHolderName: '', principalAmount: 0, maturityAmount: 0, interestRate: 0, startDate: '', maturityDate: '' };
+
 export default function Deposits() {
   const toast = useToastStore();
   const confirm = useConfirmStore();
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState<Partial<Deposit>>({
-    type: 'FD',
-    institution: '',
-    accountHolderName: '',
-    principalAmount: 0,
-    maturityAmount: 0,
-    interestRate: 0,
-    startDate: '',
-    maturityDate: ''
-  });
+  const [formData, setFormData] = useState<Partial<Deposit>>(EMPTY_DEPOSIT);
+  /** The deposit being edited; null when adding a new one. */
+  const [editing, setEditing] = useState<Deposit | null>(null);
 
   // Filter States
   const [search, setSearch] = useState('');
@@ -80,17 +75,28 @@ export default function Deposits() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiClient('/api/deposits', {
-        method: 'POST',
-        body: JSON.stringify(formData)
+      // an edit sends the whole record back (fields the form does not show, such as the bank link, stay as they are)
+      await apiClient(editing ? `/api/deposits/${editing.id}` : '/api/deposits', {
+        method: editing ? 'PUT' : 'POST',
+        body: JSON.stringify(editing ? { ...editing, ...formData } : formData)
       });
-      setIsModalOpen(false);
-      setFormData({ type: 'FD', institution: '', accountHolderName: '', principalAmount: 0, maturityAmount: 0, interestRate: 0, startDate: '', maturityDate: '' });
-      toast.success('Deposit saved', 'Your deposit record has been added successfully.');
+      closeModal();
+      toast.success('Deposit saved', editing ? 'Your changes are saved.' : 'Your deposit record has been added successfully.');
       fetchDeposits();
     } catch (err: any) {
       toast.error('Failed to save deposit', err.message || 'Could not save deposit. Please try again.');
     }
+  };
+
+  const openAdd = () => { setEditing(null); setFormData(EMPTY_DEPOSIT); setIsModalOpen(true); };
+  const openEdit = (dep: Deposit) => { setEditing(dep); setFormData({ ...dep }); setIsModalOpen(true); };
+  const closeModal = () => { setIsModalOpen(false); setEditing(null); setFormData(EMPTY_DEPOSIT); };
+  const actionsFor = (dep: Deposit) => {
+    const name = `${dep.institution} ${dep.type}`;
+    return <RowActions name={name} actions={[
+      { label: 'Edit', ariaLabel: `Edit ${name}`, icon: <Pencil className="h-4 w-4" />, onSelect: () => openEdit(dep) },
+      { label: 'Delete', ariaLabel: `Delete ${name}`, icon: <Trash2 className="h-4 w-4" />, onSelect: () => handleDelete(dep.id), destructive: true },
+    ]} />;
   };
 
   const handleDelete = async (id: string) => {
@@ -231,7 +237,7 @@ export default function Deposits() {
               { value: 'detailed', title: 'Detailed View', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg> },
           ]} />
 
-          <PrimaryAction onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 text-sm font-medium" icon={<Plus className="h-4 w-4" />}>Add Deposit</PrimaryAction>
+          <PrimaryAction onClick={openAdd} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 text-sm font-medium" icon={<Plus className="h-4 w-4" />}>Add Deposit</PrimaryAction>
         </div>
       </div>
 
@@ -315,9 +321,7 @@ export default function Deposits() {
                           <p className="text-[10px] text-muted-foreground">{dep.type} • {dep.accountHolderName}</p>
                         </div>
                       </div>
-                      <button onClick={() => handleDelete(dep.id)} className="text-muted-foreground hover:text-red-500 p-1">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {actionsFor(dep)}
                     </div>
 
                     <div className="space-y-1.5 text-xs border-t border-border/30 pt-3">
@@ -501,15 +505,7 @@ export default function Deposits() {
                           </span>
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap text-right text-xs font-medium">
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex justify-end gap-2">
-                            <button 
-                              onClick={() => handleDelete(dep.id)} 
-                              className="text-muted-foreground hover:text-red-500 transition-colors p-1"
-                              title="Delete Record"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
+                          {actionsFor(dep)}
                         </td>
                       </tr>
                     );
@@ -629,15 +625,7 @@ export default function Deposits() {
                         <p className="text-[10px] text-muted-foreground uppercase">{dep.type} • {dep.accountHolderName}</p>
                       </div>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(dep.id);
-                      }}
-                      className="text-muted-foreground hover:text-red-500 p-1"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <span onClick={(e) => e.stopPropagation()}>{actionsFor(dep)}</span>
                   </div>
                   <div className="mt-2.5 flex justify-between items-baseline">
                     <span className="text-[10px] text-muted-foreground">{dep.type === 'RD' ? 'Total Deposited:' : 'Principal:'}</span>
@@ -727,8 +715,8 @@ export default function Deposits() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Add Deposit</h2>
+          <div role="dialog" aria-modal="true" aria-labelledby="deposit-modal-title" className="bg-card border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h2 id="deposit-modal-title" className="text-lg font-semibold text-foreground mb-4">{editing ? 'Edit Deposit' : 'Add Deposit'}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Deposit Type</label>
@@ -776,8 +764,8 @@ export default function Deposits() {
                 <input required type="date" value={formData.maturityDate || ''} onChange={e => setFormData({...formData, maturityDate: e.target.value})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm" />
               </div>
               <div className="flex justify-end gap-2 mt-6">
-                <SecondaryAction onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors">Cancel</SecondaryAction>
-                <PrimaryAction type="submit" className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">Save Deposit</PrimaryAction>
+                <SecondaryAction onClick={closeModal} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors">Cancel</SecondaryAction>
+                <PrimaryAction type="submit" className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">{editing ? 'Save Changes' : 'Save Deposit'}</PrimaryAction>
               </div>
             </form>
           </div>

@@ -289,11 +289,12 @@ export default function CreditCards() {
                               <p className="text-xs text-muted-foreground mt-0.5">{card.bankName}</p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center gap-1">
                             <button
                               onClick={() => handleEditClick(card)}
                               className="text-muted-foreground hover:text-primary p-1"
                               title="Edit Card"
+                              aria-label={`Edit ${card.cardName}`}
                             >
                               <Edit2 className="h-4 w-4" />
                             </button>
@@ -301,6 +302,7 @@ export default function CreditCards() {
                               onClick={() => handleDelete(card.id)}
                               className="text-muted-foreground hover:text-red-500 p-1"
                               title="Delete Card"
+                              aria-label={`Delete ${card.cardName}`}
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -440,10 +442,11 @@ export default function CreditCards() {
                               onClick={() => handleEditClick(card)}
                               className="text-muted-foreground hover:text-primary p-1"
                               title="Edit Card"
+                              aria-label={`Edit ${card.cardName}`}
                             >
                               <Edit2 className="h-4 w-4" />
                             </button>
-                            <button onClick={() => handleDelete(card.id)} className="text-muted-foreground hover:text-red-500 p-1">
+                            <button onClick={() => handleDelete(card.id)} aria-label={`Delete ${card.cardName}`} title="Delete Card" className="text-muted-foreground hover:text-red-500 p-1">
                               <Trash2 className="h-4.5 w-4.5" />
                             </button>
                           </td>
@@ -513,6 +516,7 @@ export default function CreditCards() {
                             }}
                             className="text-muted-foreground hover:text-primary p-1"
                             title="Edit Card"
+                              aria-label={`Edit ${card.cardName}`}
                           >
                             <Edit2 className="h-3.5 w-3.5" />
                           </button>
@@ -523,6 +527,7 @@ export default function CreditCards() {
                             }}
                             className="text-muted-foreground hover:text-red-500 p-1"
                             title="Delete Card"
+                              aria-label={`Delete ${card.cardName}`}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>

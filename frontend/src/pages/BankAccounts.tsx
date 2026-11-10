@@ -2,10 +2,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
-import { Plus, Landmark, Trash2, Download, Printer, FileText } from 'lucide-react';
+import { Plus, Landmark, Trash2, Download, Printer, FileText, Pencil } from 'lucide-react';
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
 import BalanceCheckPanel from '../components/BalanceCheckPanel';
-import { ViewToggle, PrimaryAction, SearchBox, SecondaryAction } from '../components/ui/LiquidControls';
+import { ViewToggle, PrimaryAction, SearchBox, SecondaryAction, RowActions } from '../components/ui/LiquidControls';
 
 interface BankAccount {
   id: string;
@@ -16,6 +16,8 @@ interface BankAccount {
   currentBalance: number;
   openingBalance: number;
 }
+
+const EMPTY_ACCOUNT: Partial<BankAccount> = { bankName: '', accountHolderName: '', accountNumber: '', accountType: 'Savings', currentBalance: 0, openingBalance: 0 };
 
 export default function BankAccounts() {
   const toast = useToastStore();
@@ -41,14 +43,9 @@ export default function BankAccounts() {
   const [txnItemsPerPage, setTxnItemsPerPage] = useState(15);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState<Partial<BankAccount>>({
-    bankName: '',
-    accountHolderName: '',
-    accountNumber: '',
-    accountType: 'Savings',
-    currentBalance: 0,
-    openingBalance: 0
-  });
+  const [formData, setFormData] = useState<Partial<BankAccount>>(EMPTY_ACCOUNT);
+  /** The account being edited; null when adding a new one. */
+  const [editing, setEditing] = useState<BankAccount | null>(null);
 
   const [viewMode, setViewMode] = useState<'card' | 'list' | 'detailed'>('detailed');
   const [currentPage, setCurrentPage] = useState(1);
@@ -84,18 +81,29 @@ export default function BankAccounts() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiClient('/api/bankaccounts', {
-        method: 'POST',
-        body: JSON.stringify(formData)
+      // an edit sends the whole record; the masked number tells the server to keep the stored one,
+      // and the balance is worked out again from the ledger
+      await apiClient(editing ? `/api/bankaccounts/${editing.id}` : '/api/bankaccounts', {
+        method: editing ? 'PUT' : 'POST',
+        body: JSON.stringify(editing ? { ...editing, ...formData } : formData)
       });
-      setIsModalOpen(false);
-      setFormData({ bankName: '', accountHolderName: '', accountNumber: '', accountType: 'Savings', currentBalance: 0, openingBalance: 0 });
-      toast.success('Bank account saved', 'Your bank account has been added successfully.');
+      closeModal();
+      toast.success('Bank account saved', editing ? 'Your changes are saved.' : 'Your bank account has been added successfully.');
       fetchAccounts();
     } catch (err: any) {
       toast.error('Failed to save', err.message || 'Could not save bank account. Please try again.');
     }
   };
+
+  const openAdd = () => { setEditing(null); setFormData(EMPTY_ACCOUNT); setIsModalOpen(true); };
+  const openEdit = (acc: BankAccount) => { setEditing(acc); setFormData({ ...acc }); setIsModalOpen(true); };
+  const closeModal = () => { setIsModalOpen(false); setEditing(null); setFormData(EMPTY_ACCOUNT); };
+  const actionsFor = (acc: BankAccount) => (
+    <RowActions name={acc.bankName} actions={[
+      { label: 'Edit', ariaLabel: `Edit ${acc.bankName}`, icon: <Pencil className="h-4 w-4" />, onSelect: () => openEdit(acc) },
+      { label: 'Delete', ariaLabel: `Delete ${acc.bankName}`, icon: <Trash2 className="h-4 w-4" />, onSelect: () => handleDelete(acc.id), destructive: true },
+    ]} />
+  );
 
   const handleDelete = async (id: string) => {
     confirm.show({
@@ -331,7 +339,7 @@ export default function BankAccounts() {
               { value: 'detailed', title: 'Detailed Split-Ledger View (Default)', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg> },
           ]} />
 
-          <PrimaryAction onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 text-sm font-medium" icon={<Plus className="h-4 w-4" />}>Add Account</PrimaryAction>
+          <PrimaryAction onClick={openAdd} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 text-sm font-medium" icon={<Plus className="h-4 w-4" />}>Add Account</PrimaryAction>
         </div>
       </div>
 
@@ -386,9 +394,7 @@ export default function BankAccounts() {
                         <p className="text-[10px] text-muted-foreground uppercase font-bold">{acc.accountType}</p>
                       </div>
                     </div>
-                    <button onClick={() => handleDelete(acc.id)} className="text-muted-foreground hover:text-red-500 p-1">
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {actionsFor(acc)}
                   </div>
 
                   <div className="mb-4">
@@ -535,16 +541,7 @@ export default function BankAccounts() {
                     </div>
                     <div className="shrink-0 flex items-center">
                       {renderSparkline(acc.id)}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(acc.id);
-                        }}
-                        className="text-muted-foreground hover:text-red-500 p-1 ml-2 rounded hover:bg-muted"
-                        title="Delete Bank Account"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      <span className="ml-2" onClick={(e) => e.stopPropagation()}>{actionsFor(acc)}</span>
                     </div>
                   </div>
                 </div>
@@ -748,8 +745,8 @@ export default function BankAccounts() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Add Bank Account</h2>
+          <div role="dialog" aria-modal="true" aria-labelledby="account-modal-title" className="bg-card border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h2 id="account-modal-title" className="text-lg font-semibold text-foreground mb-4">{editing ? 'Edit Bank Account' : 'Add Bank Account'}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Bank Name</label>
@@ -762,6 +759,7 @@ export default function BankAccounts() {
               <div>
                 <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Account Number</label>
                 <input required value={formData.accountNumber} onChange={e => setFormData({ ...formData, accountNumber: e.target.value })} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm" placeholder="Full Account Number" />
+                {editing && <p className="text-[11px] text-muted-foreground mt-1">Leave as shown to keep the saved number.</p>}
               </div>
               <div>
                 <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Account Type</label>
@@ -777,14 +775,14 @@ export default function BankAccounts() {
                   <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Opening Balance (₹)</label>
                   <input required type="number" value={formData.openingBalance || ''} onChange={e => setFormData({ ...formData, openingBalance: parseFloat(e.target.value) })} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm" placeholder="0.00" />
                 </div>
-                <div>
+                {!editing && <div>
                   <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Current Balance (₹)</label>
                   <input required type="number" value={formData.currentBalance || ''} onChange={e => setFormData({ ...formData, currentBalance: parseFloat(e.target.value) })} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm" placeholder="0.00" />
-                </div>
+                </div>}
               </div>
               <div className="flex justify-end gap-2 mt-6">
-                <SecondaryAction onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors">Cancel</SecondaryAction>
-                <PrimaryAction type="submit" className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">Save Account</PrimaryAction>
+                <SecondaryAction onClick={closeModal} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors">Cancel</SecondaryAction>
+                <PrimaryAction type="submit" className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">{editing ? 'Save Changes' : 'Save Account'}</PrimaryAction>
               </div>
             </form>
           </div>

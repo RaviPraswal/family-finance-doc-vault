@@ -2,13 +2,13 @@ import { useEffect, useState, useMemo } from 'react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
-import { Plus, Briefcase, Trash2, Download, Printer, FileText } from 'lucide-react';
+import { Plus, Briefcase, Trash2, Download, Printer, FileText, Pencil } from 'lucide-react';
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
 import SsyScheduleTable from '../components/SsyScheduleTable';
 import { isSukanya } from '../lib/ssySchedule';
 import SsyEntries from '../components/SsyEntries';
 import { linkPayload, type LedgerEntry } from '../lib/ssyEntries';
-import { ViewToggle, PrimaryAction, SearchBox, SecondaryAction } from '../components/ui/LiquidControls';
+import { ViewToggle, PrimaryAction, SearchBox, SecondaryAction, RowActions } from '../components/ui/LiquidControls';
 
 interface Investment {
   id: string;
@@ -21,6 +21,8 @@ interface Investment {
   interestRate?: number | null;
 }
 
+const EMPTY: Partial<Investment> = { type: 'Mutual Fund', name: '', investedAmount: 0, currentValue: 0 };
+
 export default function Investments() {
   const toast = useToastStore();
   const confirm = useConfirmStore();
@@ -30,12 +32,9 @@ export default function Investments() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAssetClassModalOpen, setIsAssetClassModalOpen] = useState(false);
   const [newAssetClassName, setNewAssetClassName] = useState('');
-  const [formData, setFormData] = useState<Partial<Investment>>({
-    type: 'Mutual Fund',
-    name: '',
-    investedAmount: 0,
-    currentValue: 0
-  });
+  const [formData, setFormData] = useState<Partial<Investment>>(EMPTY);
+  /** The record being edited; null when adding a new one. */
+  const [editing, setEditing] = useState<Investment | null>(null);
 
   // Filter & Search States
   const [search, setSearch] = useState('');
@@ -109,13 +108,14 @@ export default function Investments() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiClient('/api/investments', {
-        method: 'POST',
-        body: JSON.stringify(formData)
+      // an edit sends the whole record back, so fields the form does not show stay as they are
+      await apiClient(editing ? `/api/investments/${editing.id}` : '/api/investments', {
+        method: editing ? 'PUT' : 'POST',
+        body: JSON.stringify(editing ? { ...editing, ...formData } : formData)
       });
-      setIsModalOpen(false);
-      setFormData({ type: 'Mutual Fund', name: '', investedAmount: 0, currentValue: 0 });
-      toast.success('Investment saved', 'Your investment record has been added successfully.');
+      const wasEditing = !!editing;
+      closeModal();
+      toast.success('Investment saved', wasEditing ? 'Your changes are saved.' : 'Your investment record has been added successfully.');
       fetchInvestments();
     } catch (err: any) {
       toast.error('Failed to save investment', err.message || 'Could not save investment. Please try again.');
@@ -146,6 +146,17 @@ export default function Investments() {
     } catch (err: any) {
       toast.error('Cannot delete asset class', err.message || 'Failed to delete asset class.');
     }
+  };
+
+  const openAdd = () => { setEditing(null); setFormData(EMPTY); setIsModalOpen(true); };
+  const openEdit = (inv: Investment) => { setEditing(inv); setFormData({ ...inv }); setIsModalOpen(true); };
+  const closeModal = () => { setIsModalOpen(false); setEditing(null); setFormData(EMPTY); };
+  const actionsFor = (inv: Investment) => {
+    const name = inv.name;
+    return <RowActions name={name} actions={[
+      { label: 'Edit', ariaLabel: `Edit ${name}`, icon: <Pencil className="h-4 w-4" />, onSelect: () => openEdit(inv) },
+      { label: 'Delete', ariaLabel: `Delete ${name}`, icon: <Trash2 className="h-4 w-4" />, onSelect: () => handleDelete(inv.id), destructive: true },
+    ]} />;
   };
 
   const handleDelete = async (id: string) => {
@@ -306,7 +317,7 @@ export default function Investments() {
           >
             Manage Asset Classes
           </button>
-          <PrimaryAction onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 text-sm font-medium" icon={<Plus className="h-4 w-4" />}>Add Investment</PrimaryAction>
+          <PrimaryAction onClick={openAdd} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 text-sm font-medium" icon={<Plus className="h-4 w-4" />}>Add Investment</PrimaryAction>
         </div>
       </div>
 
@@ -382,9 +393,7 @@ export default function Investments() {
                           <p className="text-[10px] text-muted-foreground uppercase font-bold">{inv.type}</p>
                         </div>
                       </div>
-                      <button onClick={() => handleDelete(inv.id)} className="text-muted-foreground hover:text-red-500 p-1">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {actionsFor(inv)}
                     </div>
 
                     <div className="space-y-1.5 text-xs border-t border-border/30 pt-3">
@@ -557,15 +566,7 @@ export default function Investments() {
                           {profit >= 0 ? '+' : ''}₹{profit.toLocaleString('en-IN')} ({returnsPercent.toFixed(1)}%)
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap text-right text-xs font-medium">
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex justify-end gap-2">
-                            <button 
-                              onClick={() => handleDelete(inv.id)} 
-                              className="text-muted-foreground hover:text-red-500 transition-colors p-1"
-                              title="Delete Record"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
+                          {actionsFor(inv)}
                         </td>
                       </tr>
                     );
@@ -686,15 +687,7 @@ export default function Investments() {
                         <p className="text-[10px] text-muted-foreground uppercase">{inv.type}</p>
                       </div>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(inv.id);
-                      }}
-                      className="text-muted-foreground hover:text-red-500 p-1"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <span onClick={(e) => e.stopPropagation()}>{actionsFor(inv)}</span>
                   </div>
                   <div className="mt-2.5 flex justify-between items-baseline">
                     <span className="text-[10px] text-muted-foreground">Current Value:</span>
@@ -799,8 +792,8 @@ export default function Investments() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Add Investment</h2>
+          <div role="dialog" aria-modal="true" aria-labelledby="investment-modal-title" className="bg-card border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h2 id="investment-modal-title" className="text-lg font-semibold text-foreground mb-4">{editing ? 'Edit Investment' : 'Add Investment'}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Asset Class</label>
@@ -825,8 +818,8 @@ export default function Investments() {
                 </div>
               </div>
               <div className="flex justify-end gap-2 mt-6">
-                <SecondaryAction onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors">Cancel</SecondaryAction>
-                <PrimaryAction type="submit" className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">Save Investment</PrimaryAction>
+                <SecondaryAction onClick={closeModal} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors">Cancel</SecondaryAction>
+                <PrimaryAction type="submit" className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">{editing ? 'Save Changes' : 'Save Investment'}</PrimaryAction>
               </div>
             </form>
           </div>

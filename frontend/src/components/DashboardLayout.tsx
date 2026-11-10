@@ -54,6 +54,8 @@ export default function DashboardLayout() {
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
+      {/* Liquid Glass dial texture (hidden in other skins) */}
+      <div className="fn-wallpaper hidden" aria-hidden="true" />
       <GlassPanel className="fn-sidebar w-64 glass-panel border-r border-border/50 flex flex-col hidden md:flex z-10 m-4 rounded-2xl">
         <div className="h-20 flex items-center px-6 border-b border-border/50 shrink-0">
           <Link to="/" className="text-2xl font-bold bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">

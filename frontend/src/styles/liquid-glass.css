@@ -15,94 +15,123 @@
  */
 
 /* ---------- Tokens ---------- */
+/*
+ * Palette (Ravi, 2026-11-10): "cloud grey, jet black and salmon dial" — like a salmon-dial watch.
+ *   cloud grey  #E6E8EB  light appearance background        jet black  #0B0B0C  dark appearance background, text
+ *   dial salmon #EF957B  fills: buttons, selection, switches (jet text on it, 8.7:1)
+ *   salmon ink  #A9432B  salmon text/icons on light surfaces (4.9–6:1); dial salmon itself is the dark-mode accent
+ * Money stays neutral (jet / white); green = up, red = down. Salmon marks only what you can act on or what is selected.
+ */
 html.skin-liquid {
-  /* shadcn tokens the pages already use (HSL triplets) */
-  --background: 240 24% 96%;          /* systemGroupedBackground #F2F2F7 */
-  --foreground: 0 0% 0%;              /* label */
-  --card: 0 0% 100%;                  /* secondarySystemGroupedBackground */
-  --card-foreground: 0 0% 0%;
+  --background: 216 9% 91%;           /* cloud grey #E6E8EB */
+  --foreground: 240 4% 5%;            /* jet #0B0B0C */
+  --card: 0 0% 100%;
+  --card-foreground: 240 4% 5%;
   --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 0%;
-  --primary: 211 100% 50%;            /* systemBlue #007AFF */
-  --primary-foreground: 0 0% 100%;
-  --secondary: 240 6% 93%;
-  --secondary-foreground: 0 0% 0%;
-  --muted: 240 11% 95%;               /* tertiarySystemFill-ish */
-  --muted-foreground: 240 4% 46%;     /* secondaryLabel #3C3C43 @ 60% on white */
-  --accent: 211 100% 50%;
-  --accent-foreground: 0 0% 100%;
-  --destructive: 3 100% 59%;          /* systemRed #FF3B30 */
-  --border: 240 6% 88%;               /* separator */
-  --input: 240 6% 85%;
-  --ring: 211 100% 50%;
+  --popover-foreground: 240 4% 5%;
+  --primary: 11 64% 35%;              /* salmon ink #923820 — text-primary, icons, links */
+  --primary-foreground: 240 4% 5%;
+  --secondary: 216 9% 86%;
+  --secondary-foreground: 240 4% 5%;
+  --muted: 216 9% 88%;
+  --muted-foreground: 214 6% 32%;     /* #4B4F55 on glass: 6.7–8.2:1 */
+  --accent: 13 79% 71%;               /* dial salmon */
+  --accent-foreground: 240 4% 5%;
+  --destructive: 4 76% 40%;
+  --border: 216 9% 80%;
+  --input: 216 9% 82%;
+  --ring: 13 79% 62%;
   --radius: 1rem;
 
+  --fn-dial: #ef957b;                 /* dial salmon (fills) */
+  --fn-dial-soft: rgba(239, 149, 123, 0.18);
+  --fn-ink: #923820;                  /* salmon text on light: 7.5:1 on white, 5.8:1 on salmon-tinted chips */
+  --fn-on-dial: #0b0b0c;              /* text on a salmon fill */
+  --fn-jet: #0b0b0c;
+
   /* Liquid Glass material */
-  --fn-tint: rgba(255, 255, 255, 0.58);
-  --fn-tint-strong: rgba(255, 255, 255, 0.78);
-  --fn-rim: rgba(255, 255, 255, 0.9);
-  --fn-rim-low: rgba(255, 255, 255, 0.35);
-  --fn-edge: rgba(0, 0, 0, 0.06);
-  --fn-depth: 0 10px 30px -12px rgba(15, 23, 42, 0.22), 0 2px 6px -2px rgba(15, 23, 42, 0.08);
-  --fn-depth-sheet: 0 30px 80px -20px rgba(15, 23, 42, 0.35), 0 8px 20px -8px rgba(15, 23, 42, 0.15);
-  --fn-card-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 0 rgba(0, 0, 0, 0.02);
-  --fn-hairline: rgba(60, 60, 67, 0.14);
-  --fn-fill: rgba(120, 120, 128, 0.12);       /* systemFill for wells/inputs */
-  --fn-fill-hover: rgba(120, 120, 128, 0.18);
-  --fn-selected: rgba(0, 122, 255, 0.12);
-  --fn-green: #248a3d;  /* systemGreen, accessible on white */
-  --fn-red: #d70015;
-  --fn-orange: #c93400;
-  --fn-wall-1: #c9dcff;
-  --fn-wall-2: #f3d6f0;
-  --fn-wall-3: #c8efe4;
-  --fn-wall-4: #ffe6c7;
+  --fn-glass: rgba(255, 255, 255, 0.5);          /* cards */
+  --fn-glass-nested: rgba(255, 255, 255, 0.42);  /* cards inside cards: clear glass, no second blur */
+  --fn-glass-blur: blur(26px) saturate(170%);
+  --fn-tint: rgba(255, 255, 255, 0.55);          /* chrome */
+  --fn-tint-strong: rgba(250, 250, 251, 0.82);   /* sheets */
+  --fn-rim: rgba(255, 255, 255, 0.95);
+  --fn-rim-low: rgba(255, 255, 255, 0.4);
+  --fn-edge: rgba(11, 11, 12, 0.07);
+  --fn-glass-border: rgba(255, 255, 255, 0.7);
+  --fn-depth: 0 12px 32px -14px rgba(11, 11, 12, 0.28), 0 2px 6px -2px rgba(11, 11, 12, 0.08);
+  --fn-depth-sheet: 0 30px 80px -20px rgba(11, 11, 12, 0.4), 0 8px 20px -8px rgba(11, 11, 12, 0.15);
+  --fn-card-shadow: 0 8px 24px -14px rgba(11, 11, 12, 0.25), 0 1px 2px rgba(11, 11, 12, 0.05);
+  --fn-hairline: rgba(11, 11, 12, 0.1);
+  --fn-fill: rgba(11, 11, 12, 0.06);
+  --fn-fill-hover: rgba(11, 11, 12, 0.1);
+  --fn-selected: rgba(239, 149, 123, 0.2);
+  --fn-green: #166534;
+  --fn-red: #9f1f14;
+  --fn-orange: #8a4300;
+  --fn-wall-salmon: rgba(239, 149, 123, 0.55);
+  --fn-wall-grey: rgba(120, 128, 140, 0.45);
+  --fn-wall-light: rgba(255, 255, 255, 0.9);
+  --fn-dial-lines: rgba(255, 255, 255, 0.5);
 
   /* Sprint 8 · S8-2: Apple-style springs sampled into CSS linear() (damping 1.0 / 0.8, response 0.4 s). */
   --fn-spring: linear(0, 0.06, 0.186, 0.329, 0.466, 0.584, 0.682, 0.76, 0.821, 0.868, 0.903, 0.929, 0.949, 0.963, 0.973, 0.981, 0.986, 0.99, 0.993, 0.995, 1);
   --fn-spring-bounce: linear(0, 0.062, 0.202, 0.366, 0.526, 0.664, 0.776, 0.861, 0.922, 0.964, 0.99, 1.005, 1.012, 1.015, 1.015, 1.013, 1.01, 1.008, 1.006, 1.004, 1);
   --fn-dur: 500ms;
+
+  /* glisse (Liquid Glass controls) in the dial palette */
+  --lg-fill: #ef957b;
+  --lg-on: #ef957b;
+  --lg-ring: rgba(169, 67, 43, 0.6);
 }
 
 html.skin-liquid.dark {
-  --background: 0 0% 0%;              /* systemGroupedBackground dark */
-  --foreground: 0 0% 100%;
-  --card: 240 3% 11%;                 /* #1C1C1E */
-  --card-foreground: 0 0% 100%;
+  --background: 240 4% 5%;            /* jet #0B0B0C */
+  --foreground: 0 0% 98%;
+  --card: 240 3% 11%;
+  --card-foreground: 0 0% 98%;
   --popover: 240 3% 11%;
-  --popover-foreground: 0 0% 100%;
-  --primary: 210 100% 52%;            /* systemBlue dark #0A84FF */
-  --primary-foreground: 0 0% 100%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 13 79% 71%;              /* dial salmon reads well on jet (7.5:1 on cards) */
+  --primary-foreground: 240 4% 5%;
   --secondary: 240 3% 17%;
-  --secondary-foreground: 0 0% 100%;
-  --muted: 240 3% 17%;                /* #2C2C2E */
-  --muted-foreground: 240 4% 62%;     /* secondaryLabel dark */
-  --accent: 210 100% 52%;
-  --accent-foreground: 0 0% 100%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 240 3% 15%;
+  --muted-foreground: 240 2% 64%;     /* #A1A1A6: 6.6–7.6:1 */
+  --accent: 13 79% 71%;
+  --accent-foreground: 240 4% 5%;
   --destructive: 3 100% 61%;
-  --border: 240 3% 22%;
-  --input: 240 3% 26%;
-  --ring: 210 100% 52%;
+  --border: 240 3% 20%;
+  --input: 240 3% 24%;
+  --ring: 13 79% 71%;
 
-  --fn-tint: rgba(44, 44, 46, 0.55);
-  --fn-tint-strong: rgba(44, 44, 46, 0.78);
-  --fn-rim: rgba(255, 255, 255, 0.28);
-  --fn-rim-low: rgba(255, 255, 255, 0.08);
+  --fn-ink: #ef957b;
+  --fn-glass: rgba(30, 30, 33, 0.52);
+  --fn-glass-nested: rgba(255, 255, 255, 0.045);
+  --fn-glass-blur: blur(26px) saturate(150%);
+  --fn-tint: rgba(28, 28, 31, 0.55);
+  --fn-tint-strong: rgba(28, 28, 31, 0.84);
+  --fn-rim: rgba(255, 255, 255, 0.2);
+  --fn-rim-low: rgba(255, 255, 255, 0.06);
   --fn-edge: rgba(255, 255, 255, 0.08);
-  --fn-depth: 0 12px 34px -12px rgba(0, 0, 0, 0.7), 0 2px 8px -2px rgba(0, 0, 0, 0.5);
-  --fn-depth-sheet: 0 30px 90px -20px rgba(0, 0, 0, 0.8), 0 8px 24px -8px rgba(0, 0, 0, 0.6);
-  --fn-card-shadow: none;
-  --fn-hairline: rgba(84, 84, 88, 0.6);
-  --fn-fill: rgba(118, 118, 128, 0.24);
-  --fn-fill-hover: rgba(118, 118, 128, 0.32);
-  --fn-selected: rgba(10, 132, 255, 0.22);
-  --fn-green: #30d158;
-  --fn-red: #ff453a;
-  --fn-orange: #ff9f0a;
-  --fn-wall-1: #10234d;
-  --fn-wall-2: #2a1240;
-  --fn-wall-3: #06302b;
-  --fn-wall-4: #2b1a08;
+  --fn-glass-border: rgba(255, 255, 255, 0.09);
+  --fn-depth: 0 14px 36px -14px rgba(0, 0, 0, 0.8), 0 2px 8px -2px rgba(0, 0, 0, 0.5);
+  --fn-depth-sheet: 0 30px 90px -20px rgba(0, 0, 0, 0.85), 0 8px 24px -8px rgba(0, 0, 0, 0.6);
+  --fn-card-shadow: 0 10px 30px -16px rgba(0, 0, 0, 0.9);
+  --fn-hairline: rgba(255, 255, 255, 0.08);
+  --fn-fill: rgba(255, 255, 255, 0.06);
+  --fn-fill-hover: rgba(255, 255, 255, 0.1);
+  --fn-selected: rgba(239, 149, 123, 0.2);
+  --fn-dial-soft: rgba(239, 149, 123, 0.12);
+  --fn-green: #34c759;
+  --fn-red: #ff6961;
+  --fn-orange: #ffb340;
+  --fn-wall-salmon: rgba(239, 149, 123, 0.2);
+  --fn-wall-grey: rgba(150, 156, 166, 0.12);
+  --fn-wall-light: rgba(255, 255, 255, 0.04);
+  --fn-dial-lines: rgba(255, 255, 255, 0.035);
+
+  --lg-ring: rgba(239, 149, 123, 0.7);
 }
 
 /* ---------- Layer 0: wallpaper and type ---------- */
@@ -112,12 +141,48 @@ html.skin-liquid body {
   font-feature-settings: 'cv11', 'ss01';
   -webkit-font-smoothing: antialiased;
   background:
-    radial-gradient(700px 900px at -5% 20%, var(--fn-wall-1), transparent 70%),
-    radial-gradient(600px 700px at 8% 95%, var(--fn-wall-2), transparent 70%),
-    radial-gradient(900px 700px at 100% 0%, var(--fn-wall-3), transparent 60%),
-    radial-gradient(800px 700px at 85% 100%, var(--fn-wall-4), transparent 60%),
+    radial-gradient(1100px 800px at 100% -10%, var(--fn-wall-salmon), transparent 62%),
+    radial-gradient(900px 900px at -10% 110%, var(--fn-wall-grey), transparent 60%),
+    radial-gradient(700px 500px at 30% 20%, var(--fn-wall-light), transparent 70%),
     hsl(var(--background));
   background-attachment: fixed;
+}
+/*
+ * The dial: a fine sunburst radiating from the top-right corner, like the brushed face of a salmon-dial watch.
+ * A separate fixed layer (fn-wallpaper in the layout), static, faded out towards the content.
+ */
+html.skin-liquid .fn-wallpaper {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: repeating-conic-gradient(from 180deg at 100% 0%, var(--fn-dial-lines) 0deg 0.35deg, transparent 0.35deg 1.4deg);
+  -webkit-mask-image: radial-gradient(1200px 900px at 100% 0%, #000, transparent 75%);
+  mask-image: radial-gradient(1200px 900px at 100% 0%, #000, transparent 75%);
+}
+/* Sign-in and registration: the wallpaper and dial show through, and the form card is glass. */
+html.skin-liquid :is(.h-screen, .min-h-screen).bg-background {
+  background: transparent !important;
+  position: relative;
+}
+html.skin-liquid :is(.h-screen, .min-h-screen).bg-background::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-conic-gradient(from 180deg at 100% 0%, var(--fn-dial-lines) 0deg 0.35deg, transparent 0.35deg 1.4deg);
+  -webkit-mask-image: radial-gradient(1200px 900px at 100% 0%, #000, transparent 75%);
+  mask-image: radial-gradient(1200px 900px at 100% 0%, #000, transparent 75%);
+}
+html.skin-liquid :is(.h-screen, .min-h-screen).bg-background > .bg-card {
+  position: relative;
+  background: var(--fn-glass) !important;
+  backdrop-filter: var(--fn-glass-blur);
+  -webkit-backdrop-filter: var(--fn-glass-blur);
+  border: 0.5px solid var(--fn-glass-border) !important;
+  border-radius: 28px !important;
+  box-shadow: inset 0 1px 0 var(--fn-rim), inset 0 -1px 0 var(--fn-rim-low), var(--fn-depth) !important;
 }
 /* The old drifting blobs and glossy sphere are gone: Apple avoids moving full-screen backgrounds. */
 html.skin-liquid .mesh-bg,
@@ -163,21 +228,60 @@ html.skin-liquid input[type='number'] {
 html.skin-liquid .font-black {
   font-weight: 700;
 }
-/* Gradient brand text becomes the tint colour. */
+/* Gradient brand text (logo, some page titles) becomes salmon ink / dial salmon. */
 html.skin-liquid .bg-clip-text.text-transparent {
-  background: none;
+  background: none !important;
   -webkit-text-fill-color: currentColor;
-  color: hsl(var(--primary));
+  color: var(--fn-ink) !important;
+}
+/* Big decorative icons on the salmon hero tile recede. */
+html.skin-liquid [class*='bg-gradient-to-']:is([class*='from-violet'], [class*='from-indigo'], [class*='from-purple'], [class*='from-blue'], [class*='from-primary']):not(.bg-clip-text, .absolute, [class*='from-primary/'], [class*='-500/'], [class*='-600/']) svg:is([class*='opacity-'], [class*='text-white/']) {
+  color: rgba(11, 11, 12, 0.12) !important;
+}
+/* Chart legends: readable label colour; the swatch carries the series colour. */
+html.skin-liquid .recharts-legend-item-text {
+  color: hsl(var(--muted-foreground)) !important;
 }
 
-/* Semantic colours → Apple system colours (accessible variants). */
-html.skin-liquid .text-violet-500,
-html.skin-liquid .text-violet-400,
-html.skin-liquid .text-purple-500,
-html.skin-liquid .text-purple-400,
-html.skin-liquid .text-indigo-500 {
-  color: hsl(var(--primary));
+/* Brand blues/violets → salmon ink (light) / dial salmon (dark). */
+html.skin-liquid :is(.text-violet-400, .text-violet-500, .text-violet-600, .text-purple-400, .text-purple-500, .text-purple-600,
+  .text-indigo-400, .text-indigo-500, .text-indigo-600, .text-blue-400, .text-blue-500, .text-blue-600, .text-sky-400, .text-sky-600,
+  .text-pink-400, .text-pink-500, .text-pink-600) {
+  color: var(--fn-ink) !important;
 }
+html.skin-liquid :is(.bg-blue-500\/10, .bg-blue-500\/20, .bg-purple-500\/5, .bg-purple-500\/10, .bg-indigo-500\/5, .bg-violet-500\/10, .bg-primary\/10, .bg-primary\/5, .bg-primary\/20) {
+  background-color: var(--fn-dial-soft) !important;
+}
+html.skin-liquid :is(.border-purple-500\/10, .border-purple-500\/20, .border-blue-500\/20, .border-indigo-500, .border-primary\/20, .border-primary\/30, .border-primary) {
+  border-color: color-mix(in srgb, var(--fn-dial) 45%, transparent) !important;
+}
+html.skin-liquid :is(.bg-blue-500, .bg-violet-500, .bg-indigo-500, .bg-purple-500) {
+  background-color: var(--fn-dial) !important;
+}
+/* Hero tiles: brand gradients become a polished salmon dial with jet text. */
+html.skin-liquid [class*='bg-gradient-to-']:is([class*='from-violet'], [class*='from-indigo'], [class*='from-purple'], [class*='from-blue'], [class*='from-primary']):not(.bg-clip-text, .absolute, [class*='from-primary/'], [class*='-500/'], [class*='-600/']) {
+  background-image:
+    repeating-conic-gradient(from 200deg at 110% -20%, rgba(255, 255, 255, 0.14) 0deg 0.5deg, transparent 0.5deg 2deg),
+    linear-gradient(135deg, #f6b19c 0%, #ef957b 45%, #e07d63 100%) !important;
+  color: var(--fn-on-dial) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 14px 34px -16px rgba(169, 67, 43, 0.6) !important;
+}
+html.skin-liquid [class*='bg-gradient-to-']:is([class*='from-violet'], [class*='from-indigo'], [class*='from-purple'], [class*='from-blue'], [class*='from-primary']):not(.bg-clip-text, .absolute, [class*='from-primary/'], [class*='-500/'], [class*='-600/']) :is(*, .text-white, .text-white\/80, .text-white\/70, .text-indigo-100, .text-indigo-200) {
+  color: var(--fn-on-dial) !important;
+}
+/* Status chips: lighter tints so their coloured text keeps 4.5:1 over glass. */
+html.skin-liquid:not(.dark) :is(.bg-emerald-500\/15, .bg-emerald-500\/20, .bg-green-500\/15, .bg-green-500\/20) {
+  background-color: rgba(34, 197, 94, 0.1) !important;
+}
+html.skin-liquid:not(.dark) :is(.bg-red-500\/15, .bg-red-500\/20, .bg-rose-500\/15) {
+  background-color: rgba(239, 68, 68, 0.08) !important;
+}
+html.skin-liquid:not(.dark) :is(.bg-amber-500\/15, .bg-amber-500\/20, .bg-yellow-500\/15) {
+  background-color: rgba(245, 158, 11, 0.1) !important;
+}
+/* Semantic colours → Apple system colours (accessible variants). */
+html.skin-liquid .text-green-700,
+html.skin-liquid .text-emerald-400,
 html.skin-liquid .text-green-500,
 html.skin-liquid .text-green-600,
 html.skin-liquid .text-emerald-500,
@@ -185,11 +289,20 @@ html.skin-liquid .text-emerald-600,
 html.skin-liquid .text-emerald-700 {
   color: var(--fn-green);
 }
+html.skin-liquid .text-red-400,
+html.skin-liquid .text-rose-500,
+html.skin-liquid .text-rose-600,
 html.skin-liquid .text-red-500,
 html.skin-liquid .text-red-600,
 html.skin-liquid .text-red-700 {
   color: var(--fn-red);
 }
+html.skin-liquid .text-yellow-400,
+html.skin-liquid .text-yellow-500,
+html.skin-liquid .text-yellow-600,
+html.skin-liquid .text-orange-400,
+html.skin-liquid .text-orange-600,
+html.skin-liquid .text-amber-400,
 html.skin-liquid .text-amber-500,
 html.skin-liquid .text-amber-600,
 html.skin-liquid .text-amber-700,
@@ -211,25 +324,28 @@ html.skin-liquid.dark .dark\:text-amber-400 {
   color: var(--fn-orange);
 }
 
-/* ---------- Layer 1: content — solid grouped cards ---------- */
-html.skin-liquid .fn-content .glass-panel,
-html.skin-liquid .fn-content .bg-card,
-html.skin-liquid .fn-content .bg-card\/50,
-html.skin-liquid .fn-content .bg-card\/30,
-html.skin-liquid .fn-content .bg-popover {
-  background: hsl(var(--card)) !important;
+/* ---------- Layer 1: content — glass widgets (Ravi, 2026-11-10: every widget in Liquid Glass) ---------- */
+/*
+ * Top-level widgets are real glass: translucent, blurred and saturated (the wallpaper's salmon and grey glow
+ * through), a bright rim along the top edge, a fine light border and a soft floating shadow.
+ * Widgets inside widgets are clear glass: a lighter tint and rim, but no second blur (blur on blur is muddy and slow).
+ */
+html.skin-liquid .fn-content :is(.glass-panel, .bg-card, .bg-card\/50, .bg-card\/30, .bg-popover):not(:is(.glass-panel, .bg-card, .bg-card\/50, .bg-card\/30) *) {
+  background: var(--fn-glass) !important;
+  backdrop-filter: var(--fn-glass-blur);
+  -webkit-backdrop-filter: var(--fn-glass-blur);
+  border: 0.5px solid var(--fn-glass-border) !important;
+  box-shadow: inset 0 1px 0 var(--fn-rim), inset 0 -1px 0 var(--fn-rim-low), var(--fn-card-shadow);
+}
+html.skin-liquid .fn-content :is(.glass-panel, .bg-card, .bg-card\/50, .bg-card\/30) :is(.glass-panel, .bg-card, .bg-card\/50, .bg-card\/30, .bg-card\/10),
+html.skin-liquid .fn-content :is(.glass-panel, .bg-card) :is(.bg-muted\/20, .bg-muted\/30, .bg-background\/50).rounded-xl {
+  background: var(--fn-glass-nested) !important;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  border-color: transparent !important;
-  box-shadow: var(--fn-card-shadow);
+  border: 0.5px solid var(--fn-glass-border) !important;
+  box-shadow: inset 0 1px 0 var(--fn-rim-low);
 }
-html.skin-liquid.dark .fn-content .glass-panel,
-html.skin-liquid.dark .fn-content .bg-card,
-html.skin-liquid.dark .fn-content .bg-card\/50,
-html.skin-liquid.dark .fn-content .bg-card\/30 {
-  border-color: rgba(255, 255, 255, 0.04) !important;
-}
-/* Coloured hero tiles (gradients) keep their colour but lose the glass blur. */
+/* Coloured status tiles (green/red/amber tints) keep a hint of their colour over the glass. */
 html.skin-liquid .fn-content [class*='bg-gradient-to-'] {
   backdrop-filter: none;
 }
@@ -393,7 +509,7 @@ html.skin-liquid .fn-nav-item:hover {
 }
 html.skin-liquid .fn-nav-item[aria-current='page'] {
   background-color: var(--fn-selected) !important;
-  color: hsl(var(--primary)) !important;
+  color: hsl(var(--foreground)) !important;   /* jet/white text on the salmon capsule; the icon carries the salmon */
   font-weight: 600;
 }
 html.skin-liquid .fn-sidebar .bg-muted\/30 {
@@ -484,6 +600,35 @@ html.skin-liquid tr:has(.lg-menu [aria-expanded='true']) {
 }
 
 /* ---------- Controls ---------- */
+/* glisse buttons keep their label on one line (phones wrapped "Add Chit Fund"). */
+html.skin-liquid .lg-button {
+  white-space: nowrap;
+}
+/* Compact glisse buttons for toolbars (CSV, PDF, small actions). */
+html.skin-liquid .lg-button.fn-compact {
+  height: 32px;
+  padding: 0 12px;
+  gap: 6px;
+  border-radius: 16px;
+  font-size: 13px;
+}
+html.skin-liquid .lg-button.fn-compact[data-icon] {
+  padding-left: 10px;
+}
+html.skin-liquid .lg-button.fn-compact > svg {
+  width: 16px;
+  height: 16px;
+}
+/* glisse in the dial palette: jet label on a salmon fill (8.7:1). */
+html.skin-liquid .lg-button[data-variant='filled'] {
+  color: var(--fn-on-dial);
+  font-weight: 600;
+}
+/* Amounts stay neutral in light mode (salmon ink is close to the loss red); salmon is for actions and selection. */
+html.skin-liquid:not(.dark) :is(.font-mono, .tabular-nums).text-primary,
+html.skin-liquid:not(.dark) .text-primary :is(.font-mono, .tabular-nums) {
+  color: hsl(var(--foreground)) !important;
+}
 /* Feedback on press, not on release; springs back (with a hint of bounce) when let go. */
 html.skin-liquid button:not([class^='lg-'], [class*=' lg-'], [class^='lg-'] *, [class*=' lg-'] *),
 html.skin-liquid a:not([class^='lg-'], [class*=' lg-'], [class^='lg-'] *, [class*=' lg-'] *) {
@@ -501,15 +646,15 @@ html.skin-liquid a:active:not([class^='lg-'], [class*=' lg-'], [class^='lg-'] *,
 /* Prominent button: tinted glass capsule — solid tint, a specular rim on top, soft coloured glow. */
 html.skin-liquid button.bg-primary:not([class^='lg-'], [class*=' lg-'], [class^='lg-'] *, [class*=' lg-'] *),
 html.skin-liquid a.bg-primary:not([class^='lg-'], [class*=' lg-'], [class^='lg-'] *, [class*=' lg-'] *) {
-  background: hsl(var(--primary)) !important;
-  color: #fff !important;
+  background: var(--fn-dial) !important;
+  color: var(--fn-on-dial) !important;
   border: 0 !important;
   border-radius: 999px !important;
   font-weight: 600;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
     inset 0 -1px 0 rgba(0, 0, 0, 0.12),
-    0 6px 16px -6px color-mix(in srgb, hsl(var(--primary)) 70%, transparent);
+    0 6px 16px -6px rgba(169, 67, 43, 0.55);
 }
 html.skin-liquid button.bg-primary:hover:not([class^='lg-'], [class*=' lg-'], [class^='lg-'] *, [class*=' lg-'] *),
 html.skin-liquid a.bg-primary:hover:not([class^='lg-'], [class*=' lg-'], [class^='lg-'] *, [class*=' lg-'] *) {

@@ -80,4 +80,24 @@ describe('Liquid Glass skin', () => {
     expect(clean).toMatch(/html\.skin-liquid h1[^{]*\{[^}]*letter-spacing:\s*-0\.0(2|25|3)em/);
     expect(clean).toMatch(/html\.skin-liquid body\s*\{[^}]*letter-spacing:\s*0(\.\d+em)?;/);
   });
+
+  // Ravi, 2026-11-10: "cloud grey, jet black and salmon dial", and every widget in Liquid Glass.
+  it('uses the salmon dial palette: cloud grey light, jet black dark, salmon fills with accessible salmon ink', () => {
+    expect(clean).toMatch(/--background:\s*216 9% 91%/);          // cloud grey #E6E8EB
+    expect(block('html.skin-liquid.dark {')).toMatch(/--background:\s*240 4% 5%/); // jet #0B0B0C
+    expect(clean).toMatch(/--fn-dial:\s*#ef957b/i);
+    expect(clean).toMatch(/--fn-ink:\s*#923820/i);
+    expect(clean).toMatch(/--lg-fill:\s*#ef957b/i);               // glisse accent
+  });
+
+  it('puts every top-level widget on glass, and nested widgets on clear glass without a second blur', () => {
+    const top = clean.match(/\.fn-content :is\(\.glass-panel, \.bg-card[^{]*\{([^}]*)\}/);
+    expect(top?.[1]).toMatch(/backdrop-filter:\s*var\(--fn-glass-blur\)/);
+    const nested = clean.match(/:is\(\.glass-panel, \.bg-card, \.bg-card\\\/50, \.bg-card\\\/30\) :is\([^{]*\{([^}]*)\}/);
+    expect(nested?.[1]).toMatch(/backdrop-filter:\s*none/);
+  });
+
+  it('turns only solid brand tiles into the salmon hero, never translucent overlays or gradient text', () => {
+    expect(clean).toMatch(/:not\(\.bg-clip-text, \.absolute, \[class\*='from-primary\/'\]/);
+  });
 });

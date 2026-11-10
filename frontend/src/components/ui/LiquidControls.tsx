@@ -15,11 +15,15 @@ export const useLiquid = () => useThemeStore((s) => s.skin === 'liquid');
 const layoutOnly = (className?: string) =>
   className?.split(/\s+/).filter((c) => /^(?:(?:sm|md|lg):)?(?:w-|min-w-|max-w-|flex-1|grow|shrink-0|m[trblxy]?-|self-|col-span|whitespace-nowrap|hidden|inline-flex)/.test(c)).join(' ') || undefined;
 
+/** Buttons that were small in the original design (toolbars: CSV, PDF, small Save) stay compact as glisse buttons. */
+const compact = (className?: string) => /(^|\s)(text-xs|text-\[1[01]px\]|py-1|py-1\.5)(\s|$)/.test(className ?? '');
+const glisseClass = (className?: string) => [layoutOnly(className), compact(className) ? 'fn-compact' : ''].filter(Boolean).join(' ') || undefined;
+
 /** The page's main action ("Add account", "Save"): glisse filled button in Liquid. */
 export function PrimaryAction({ icon, children, className, type = 'button', ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { icon?: ReactNode }) {
   const liquid = useLiquid();
   if (liquid) {
-    return <Button variant="filled" icon={icon} type={type} className={layoutOnly(className)} {...props}>{children}</Button>;
+    return <Button variant="filled" icon={icon} type={type} className={glisseClass(className)} {...props}>{children}</Button>;
   }
   return (
     <button type={type} className={className} {...props}>
@@ -32,7 +36,7 @@ export function PrimaryAction({ icon, children, className, type = 'button', ...p
 export function SecondaryAction({ icon, children, className, type = 'button', ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { icon?: ReactNode }) {
   const liquid = useLiquid();
   if (liquid) {
-    return <Button variant="glass" icon={icon} type={type} className={layoutOnly(className)} {...props}>{children}</Button>;
+    return <Button variant="glass" icon={icon} type={type} className={glisseClass(className)} {...props}>{children}</Button>;
   }
   return (
     <button type={type} className={className} {...props}>

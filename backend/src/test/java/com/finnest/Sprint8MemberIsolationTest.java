@@ -46,7 +46,7 @@ class Sprint8MemberIsolationTest {
         return read(mvc, json, org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(url), token, null);
     }
 
-    private int status(org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder req, String token) throws Exception {
+    private int code(org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder req, String token) throws Exception {
         return mvc.perform(req.header("Authorization", "Bearer " + token)).andReturn().getResponse().getStatus();
     }
 
@@ -67,25 +67,25 @@ class Sprint8MemberIsolationTest {
         assertThat(get("/api/quick-templates", fam.memberToken())).extracting(n -> n.get("name").asText()).containsExactly("Bus pass");
         assertThat(get("/api/quick-templates", fam.ownerToken())).extracting(n -> n.get("name").asText()).containsExactly("Monthly Salary");
 
-        assertThat(status(delete("/api/quick-templates/" + ownerTpl), fam.memberToken())).isEqualTo(404);
-        assertThat(status(put("/api/quick-templates/" + ownerTpl).contentType("application/json")
+        assertThat(code(delete("/api/quick-templates/" + ownerTpl), fam.memberToken())).isEqualTo(404);
+        assertThat(code(put("/api/quick-templates/" + ownerTpl).contentType("application/json")
                 .content("{\"name\":\"x\",\"amount\":1,\"category\":\"Wages\",\"type\":\"CREDIT\"}"), fam.memberToken())).isEqualTo(404);
-        assertThat(status(delete("/api/quick-templates/" + own.get("id").asText()), fam.ownerToken())).isEqualTo(404);
+        assertThat(code(delete("/api/quick-templates/" + own.get("id").asText()), fam.ownerToken())).isEqualTo(404);
         assertThat(get("/api/quick-templates", fam.ownerToken())).hasSize(1);
 
         JsonNode renamed = read(mvc, json, put("/api/quick-templates/" + own.get("id").asText()), fam.memberToken(),
                 Map.of("name", "Metro pass", "amount", 450, "category", "Daily Life", "type", "DEBIT", "madeAgainst", "MANUAL_ENTRY"));
         assertThat(renamed.get("name").asText()).isEqualTo("Metro pass");
-        assertThat(status(delete("/api/quick-templates/" + own.get("id").asText()), fam.memberToken())).isEqualTo(204);
+        assertThat(code(delete("/api/quick-templates/" + own.get("id").asText()), fam.memberToken())).isEqualTo(204);
         assertThat(get("/api/quick-templates", fam.memberToken())).isEmpty();
 
         // another family never sees them either
         Sprint7Support.Family other = Sprint7Support.family(mvc, json, "Tpl2");
         assertThat(get("/api/quick-templates", other.ownerToken())).isEmpty();
-        assertThat(status(delete("/api/quick-templates/" + ownerTpl), other.ownerToken())).isEqualTo(404);
+        assertThat(code(delete("/api/quick-templates/" + ownerTpl), other.ownerToken())).isEqualTo(404);
 
         // a template cannot be bad data
-        assertThat(status(post("/api/quick-templates").contentType("application/json")
+        assertThat(code(post("/api/quick-templates").contentType("application/json")
                 .content("{\"name\":\"\",\"amount\":-5,\"category\":\"Wages\",\"type\":\"CREDIT\"}"), fam.ownerToken())).isEqualTo(400);
     }
 
@@ -110,7 +110,7 @@ class Sprint8MemberIsolationTest {
         assertThat(ownerBills.get("limitAmount").decimalValue()).isEqualByComparingTo("5000"); // the family budget is untouched
         assertThat(ownerBills.get("spentAmount").decimalValue()).isEqualByComparingTo("1020"); // the owner sees the family
 
-        assertThat(status(delete("/api/budgets/" + ownerBills.get("id").asText()), fam.memberToken())).isEqualTo(403);
+        assertThat(code(delete("/api/budgets/" + ownerBills.get("id").asText()), fam.memberToken())).isEqualTo(403);
     }
 
     private static JsonNode bills(JsonNode summary) {
@@ -143,7 +143,7 @@ class Sprint8MemberIsolationTest {
         assertThat(get("/api/notifications", fam.memberToken())).isEmpty();
         assertThat(get("/api/notifications/unread", fam.memberToken())).isEmpty();
         assertThat(get("/api/notifications", fam.ownerToken())).hasSize(2);
-        assertThat(status(put("/api/notifications/" + ownerNote + "/read"), fam.memberToken())).isEqualTo(403);
+        assertThat(code(put("/api/notifications/" + ownerNote + "/read"), fam.memberToken())).isEqualTo(403);
         mvc.perform(put("/api/notifications/read-all").header("Authorization", "Bearer " + fam.memberToken())).andExpect(status().isOk());
         assertThat(get("/api/notifications/unread", fam.ownerToken())).hasSize(2); // the member's "read all" leaves the owner's alone
 
@@ -153,9 +153,9 @@ class Sprint8MemberIsolationTest {
                 + "VALUES (?, ?, ?, ?, 'Owner passport', 'Identity', 'application/pdf', 'x/y.pdf', 10, now(), now())", doc, tenant, owner, owner);
         assertThat(get("/api/physical-documents/stats", fam.memberToken()).get("totalDocuments").asLong()).isZero();
         assertThat(get("/api/physical-documents/stats", fam.ownerToken()).get("totalDocuments").asLong()).isEqualTo(1);
-        assertThat(status(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/physical-documents/" + doc), fam.memberToken())).isEqualTo(403);
-        assertThat(status(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/physical-documents/" + doc + "/logs"), fam.memberToken())).isEqualTo(403);
-        assertThat(status(post("/api/physical-documents/" + doc + "/check-out").contentType("application/json")
+        assertThat(code(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/physical-documents/" + doc), fam.memberToken())).isEqualTo(403);
+        assertThat(code(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/physical-documents/" + doc + "/logs"), fam.memberToken())).isEqualTo(403);
+        assertThat(code(post("/api/physical-documents/" + doc + "/check-out").contentType("application/json")
                 .content("{\"borrowerName\":\"x\"}"), fam.memberToken())).isEqualTo(403);
 
         // AI advice is built from the member's own goals only

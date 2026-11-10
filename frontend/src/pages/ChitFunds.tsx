@@ -4,9 +4,10 @@ import { markPaidThrough, parseChitSchedule } from '../lib/chitSchedule';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
-import { Plus, Users, Trash2, Search, Download, Printer, ChevronDown, ChevronUp, FileText, Wallet, Pencil, CheckCircle2, RotateCcw } from 'lucide-react';
+import { Plus, Users, Trash2, Download, Printer, ChevronDown, ChevronUp, FileText, Wallet, Pencil, CheckCircle2, RotateCcw } from 'lucide-react';
 import { chitCounts, chitStatusLabel, matchesChitFilter } from '../lib/chitStatus';
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
+import { ViewToggle, PrimaryAction, SearchBox, RowActions, SecondaryAction } from '../components/ui/LiquidControls';
 
 interface ChitFund {
   id: string;
@@ -459,29 +460,12 @@ export default function ChitFunds() {
         </div>
         <div className="flex items-center gap-3">
           {/* View Toggle */}
-          <div className="flex items-center gap-1 bg-muted p-1 rounded-lg border border-border">
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Dense List (Table)"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>
-            </button>
-            <button
-              onClick={() => setViewMode('card')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'card' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Compact Cards"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>
-            </button>
-          </div>
+          <ViewToggle value={viewMode} onChange={setViewMode} options={[
+              { value: 'list', title: 'Dense List (Table)', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg> },
+              { value: 'card', title: 'Compact Cards', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg> },
+          ]} />
 
-          <button
-            onClick={openAddModal}
-            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 font-medium text-sm transition-all"
-          >
-            <Plus className="h-4 w-4" /> Add Chit Fund
-          </button>
+          <PrimaryAction onClick={openAddModal} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 font-medium text-sm transition-all" icon={<Plus className="h-4 w-4" />}>Add Chit Fund</PrimaryAction>
         </div>
       </div>
 
@@ -517,16 +501,7 @@ export default function ChitFunds() {
       {/* Control Row (Rule 7) */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6 bg-card/30 p-3 rounded-xl border border-border/50">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search organizer or member..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 pr-3 py-1.5 bg-background/50 border border-border rounded-lg text-sm focus:ring-1 focus:ring-primary outline-none text-foreground w-64 transition-all"
-            />
-          </div>
+          <SearchBox value={search} onChange={setSearch} placeholder="Search organizer or member..." className="relative" iconClassName="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" inputClassName="pl-9 pr-3 py-1.5 bg-background/50 border border-border rounded-lg text-sm focus:ring-1 focus:ring-primary outline-none text-foreground w-64 transition-all" />
 
           <select
             value={filterStatus}
@@ -542,18 +517,8 @@ export default function ChitFunds() {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg text-xs font-medium border border-border/50 transition-all cursor-pointer"
-          >
-            <Download className="h-3.5 w-3.5" /> CSV
-          </button>
-          <button
-            onClick={handleExportPDF}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg text-xs font-medium border border-border/50 transition-all cursor-pointer"
-          >
-            <Printer className="h-3.5 w-3.5" /> PDF
-          </button>
+          <SecondaryAction onClick={handleExportCSV} className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg text-xs font-medium border border-border/50 transition-all cursor-pointer" icon={<Download className="h-3.5 w-3.5" />}>CSV</SecondaryAction>
+          <SecondaryAction onClick={handleExportPDF} className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg text-xs font-medium border border-border/50 transition-all cursor-pointer" icon={<Printer className="h-3.5 w-3.5" />}>PDF</SecondaryAction>
         </div>
       </div>
 
@@ -713,35 +678,13 @@ export default function ChitFunds() {
                             )}
                           </td>
                           <td className="px-4 py-2.5 whitespace-nowrap text-right text-xs font-medium">
-                            <div className="flex justify-end gap-1">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); openEditModal(cf); }}
-                                className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-md p-1.5"
-                                aria-label={`Edit ${cf.organizerName}`}
-                                title="Edit"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); toggleClosed(cf); }}
-                                className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-md p-1.5"
-                                aria-label={cf.isClosed ? `Reopen ${cf.organizerName}` : `Mark ${cf.organizerName} closed`}
-                                title={cf.isClosed ? 'Reopen' : 'Mark closed'}
-                              >
-                                {cf.isClosed ? <RotateCcw className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-                              </button>
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDelete(cf.id);
-                                }} 
-                                className="text-muted-foreground hover:text-red-500 hover:bg-muted rounded-md p-1.5"
-                                aria-label={`Delete ${cf.organizerName}`}
-                                title="Delete"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
+                            <RowActions name={cf.organizerName} actions={[
+                              { label: 'Edit', ariaLabel: `Edit ${cf.organizerName}`, icon: <Pencil className="h-4 w-4" />, onSelect: () => openEditModal(cf) },
+                              cf.isClosed
+                                ? { label: 'Reopen', ariaLabel: `Reopen ${cf.organizerName}`, icon: <RotateCcw className="h-4 w-4" />, onSelect: () => toggleClosed(cf) }
+                                : { label: 'Mark closed', ariaLabel: `Mark ${cf.organizerName} closed`, icon: <CheckCircle2 className="h-4 w-4" />, onSelect: () => toggleClosed(cf) },
+                              { label: 'Delete', ariaLabel: `Delete ${cf.organizerName}`, icon: <Trash2 className="h-4 w-4" />, onSelect: () => handleDelete(cf.id), destructive: true },
+                            ]} />
                           </td>
                         </tr>
 
@@ -951,8 +894,8 @@ export default function ChitFunds() {
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <button type="button" onClick={() => { setIsModalOpen(false); setEditing(null); }} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded-lg text-xs font-semibold">Cancel</button>
-                  <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-xs font-semibold transition-all">{editing ? 'Save Changes' : 'Save Chit Fund'}</button>
+                  <SecondaryAction onClick={() => { setIsModalOpen(false); setEditing(null); }} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded-lg text-xs font-semibold">Cancel</SecondaryAction>
+                  <PrimaryAction type="submit" className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 text-xs font-semibold transition-all">{editing ? 'Save Changes' : 'Save Chit Fund'}</PrimaryAction>
                 </div>
               </div>
 

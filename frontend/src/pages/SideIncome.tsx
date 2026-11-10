@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, Search, Download, Printer, Banknote } from 'lucide-react';
+import { Plus, Trash2, Download, Printer, Banknote } from 'lucide-react';
 import SideIncomeTable from '../components/SideIncomeTable';
 import { FREQUENCIES, shortDate, sideIncomeEntries, sideIncomeRows, sideIncomeTotals, type Entry } from '../lib/sideIncome';
 import { formatINR, toPaise } from '../lib/money';
@@ -7,6 +7,7 @@ import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
+import { PrimaryAction, SearchBox, SecondaryAction } from '../components/ui/LiquidControls';
 
 interface IncomeSource {
   id: string;
@@ -180,9 +181,7 @@ export default function SideIncome() {
           <h1 className="text-2xl font-bold text-foreground">Side Income</h1>
           <p className="text-sm text-muted-foreground">Each source, when it last paid, what is due next, and every payment received.</p>
         </div>
-        <button type="button" onClick={openAdd} className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90">
-          <Plus className="h-4 w-4" /> Add source
-        </button>
+        <PrimaryAction onClick={openAdd} className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90" icon={<Plus className="h-4 w-4" />}>Add source</PrimaryAction>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -216,20 +215,15 @@ export default function SideIncome() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 id="payments-title" className="text-sm font-bold text-foreground">Payments received</h2>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <input aria-label="Search payments" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} placeholder="Search"
-                className="pl-8 pr-3 py-1.5 bg-background border border-border rounded-lg text-sm w-48" />
-            </div>
+            <SearchBox value={search} onChange={(v) => { setSearch(v); setPage(1); }} placeholder="Search" ariaLabel="Search payments"
+              iconClassName="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" inputClassName="pl-8 pr-3 py-1.5 bg-background border border-border rounded-lg text-sm w-48" />
             <select aria-label="Filter by source" value={filterSourceId} onChange={(e) => { setFilterSourceId(e.target.value); setPage(1); }}
               className="px-3 py-1.5 bg-background border border-border rounded-lg text-sm">
               <option value="ALL">All sources</option>
               {sources.map((s) => <option key={s.id} value={s.id}>{s.sourceName}</option>)}
             </select>
-            <button type="button" onClick={() => exportToCSV(exportRows(), headers, 'Side_Income_Payments')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-xs font-semibold hover:bg-muted"><Download className="h-3.5 w-3.5" /> CSV</button>
-            <button type="button" onClick={() => exportToPDF('Side income payments', headers, exportRows(), 'Side_Income_Payments')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-xs font-semibold hover:bg-muted"><Printer className="h-3.5 w-3.5" /> PDF</button>
+            <SecondaryAction onClick={() => exportToCSV(exportRows(), headers, 'Side_Income_Payments')} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-xs font-semibold hover:bg-muted" icon={<Download className="h-3.5 w-3.5" />}>CSV</SecondaryAction>
+            <SecondaryAction onClick={() => exportToPDF('Side income payments', headers, exportRows(), 'Side_Income_Payments')} className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-xs font-semibold hover:bg-muted" icon={<Printer className="h-3.5 w-3.5" />}>PDF</SecondaryAction>
           </div>
         </div>
         <div className="overflow-x-auto rounded-xl border border-border bg-card">
@@ -303,8 +297,8 @@ export default function SideIncome() {
                 </div>
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setSourceForm({ ...sourceForm, open: false })} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg font-semibold">Cancel</button>
-                <button type="submit" disabled={saving} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold disabled:opacity-50">Save source</button>
+                <SecondaryAction onClick={() => setSourceForm({ ...sourceForm, open: false })} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg font-semibold">Cancel</SecondaryAction>
+                <PrimaryAction type="submit" disabled={saving} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold disabled:opacity-50">Save source</PrimaryAction>
               </div>
             </form>
           </div>
@@ -340,8 +334,8 @@ export default function SideIncome() {
                 <input id="pay-note" value={payForm.note} onChange={(e) => setPayForm({ ...payForm, note: e.target.value })} className={field} placeholder="e.g. November fee" />
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setPayForm({ ...payForm, source: null })} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg font-semibold">Cancel</button>
-                <button type="submit" disabled={saving} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold disabled:opacity-50">Save payment</button>
+                <SecondaryAction onClick={() => setPayForm({ ...payForm, source: null })} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg font-semibold">Cancel</SecondaryAction>
+                <PrimaryAction type="submit" disabled={saving} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold disabled:opacity-50">Save payment</PrimaryAction>
               </div>
             </form>
           </div>

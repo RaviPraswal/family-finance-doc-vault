@@ -2,9 +2,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
-import { Plus, Landmark, Trash2, Search, Download, Printer, FileText } from 'lucide-react';
+import { Plus, Landmark, Trash2, Download, Printer, FileText } from 'lucide-react';
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
 import BalanceCheckPanel from '../components/BalanceCheckPanel';
+import { ViewToggle, PrimaryAction, SearchBox, SecondaryAction } from '../components/ui/LiquidControls';
 
 interface BankAccount {
   id: string;
@@ -325,29 +326,12 @@ export default function BankAccounts() {
         </div>
         <div className="flex items-center gap-3">
           {/* View Toggle */}
-          <div className="flex items-center gap-1 bg-muted p-1 rounded-lg border border-border">
-            <button
-              onClick={() => setViewMode('card')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'card' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Card View"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>
-            </button>
-            <button
-              onClick={() => setViewMode('detailed')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'detailed' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Detailed Split-Ledger View (Default)"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg>
-            </button>
-          </div>
+          <ViewToggle value={viewMode} onChange={setViewMode} options={[
+              { value: 'card', title: 'Card View', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg> },
+              { value: 'detailed', title: 'Detailed Split-Ledger View (Default)', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg> },
+          ]} />
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 text-sm font-medium"
-          >
-            <Plus className="h-4 w-4" /> Add Account
-          </button>
+          <PrimaryAction onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 text-sm font-medium" icon={<Plus className="h-4 w-4" />}>Add Account</PrimaryAction>
         </div>
       </div>
 
@@ -503,16 +487,7 @@ export default function BankAccounts() {
           <div className="lg:col-span-4 flex flex-col gap-3 min-h-0 bg-card/20 border border-border/50 p-3 rounded-2xl">
             {/* Search & Sort above account list */}
             <div className="space-y-2">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Search accounts..."
-                  value={accountSearch}
-                  onChange={(e) => setAccountSearch(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 w-full bg-background border border-border rounded-lg text-xs outline-none focus:ring-1 focus:ring-primary text-foreground"
-                />
-              </div>
+              <SearchBox value={accountSearch} onChange={setAccountSearch} placeholder="Search accounts..." className="relative" iconClassName="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" inputClassName="pl-8 pr-3 py-1.5 w-full bg-background border border-border rounded-lg text-xs outline-none focus:ring-1 focus:ring-primary text-foreground" />
               <select
                 value={accountSort}
                 onChange={(e) => setAccountSort(e.target.value as any)}
@@ -611,16 +586,7 @@ export default function BankAccounts() {
                 {/* Ledger Filters + Export Options */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3 bg-muted/20 p-2.5 rounded-xl border border-border/50 shrink-0">
                   {/* Search Description */}
-                  <div className="relative md:col-span-1">
-                    <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
-                    <input
-                      type="text"
-                      placeholder="Search ledger..."
-                      value={ledgerSearch}
-                      onChange={(e) => setLedgerSearch(e.target.value)}
-                      className="pl-7 pr-2 py-1 w-full bg-background border border-border rounded text-xs outline-none focus:ring-1 focus:ring-primary text-foreground"
-                    />
-                  </div>
+                  <SearchBox value={ledgerSearch} onChange={setLedgerSearch} placeholder="Search ledger..." className="relative md:col-span-1" iconClassName="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" inputClassName="pl-7 pr-2 py-1 w-full bg-background border border-border rounded text-xs outline-none focus:ring-1 focus:ring-primary text-foreground" />
 
                   {/* Filter Selects */}
                   <select
@@ -646,20 +612,8 @@ export default function BankAccounts() {
 
                   {/* Export Options */}
                   <div className="flex items-center justify-end gap-1.5 md:col-span-1">
-                    <button
-                      onClick={handleExportLedgerCSV}
-                      className="flex items-center gap-1 px-2.5 py-1 bg-muted hover:bg-muted/80 border border-border/50 text-muted-foreground hover:text-foreground text-[10px] font-bold uppercase rounded cursor-pointer transition-colors"
-                      title="Export CSV"
-                    >
-                      <Download className="h-3 w-3" /> CSV
-                    </button>
-                    <button
-                      onClick={handleExportLedgerPDF}
-                      className="flex items-center gap-1 px-2.5 py-1 bg-muted hover:bg-muted/80 border border-border/50 text-muted-foreground hover:text-foreground text-[10px] font-bold uppercase rounded cursor-pointer transition-colors"
-                      title="Export PDF"
-                    >
-                      <Printer className="h-3 w-3" /> PDF
-                    </button>
+                    <SecondaryAction onClick={handleExportLedgerCSV} className="flex items-center gap-1 px-2.5 py-1 bg-muted hover:bg-muted/80 border border-border/50 text-muted-foreground hover:text-foreground text-[10px] font-bold uppercase rounded cursor-pointer transition-colors" title="Export CSV" icon={<Download className="h-3 w-3" />}>CSV</SecondaryAction>
+                    <SecondaryAction onClick={handleExportLedgerPDF} className="flex items-center gap-1 px-2.5 py-1 bg-muted hover:bg-muted/80 border border-border/50 text-muted-foreground hover:text-foreground text-[10px] font-bold uppercase rounded cursor-pointer transition-colors" title="Export PDF" icon={<Printer className="h-3 w-3" />}>PDF</SecondaryAction>
                   </div>
                 </div>
 
@@ -829,8 +783,8 @@ export default function BankAccounts() {
                 </div>
               </div>
               <div className="flex justify-end gap-2 mt-6">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors">Cancel</button>
-                <button type="submit" className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">Save Account</button>
+                <SecondaryAction onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors">Cancel</SecondaryAction>
+                <PrimaryAction type="submit" className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">Save Account</PrimaryAction>
               </div>
             </form>
           </div>

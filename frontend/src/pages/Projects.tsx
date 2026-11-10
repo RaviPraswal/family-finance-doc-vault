@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { Plus, Building, Edit2 } from 'lucide-react';
+import { ViewToggle, PrimaryAction, SecondaryAction } from '../components/ui/LiquidControls';
 
 interface Project {
   id: string;
@@ -171,36 +172,13 @@ export default function Projects() {
         </div>
         <div className="flex items-center gap-3">
           {/* View Toggle */}
-          <div className="flex items-center gap-1 bg-muted p-1 rounded-lg border border-border">
-            <button
-              onClick={() => setViewMode('card')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'card' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Card View"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="List View"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>
-            </button>
-            <button
-              onClick={() => setViewMode('detailed')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'detailed' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Detailed View"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg>
-            </button>
-          </div>
+          <ViewToggle value={viewMode} onChange={setViewMode} options={[
+              { value: 'card', title: 'Card View', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg> },
+              { value: 'list', title: 'List View', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg> },
+              { value: 'detailed', title: 'Detailed View', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg> },
+          ]} />
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90"
-          >
-            <Plus className="h-4 w-4" /> Add Project
-          </button>
+          <PrimaryAction onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90" icon={<Plus className="h-4 w-4" />}>Add Project</PrimaryAction>
         </div>
       </div>
 
@@ -803,8 +781,8 @@ export default function Projects() {
               </div>
 
               <div className="flex justify-end gap-2 mt-6">
-                <button type="button" onClick={() => { setIsModalOpen(false); setEditingProject(null); setFormData({ name: '', budget: '', status: 'IN_PROGRESS', startDate: '', priority: 'MEDIUM' }); setCustomFields([]); }} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">{editingProject ? 'Update Project' : 'Save Project'}</button>
+                <SecondaryAction onClick={() => { setIsModalOpen(false); setEditingProject(null); setFormData({ name: '', budget: '', status: 'IN_PROGRESS', startDate: '', priority: 'MEDIUM' }); setCustomFields([]); }} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded">Cancel</SecondaryAction>
+                <PrimaryAction type="submit" className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">{editingProject ? 'Update Project' : 'Save Project'}</PrimaryAction>
               </div>
             </form>
           </div>
@@ -891,8 +869,8 @@ export default function Projects() {
               })()}
 
               <div className="flex justify-end gap-2 mt-6">
-                <button type="button" onClick={() => setIsExpenseModalOpen(false)} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">Log Expense</button>
+                <SecondaryAction onClick={() => setIsExpenseModalOpen(false)} className="px-4 py-2 text-muted-foreground hover:bg-muted rounded">Cancel</SecondaryAction>
+                <PrimaryAction type="submit" className="px-4 py-2 bg-primary text-white rounded hover:bg-primary/90">Log Expense</PrimaryAction>
               </div>
             </form>
           </div>

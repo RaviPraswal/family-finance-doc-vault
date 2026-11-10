@@ -4,6 +4,7 @@ import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
 import { Users, UserPlus, Shield, User, Mail, Phone, Trash2, Home, MapPin, Sparkles, X } from 'lucide-react';
+import { PrimaryAction } from '../components/ui/LiquidControls';
 
 interface FamilyMember {
   id: string;
@@ -361,13 +362,8 @@ export default function FamilyMembers() {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3.5 bg-primary text-primary-foreground font-bold rounded-xl hover:bg-primary/95 text-sm transition-all shadow-md mt-6"
-              >
-                {loading ? 'Adding Member...' : 'Create Member Account'}
-              </button>
+              <PrimaryAction type="submit"
+                disabled={loading} className="w-full py-3.5 bg-primary text-primary-foreground font-bold rounded-xl hover:bg-primary/95 text-sm transition-all shadow-md mt-6">{loading ? 'Adding Member...' : 'Create Member Account'}</PrimaryAction>
             </form>
 
           </div>

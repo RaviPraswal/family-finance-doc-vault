@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Wallet, FileText, Calendar, Tag, Edit2, Trash2, Search, Download, Printer } from 'lucide-react';
+import { Wallet, FileText, Calendar, Tag, Edit2, Trash2, Download, Printer } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
+import { SearchBox, SecondaryAction } from '../components/ui/LiquidControls';
 
 interface BankAccount {
   id: string;
@@ -830,35 +831,14 @@ export default function Expenses() {
           <div className="flex justify-between items-center pb-3 border-b border-border/30 mb-3 shrink-0">
             <h3 className="font-bold text-sm text-foreground">Transaction Logs Ledger</h3>
             <div className="flex items-center gap-1.5">
-              <button
-                onClick={handleExportCSV}
-                className="flex items-center gap-1 px-2.5 py-1 bg-muted hover:bg-muted/80 border border-border/50 text-[10px] text-muted-foreground hover:text-foreground font-bold uppercase rounded cursor-pointer transition-colors"
-                title="Export CSV"
-              >
-                <Download className="h-3 w-3" /> CSV
-              </button>
-              <button
-                onClick={handleExportPDF}
-                className="flex items-center gap-1 px-2.5 py-1 bg-muted hover:bg-muted/80 border border-border/50 text-[10px] text-muted-foreground hover:text-foreground font-bold uppercase rounded cursor-pointer transition-colors"
-                title="Export PDF"
-              >
-                <Printer className="h-3 w-3" /> PDF
-              </button>
+              <SecondaryAction onClick={handleExportCSV} className="flex items-center gap-1 px-2.5 py-1 bg-muted hover:bg-muted/80 border border-border/50 text-[10px] text-muted-foreground hover:text-foreground font-bold uppercase rounded cursor-pointer transition-colors" title="Export CSV" icon={<Download className="h-3 w-3" />}>CSV</SecondaryAction>
+              <SecondaryAction onClick={handleExportPDF} className="flex items-center gap-1 px-2.5 py-1 bg-muted hover:bg-muted/80 border border-border/50 text-[10px] text-muted-foreground hover:text-foreground font-bold uppercase rounded cursor-pointer transition-colors" title="Export PDF" icon={<Printer className="h-3 w-3" />}>PDF</SecondaryAction>
             </div>
           </div>
 
           {/* Filters Row */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mb-3 bg-muted/20 p-2.5 rounded-xl border border-border/50 shrink-0 text-xs">
-            <div className="relative">
-              <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search ledger..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-7 pr-2 py-1 w-full bg-background border border-border rounded text-xs outline-none focus:ring-1 focus:ring-primary text-foreground"
-              />
-            </div>
+            <SearchBox value={search} onChange={setSearch} placeholder="Search ledger..." className="relative" iconClassName="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" inputClassName="pl-7 pr-2 py-1 w-full bg-background border border-border rounded text-xs outline-none focus:ring-1 focus:ring-primary text-foreground" />
 
             <select
               value={filterType}

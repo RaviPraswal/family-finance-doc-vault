@@ -3,6 +3,7 @@ import { Plus, CreditCard as CardIcon, Trash2, Edit2 } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
+import { ViewToggle, PrimaryAction, SecondaryAction } from '../components/ui/LiquidControls';
 
 interface CreditCard {
   id: string;
@@ -204,6 +205,11 @@ export default function CreditCards() {
           <p className="text-sm text-muted-foreground">Manage your credit card outstanding balances and statement cycles</p>
         </div>
         <div className="flex items-center gap-3">
+          <ViewToggle value={viewMode} onChange={setViewMode} options={[
+              { value: 'card', title: 'Card View', icon: <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4zM14 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2v-4z" /> </svg> },
+              { value: 'list', title: 'List View', icon: <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /> </svg> },
+              { value: 'detailed', title: 'Statement Ledger View', icon: <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"> <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H3a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /> </svg> },
+            ]} classic={
           <div className="flex bg-muted p-1 rounded-xl border border-border">
             <button
               onClick={() => setViewMode('card')}
@@ -239,12 +245,8 @@ export default function CreditCards() {
               </svg>
             </button>
           </div>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 bg-primary hover:bg-primary/95 text-white font-semibold py-2 px-4 rounded-xl transition-all shadow-md shadow-primary/20"
-          >
-            <Plus className="h-4 w-4" /> Add Credit Card
-          </button>
+          } />
+          <PrimaryAction onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 bg-primary hover:bg-primary/95 text-white font-semibold py-2 px-4 rounded-xl transition-all shadow-md shadow-primary/20" icon={<Plus className="h-4 w-4" />}>Add Credit Card</PrimaryAction>
         </div>
       </div>
 
@@ -761,8 +763,8 @@ export default function CreditCards() {
                 </div>
               </div>
               <div className="flex justify-end gap-2 mt-6">
-                <button type="button" onClick={handleCloseModal} className="px-4 py-2 border border-border text-muted-foreground hover:bg-muted rounded-xl text-sm font-semibold transition-colors">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-primary text-white rounded-xl hover:bg-primary/95 text-sm font-semibold transition-all">{editingCardId ? 'Save Changes' : 'Save Card'}</button>
+                <SecondaryAction onClick={handleCloseModal} className="px-4 py-2 border border-border text-muted-foreground hover:bg-muted rounded-xl text-sm font-semibold transition-colors">Cancel</SecondaryAction>
+                <PrimaryAction type="submit" className="px-4 py-2 bg-primary text-white rounded-xl hover:bg-primary/95 text-sm font-semibold transition-all">{editingCardId ? 'Save Changes' : 'Save Card'}</PrimaryAction>
               </div>
             </form>
           </div>

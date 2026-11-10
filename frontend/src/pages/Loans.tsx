@@ -3,8 +3,9 @@ import { apiClient } from '../api/client';
 import LoanScheduleTable from '../components/LoanScheduleTable';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
-import { Plus, CreditCard, Trash2, Search, Download, Printer, FileText } from 'lucide-react';
+import { Plus, CreditCard, Trash2, Download, Printer, FileText } from 'lucide-react';
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
+import { ViewToggle, PrimaryAction, SearchBox, SecondaryAction } from '../components/ui/LiquidControls';
 
 interface Loan {
   id: string;
@@ -254,36 +255,13 @@ export default function Loans() {
         </div>
         <div className="flex items-center gap-3">
           {/* View Toggle */}
-          <div className="flex items-center gap-1 bg-muted p-1 rounded-lg border border-border">
-            <button
-              onClick={() => setViewMode('card')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'card' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Card View"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg>
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="List View (Table)"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>
-            </button>
-            <button
-              onClick={() => setViewMode('detailed')}
-              className={`p-1.5 rounded-md transition-all ${viewMode === 'detailed' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-              title="Detailed View"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg>
-            </button>
-          </div>
+          <ViewToggle value={viewMode} onChange={setViewMode} options={[
+              { value: 'card', title: 'Card View', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /></svg> },
+              { value: 'list', title: 'List View (Table)', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg> },
+              { value: 'detailed', title: 'Detailed View', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg> },
+          ]} />
 
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 text-sm font-medium"
-          >
-            <Plus className="h-4 w-4" /> Add Loan
-          </button>
+          <PrimaryAction onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 text-sm font-medium" icon={<Plus className="h-4 w-4" />}>Add Loan</PrimaryAction>
         </div>
       </div>
 
@@ -316,16 +294,7 @@ export default function Loans() {
       {/* Rule 3: Controls Row */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6 bg-card/30 p-3 rounded-xl border border-border/50">
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search loans..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 pr-3 py-1.5 bg-background/50 border border-border rounded-lg text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none text-foreground w-48 transition-all"
-            />
-          </div>
+          <SearchBox value={search} onChange={setSearch} placeholder="Search loans..." className="relative" iconClassName="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" inputClassName="pl-9 pr-3 py-1.5 bg-background/50 border border-border rounded-lg text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none text-foreground w-48 transition-all" />
 
           <select
             value={filterStatus}
@@ -351,20 +320,8 @@ export default function Loans() {
 
         <div className="flex items-center gap-2">
           {/* Rule 9: Export Buttons */}
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg text-xs font-medium border border-border/50 transition-all cursor-pointer"
-            title="Export CSV"
-          >
-            <Download className="h-3.5 w-3.5" /> CSV
-          </button>
-          <button
-            onClick={handleExportPDF}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg text-xs font-medium border border-border/50 transition-all cursor-pointer"
-            title="Export PDF/Print"
-          >
-            <Printer className="h-3.5 w-3.5" /> PDF
-          </button>
+          <SecondaryAction onClick={handleExportCSV} className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg text-xs font-medium border border-border/50 transition-all cursor-pointer" title="Export CSV" icon={<Download className="h-3.5 w-3.5" />}>CSV</SecondaryAction>
+          <SecondaryAction onClick={handleExportPDF} className="flex items-center gap-1.5 px-3 py-1.5 bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 rounded-lg text-xs font-medium border border-border/50 transition-all cursor-pointer" title="Export PDF/Print" icon={<Printer className="h-3.5 w-3.5" />}>PDF</SecondaryAction>
         </div>
       </div>
 
@@ -923,8 +880,8 @@ export default function Loans() {
                 </div>
               </fieldset>
               <div className="flex justify-end gap-2 mt-6">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors">Cancel</button>
-                <button type="submit" className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">Save Loan</button>
+                <SecondaryAction onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors">Cancel</SecondaryAction>
+                <PrimaryAction type="submit" className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors">Save Loan</PrimaryAction>
               </div>
             </form>
           </div>

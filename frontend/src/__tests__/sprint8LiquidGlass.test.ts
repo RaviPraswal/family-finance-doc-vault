@@ -25,14 +25,24 @@ const block = (query: string) => {
 
 describe('Liquid Glass skin', () => {
   it('scopes every rule under html.skin-liquid', () => {
-    const loose = selectors.flatMap((s) => s.split(',').map((p) => p.trim())).filter((p) => !p.startsWith('html.skin-liquid'));
+    // split on top-level commas only (not the ones inside :not(...) / :has(...))
+    const topLevel = (sel: string) => {
+      const parts: string[] = []; let depth = 0, cur = '';
+      for (const ch of sel) {
+        if (ch === '(') depth++;
+        if (ch === ')') depth--;
+        if (ch === ',' && depth === 0) { parts.push(cur.trim()); cur = ''; } else cur += ch;
+      }
+      return [...parts, cur.trim()];
+    };
+    const loose = selectors.flatMap(topLevel).filter((p) => !p.startsWith('html.skin-liquid'));
     expect(loose).toEqual([]);
   });
 
   it('defines spring easings and uses them for surfaces and presses', () => {
-    expect(clean).toMatch(/--lg-spring:\s*linear\(/);
-    expect(clean).toMatch(/--lg-spring-bounce:\s*linear\(/);
-    expect(clean).toMatch(/var\(--lg-spring\)/);
+    expect(clean).toMatch(/--fn-spring:\s*linear\(/);
+    expect(clean).toMatch(/--fn-spring-bounce:\s*linear\(/);
+    expect(clean).toMatch(/var\(--fn-spring\)/);
   });
 
   it('gives instant press feedback on buttons', () => {
@@ -40,9 +50,9 @@ describe('Liquid Glass skin', () => {
   });
 
   it('materialises sheets and popovers (blur + scale), anchored to their trigger', () => {
-    expect(clean).toMatch(/@keyframes lg-materialize/);
-    expect(block('@keyframes lg-materialize')).toMatch(/blur\(/);
-    expect(block('@keyframes lg-materialize')).toMatch(/scale\(/);
+    expect(clean).toMatch(/@keyframes fn-materialize/);
+    expect(block('@keyframes fn-materialize')).toMatch(/blur\(/);
+    expect(block('@keyframes fn-materialize')).toMatch(/scale\(/);
   });
 
   it('never animates layout properties or uses transition: all', () => {

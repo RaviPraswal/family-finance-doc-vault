@@ -1,5 +1,6 @@
 import { Fragment, useState } from 'react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { RowActions } from './ui/LiquidControls';
 import { shortDate, type SideIncomeRow, type SideIncomeStatus } from '../lib/sideIncome';
 import { formatINR, toPaise } from '../lib/money';
 
@@ -68,13 +69,13 @@ export default function SideIncomeTable({ rows, onRecord, onEdit, onDelete }: Pr
                         <Plus className="h-3.5 w-3.5" /> Payment
                       </button>
                     )}
-                    {onEdit && (
-                      <button type="button" onClick={() => onEdit(r.id)} aria-label={`Edit ${r.name}`} title="Edit"
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"><Pencil className="h-4 w-4" /></button>
-                    )}
-                    {onDelete && (
-                      <button type="button" onClick={() => onDelete(r.id)} aria-label={`Delete ${r.name}`} title="Delete"
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-muted"><Trash2 className="h-4 w-4" /></button>
+                    {(onEdit || onDelete) && (
+                      <RowActions name={r.name} actions={[
+                        ...(onEdit ? [{ label: 'Edit', ariaLabel: `Edit ${r.name}`, icon: <Pencil className="h-4 w-4" />, onSelect: () => onEdit(r.id),
+                          className: 'p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted' }] : []),
+                        ...(onDelete ? [{ label: 'Delete', ariaLabel: `Delete ${r.name}`, icon: <Trash2 className="h-4 w-4" />, onSelect: () => onDelete(r.id), destructive: true,
+                          className: 'p-1.5 rounded-lg text-muted-foreground hover:text-red-500 hover:bg-muted' }] : []),
+                      ]} />
                     )}
                   </div>
                 </td>

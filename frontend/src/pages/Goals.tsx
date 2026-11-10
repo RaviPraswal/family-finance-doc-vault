@@ -3,6 +3,7 @@ import { readInsights } from '../lib/aiInsights';
 import React, { useState, useEffect } from 'react';
 import { Target, Plus, TrendingUp, Calendar, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { apiClient } from '../api/client';
+import { PrimaryAction, SecondaryAction } from '../components/ui/LiquidControls';
 
 interface Goal {
   id: string;
@@ -128,12 +129,7 @@ export default function Goals() {
           >
             {loadingInsights ? 'Analyzing...' : <><Sparkles className="h-4 w-4" /> Get AI Insights</>}
           </button>
-          <button
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="px-4 py-2 bg-primary text-primary-foreground font-medium rounded-xl hover:opacity-90 transition-opacity flex items-center gap-2"
-          >
-            {showAddForm ? 'Cancel' : <><Plus className="h-4 w-4" /> Create Goal</>}
-          </button>
+          <PrimaryAction onClick={() => setShowAddForm(!showAddForm)} className="px-4 py-2 bg-primary text-primary-foreground font-medium rounded-xl hover:opacity-90 transition-opacity flex items-center gap-2" icon={showAddForm ? undefined : <Plus className="h-4 w-4" />}>{showAddForm ? 'Cancel' : 'Create Goal'}</PrimaryAction>
         </div>
       </div>
 
@@ -218,12 +214,7 @@ export default function Goals() {
               </select>
             </div>
             <div className="flex items-end">
-              <button
-                type="submit"
-                className="w-full py-2 bg-primary text-primary-foreground font-medium rounded-xl hover:opacity-90 transition-opacity"
-              >
-                Save Goal
-              </button>
+              <PrimaryAction type="submit" className="w-full py-2 bg-primary text-primary-foreground font-medium rounded-xl hover:opacity-90 transition-opacity">Save Goal</PrimaryAction>
             </div>
           </form>
         </div>
@@ -301,16 +292,8 @@ export default function Goals() {
                         className="w-full px-3 py-1.5 text-sm bg-background/50 border border-border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
                         placeholder="Amount"
                       />
-                      <button type="submit" className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90">
-                        Add
-                      </button>
-                      <button 
-                        type="button" 
-                        onClick={() => { setContributingTo(null); setContributionAmount(''); }}
-                        className="px-3 py-1.5 text-sm bg-muted text-muted-foreground rounded-lg hover:bg-muted/80"
-                      >
-                        Cancel
-                      </button>
+                      <PrimaryAction type="submit" className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90">Add</PrimaryAction>
+                      <SecondaryAction onClick={() => { setContributingTo(null); setContributionAmount(''); }} className="px-3 py-1.5 text-sm bg-muted text-muted-foreground rounded-lg hover:bg-muted/80">Cancel</SecondaryAction>
                     </form>
                   ) : (
                     <button

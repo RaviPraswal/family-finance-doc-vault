@@ -5,6 +5,7 @@ import {
   Landmark as AlmirahIcon, Search, CheckCircle, XCircle, ArrowLeftRight, X, Download, Printer, AlertTriangle 
 } from 'lucide-react';
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
+import { SearchBox, SecondaryAction } from '../components/ui/LiquidControls';
 
 interface PhysicalLocation {
   almirahId: string;
@@ -508,16 +509,7 @@ export default function PhysicalVault() {
               {/* Search + Filter control row */}
               <div className="flex flex-wrap items-center justify-between gap-4 bg-card/30 p-2.5 rounded-xl border border-border/50">
                 <div className="flex flex-wrap items-center gap-3">
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                    <input
-                      type="text"
-                      placeholder="Search vault..."
-                      value={docSearch}
-                      onChange={(e) => setDocSearch(e.target.value)}
-                      className="pl-8 pr-3 py-1 w-48 bg-background border border-border rounded text-xs outline-none focus:ring-1 focus:ring-primary text-foreground"
-                    />
-                  </div>
+                  <SearchBox value={docSearch} onChange={setDocSearch} placeholder="Search vault..." className="relative" iconClassName="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" inputClassName="pl-8 pr-3 py-1 w-48 bg-background border border-border rounded text-xs outline-none focus:ring-1 focus:ring-primary text-foreground" />
 
                   <select
                     value={docFilterCategory}
@@ -554,18 +546,8 @@ export default function PhysicalVault() {
 
                 {/* Exporters */}
                 <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={handleExportCSV}
-                    className="flex items-center gap-1 px-2 py-1 bg-muted hover:bg-muted/80 border border-border/50 text-[10px] text-muted-foreground hover:text-foreground font-bold uppercase rounded cursor-pointer transition-colors"
-                  >
-                    <Download className="h-3 w-3" /> CSV
-                  </button>
-                  <button
-                    onClick={handleExportPDF}
-                    className="flex items-center gap-1 px-2 py-1 bg-muted hover:bg-muted/80 border border-border/50 text-[10px] text-muted-foreground hover:text-foreground font-bold uppercase rounded cursor-pointer transition-colors"
-                  >
-                    <Printer className="h-3 w-3" /> PDF
-                  </button>
+                  <SecondaryAction onClick={handleExportCSV} className="flex items-center gap-1 px-2 py-1 bg-muted hover:bg-muted/80 border border-border/50 text-[10px] text-muted-foreground hover:text-foreground font-bold uppercase rounded cursor-pointer transition-colors" icon={<Download className="h-3 w-3" />}>CSV</SecondaryAction>
+                  <SecondaryAction onClick={handleExportPDF} className="flex items-center gap-1 px-2 py-1 bg-muted hover:bg-muted/80 border border-border/50 text-[10px] text-muted-foreground hover:text-foreground font-bold uppercase rounded cursor-pointer transition-colors" icon={<Printer className="h-3 w-3" />}>PDF</SecondaryAction>
                 </div>
               </div>
 
@@ -886,6 +868,7 @@ export default function PhysicalVault() {
           <div className="lg:col-span-7 flex flex-col space-y-6">
             
             {/* Natural Search Bar */}
+            <SearchBox value={searchQuery} onChange={setSearchQuery} placeholder="Search e.g. 'Father Passport', 'Car Insurance'..." ariaLabel="Search the almirah" className="w-full" classic={
             <div className="flex items-center bg-card border border-border rounded-2xl px-4 py-3 shadow-md focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition-all">
               <Search className="h-5 w-5 text-muted-foreground mr-3" />
               <input 
@@ -901,6 +884,7 @@ export default function PhysicalVault() {
                 </button>
               )}
             </div>
+            } />
 
             {/* If searching, render search results */}
             {searchQuery ? (

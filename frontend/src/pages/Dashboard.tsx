@@ -9,6 +9,7 @@ import PreviewModal from '../components/PreviewModal';
 import { LogOut, Upload, FileText, Trash2, Download, Bell, AlertTriangle, Share2, Search, Eye, ArrowRight, ShieldAlert } from 'lucide-react';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
+import { SearchBox } from '../components/ui/LiquidControls';
 
 interface Document {
   id: string;
@@ -314,6 +315,7 @@ export default function Dashboard() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <h2 className="text-xl font-semibold text-foreground">Your Vault</h2>
           
+          <SearchBox value={searchQuery} onChange={setSearchQuery} placeholder="Search by name, tag, or description..." ariaLabel="Search documents" className="flex-1 max-w-md w-full" classic={
           <div className="flex flex-1 max-w-md w-full items-center bg-card border border-border rounded-md px-3 py-2 shadow-sm focus-within:ring-1 focus-within:ring-primary transition-all">
             <Search className="h-5 w-5 text-muted-foreground mr-2" />
             <input 
@@ -324,6 +326,7 @@ export default function Dashboard() {
               className="bg-transparent border-none outline-none w-full text-foreground text-sm"
             />
           </div>
+          } />
 
           <button
             onClick={() => setIsUploadOpen(true)}

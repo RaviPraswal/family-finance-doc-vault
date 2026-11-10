@@ -3,6 +3,7 @@ import { loadSession } from '../store/authStore';
 import { apiClient } from '../api/client';
 import { useNavigate, Link } from 'react-router-dom';
 import { Users, UserPlus, Trash, Sparkles, Building } from 'lucide-react';
+import { PrimaryAction } from '../components/ui/LiquidControls';
 
 interface MemberInput {
   name: string;
@@ -271,12 +272,8 @@ export default function Register() {
               Already have an account? <Link to="/login" className="text-primary font-bold hover:underline">Log in</Link>
             </p>
             
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex items-center justify-center gap-2 px-8 py-3.5 bg-primary text-primary-foreground font-extrabold rounded-xl hover:bg-primary/95 transition-all shadow-md hover:shadow-lg disabled:opacity-50 min-w-[200px]"
-            >
-              {loading ? (
+            <PrimaryAction type="submit"
+              disabled={loading} className="flex items-center justify-center gap-2 px-8 py-3.5 bg-primary text-primary-foreground font-extrabold rounded-xl hover:bg-primary/95 transition-all shadow-md hover:shadow-lg disabled:opacity-50 min-w-[200px]">{loading ? (
                 <>
                   <Loader2 className="h-5 w-5 animate-spin" /> Registering...
                 </>
@@ -284,8 +281,7 @@ export default function Register() {
                 <>
                   <Sparkles className="h-5 w-5" /> Register Family
                 </>
-              )}
-            </button>
+              )}</PrimaryAction>
           </div>
 
         </form>

@@ -49,6 +49,33 @@ describe('Phone navigation', () => {
     expect(screen.queryByRole('dialog', { name: /navigation/i })).not.toBeInTheDocument();
   });
 
+  // Sprint 9: the menu follows the four plain categories.
+  it('groups pages under Money In, Money Out, Savings & Investments, Debts', async () => {
+    app();
+    await userEvent.click(screen.getByRole('button', { name: /open menu/i }));
+    const menu = screen.getByRole('dialog', { name: /navigation/i });
+    const section = (name: RegExp) => within(menu).getByRole('group', { name });
+    expect(within(section(/^money in$/i)).getByRole('link', { name: /side income/i })).toBeInTheDocument();
+    expect(within(section(/^money out$/i)).getByRole('link', { name: /spending limits/i })).toBeInTheDocument();
+    expect(within(section(/^savings & investments$/i)).getByRole('link', { name: /deposits/i })).toBeInTheDocument();
+    expect(within(section(/^debts$/i)).getByRole('link', { name: /loans & emi/i })).toBeInTheDocument();
+    expect(within(section(/^debts$/i)).getByRole('link', { name: /credit cards/i })).toBeInTheDocument();
+    expect(within(menu).getByRole('link', { name: /^home$/i })).toHaveAttribute('aria-current', 'page');
+    // every page still has exactly one place in the menu
+    const hrefs = within(menu).getAllByRole('link').map((a) => a.getAttribute('href')).filter((h) => h?.startsWith('/dashboard'));
+    expect(new Set(hrefs).size).toBe(hrefs.length);
+    expect(hrefs).toEqual(expect.arrayContaining(['/dashboard/portfolio', '/dashboard/expenses', '/dashboard/quick-logger', '/dashboard/income',
+      '/dashboard/budgets', '/dashboard/projects', '/dashboard/bank-accounts', '/dashboard/deposits', '/dashboard/investments',
+      '/dashboard/chit-funds', '/dashboard/peer-lending', '/dashboard/loans', '/dashboard/credit-cards', '/dashboard/goals',
+      '/dashboard/commitments', '/dashboard/ledger', '/dashboard/vault', '/dashboard/physical-vault', '/dashboard/family']));
+  });
+
+  it('opens Add entry from anywhere', async () => {
+    app();
+    await userEvent.click(screen.getAllByRole('button', { name: /add entry/i })[0]);
+    expect(screen.getByRole('dialog', { name: /add entry/i })).toBeInTheDocument();
+  });
+
   it('marks the open menu as expanded for screen readers', async () => {
     app();
     const btn = screen.getByRole('button', { name: /open menu/i });

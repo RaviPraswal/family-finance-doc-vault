@@ -202,3 +202,5 @@
   .fixed.inset-0 > .bg-card.p-6:not(.fn-drawer),
   .fixed.inset-0 > [role='dialog'].p-6:not(.fn-drawer) { padding: 1.25rem; }
 }
+/* A full-window overlay always covers the whole window: page spacing (space-y-*) must not push it down. */
+.fixed.inset-0 { margin: 0 !important; }

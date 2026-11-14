@@ -13,6 +13,7 @@ import { ToastContainer } from './components/ToastContainer';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { SessionExpiryModal } from './components/SessionExpiryModal';
 import Projects from './pages/Projects';
+import Home from './pages/Home';
 import PortfolioOverview from './pages/PortfolioOverview';
 import BankAccounts from './pages/BankAccounts';
 import CreditCards from './pages/CreditCards';
@@ -88,7 +89,7 @@ function App() {
               </ProtectedRoute>
             } 
           >
-            <Route index element={<PortfolioOverview />} />
+            <Route index element={<Home />} />
             
             <Route path="physical-vault" element={<PhysicalVault />} />
             <Route path="ledger" element={<Ledger />} />

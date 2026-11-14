@@ -14,10 +14,18 @@ describe('Dialogs on phones and short windows', () => {
     expect(index).toMatch(/overflow-y: auto;\s*overscroll-behavior: contain;/);
   });
 
+  it('an overlay covers the whole window even inside a spaced page (space-y pushed it down 24px)', () => {
+    expect(index).toMatch(/\.fixed\.inset-0 \{ margin: 0 !important; \}/);
+  });
+
   it('Liquid Glass form sheets are near-solid so nothing shows through the fields', () => {
     const alpha = [...liquid.matchAll(/--fn-tint-strong: rgba\([^)]*,\s*([\d.]+)\)/g)].map((m) => Number(m[1]));
     expect(alpha.length).toBe(2);
     alpha.forEach((a) => expect(a).toBeGreaterThanOrEqual(0.92));
+  });
+
+  it('Liquid Glass toasts use the theme text colour (white text vanished on light glass)', () => {
+    expect(liquid).toMatch(/\[role='alert'\]\)\.rounded-xl \.text-white \{\s*color: hsl\(var\(--foreground\)\) !important;/);
   });
 
   it('no page hides row actions behind hover (phones cannot hover)', () => {

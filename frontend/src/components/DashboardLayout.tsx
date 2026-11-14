@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import PageErrorBoundary from './PageErrorBoundary';
-import { GlassPanel } from './ui/LiquidControls';
+import { GlassPanel, PrimaryAction } from './ui/LiquidControls';
 import { 
   FolderOpen, 
   Wallet, 
@@ -20,62 +20,95 @@ import {
   CalendarClock,
   Droplets,
   Menu,
-  X
+  X,
+  Home,
+  ListOrdered,
+  ArrowDownLeft,
+  HandCoins,
+  Scale,
+  Target,
+  Plus
 } from 'lucide-react';
+import AddEntry from './AddEntry';
 import { useAuthStore } from '../store/authStore';
 import { useThemeStore, SKIN_LABELS, nextSkin } from '../store/themeStore';
 
-const navigation = [
-  { name: 'Portfolio Overview', href: '/dashboard', icon: TrendingUp },
-  { name: 'Document Vault', href: '/dashboard/vault', icon: FolderOpen },
-  { name: 'Physical Almirah', href: '/dashboard/physical-vault', icon: Landmark },
-  { name: 'Ledger & AI Scheduler', href: '/dashboard/ledger', icon: Clock },
-  { name: 'Quick Logger', href: '/dashboard/quick-logger', icon: Zap },
-  { name: 'Monthly Commitments', href: '/dashboard/commitments', icon: CalendarClock },
-
-  { name: 'Bank Accounts', href: '/dashboard/bank-accounts', icon: Landmark },
-  { name: 'Credit Cards', href: '/dashboard/credit-cards', icon: CreditCard },
-  { name: 'Deposits (FD/RD)', href: '/dashboard/deposits', icon: Wallet },
-  { name: 'Investments', href: '/dashboard/investments', icon: Briefcase },
-  { name: 'Loans & EMI', href: '/dashboard/loans', icon: CreditCard },
-  { name: 'Chit Funds', href: '/dashboard/chit-funds', icon: Users },
-  { name: 'Udhaar (Peer Lending)', href: '/dashboard/peer-lending', icon: Users },
-  { name: 'Side Income', href: '/dashboard/income', icon: Wallet },
-  { name: 'Projects & Expenses', href: '/dashboard/projects', icon: HardHat },
-  { name: 'Daily Transactions', href: '/dashboard/expenses', icon: Wallet },
-  { name: 'Goals', href: '/dashboard/goals', icon: TrendingUp },
-  { name: 'Budgets & Alerts', href: '/dashboard/budgets', icon: Percent },
-  { name: 'Family Members', href: '/dashboard/family', icon: Users },
+interface NavItem { name: string; href: string; icon: typeof TrendingUp }
+/**
+ * Sprint 9: the menu follows the four plain categories (Money In, Money Out, Savings & Investments, Debts), with
+ * planning tools and papers after them. Every page has exactly one place.
+ */
+const navGroups: { title?: string; items: NavItem[] }[] = [
+  { items: [
+    { name: 'Home', href: '/dashboard', icon: Home },
+    { name: 'Full overview', href: '/dashboard/portfolio', icon: TrendingUp },
+    { name: 'All entries', href: '/dashboard/expenses', icon: ListOrdered },
+    { name: 'Quick Logger', href: '/dashboard/quick-logger', icon: Zap },
+  ] },
+  { title: 'Money In', items: [
+    { name: 'Side income', href: '/dashboard/income', icon: ArrowDownLeft },
+  ] },
+  { title: 'Money Out', items: [
+    { name: 'Spending limits', href: '/dashboard/budgets', icon: Percent },
+    { name: 'Projects', href: '/dashboard/projects', icon: HardHat },
+  ] },
+  { title: 'Savings & Investments', items: [
+    { name: 'Bank Accounts', href: '/dashboard/bank-accounts', icon: Landmark },
+    { name: 'Deposits (FD/RD)', href: '/dashboard/deposits', icon: Wallet },
+    { name: 'Investments', href: '/dashboard/investments', icon: Briefcase },
+    { name: 'Chit Funds', href: '/dashboard/chit-funds', icon: Users },
+    { name: 'Udhaar (lent & borrowed)', href: '/dashboard/peer-lending', icon: HandCoins },
+  ] },
+  { title: 'Debts', items: [
+    { name: 'Loans & EMI', href: '/dashboard/loans', icon: Scale },
+    { name: 'Credit Cards', href: '/dashboard/credit-cards', icon: CreditCard },
+  ] },
+  { title: 'Planning', items: [
+    { name: 'Goals', href: '/dashboard/goals', icon: Target },
+    { name: 'Upcoming payments', href: '/dashboard/commitments', icon: CalendarClock },
+    { name: 'Scheduled payments (AI)', href: '/dashboard/ledger', icon: Clock },
+  ] },
+  { title: 'Papers & family', items: [
+    { name: 'Document Vault', href: '/dashboard/vault', icon: FolderOpen },
+    { name: 'Physical Almirah', href: '/dashboard/physical-vault', icon: Landmark },
+    { name: 'Family Members', href: '/dashboard/family', icon: Users },
+  ] },
 ];
 
 function NavLinks({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
   return (
-    <ul className="space-y-1 px-3">
-      {navigation.map((item) => {
-        const isActive = pathname === item.href;
+    <div className="space-y-4 px-3">
+      {navGroups.map((group, gi) => {
+        const id = `nav-group-${gi}-${onNavigate ? 'm' : 'd'}`;
         return (
-          <li key={item.name}>
-            <Link
-              to={item.href}
-              onClick={onNavigate}
-              aria-current={isActive ? 'page' : undefined}
-              className={`fn-nav-item flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all ${
-                isActive
-                  ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm'
-                  : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-              }`}
-            >
-              <item.icon
-                className={`mr-3 h-5 w-5 flex-shrink-0 transition-colors ${
-                  isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
-                }`}
-              />
-              {item.name}
-            </Link>
-          </li>
+          <div key={group.title ?? 'main'} role={group.title ? 'group' : undefined} aria-labelledby={group.title ? id : undefined}>
+            {group.title && <p id={id} className="fn-nav-heading px-3 pb-1 text-[10px] font-black uppercase tracking-wider text-muted-foreground">{group.title}</p>}
+            <ul className="space-y-0.5">
+              {group.items.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <li key={item.href}>
+                    <Link
+                      to={item.href}
+                      onClick={onNavigate}
+                      aria-current={isActive ? 'page' : undefined}
+                      className={`fn-nav-item flex items-center px-3 py-2 text-sm font-medium rounded-xl transition-all ${
+                        isActive
+                          ? 'bg-primary/10 text-primary border border-primary/20 shadow-sm'
+                          : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                      }`}
+                    >
+                      <item.icon className={`mr-3 h-4 w-4 flex-shrink-0 transition-colors ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                      {item.name}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         );
       })}
-    </ul>
+    </div>
   );
 }
 
@@ -133,6 +166,15 @@ function AccountFooter() {
   );
 }
 
+function AddEntryButton({ onClick }: { onClick: () => void }) {
+  return (
+    <PrimaryAction icon={<Plus className="h-4 w-4" />} onClick={onClick}
+      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold">
+      Add entry
+    </PrimaryAction>
+  );
+}
+
 const Brand = () => (
   <Link to="/" className="text-2xl font-bold bg-gradient-to-r from-primary to-purple-500 bg-clip-text text-transparent">
     FinNest
@@ -144,6 +186,7 @@ export default function DashboardLayout() {
   const currentUser = useAuthStore((state) => state.user);
   // Phones: the sidebar does not fit, so it opens as a menu from the top bar.
   const [menuOpen, setMenuOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
 
   useEffect(() => { setMenuOpen(false); }, [location.pathname]);
@@ -163,7 +206,10 @@ export default function DashboardLayout() {
         <div className="h-20 flex items-center px-6 border-b border-border/50 shrink-0">
           <Brand />
         </div>
-        <nav aria-label="Main" className="flex-1 overflow-y-auto py-6 custom-scrollbar">
+        <div className="px-6 pt-4 shrink-0">
+          <AddEntryButton onClick={() => setAdding(true)} />
+        </div>
+        <nav aria-label="Main" className="flex-1 overflow-y-auto py-4 custom-scrollbar">
           <NavLinks pathname={location.pathname} />
         </nav>
         <AccountFooter />
@@ -209,6 +255,8 @@ export default function DashboardLayout() {
             </button>
             <span className="text-lg font-bold text-foreground truncate">FinNest</span>
           </div>
+          <button type="button" onClick={() => setAdding(true)} aria-label="Add entry"
+            className="ml-auto p-2.5 rounded-lg text-primary hover:bg-muted/50"><Plus className="h-5 w-5" /></button>
           {currentUser && (
             <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full font-bold whitespace-nowrap mr-2">
               {currentUser.role === 'OWNER' ? '👑 Admin' : '👤 Member'}
@@ -222,6 +270,8 @@ export default function DashboardLayout() {
         <main className="fn-content flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-8 pt-0 md:pt-4">
           <PageErrorBoundary resetKey={location.pathname}><Outlet /></PageErrorBoundary>
         </main>
+        {/* saving from here refreshes the page underneath, whichever it is */}
+        <AddEntry open={adding} onClose={() => setAdding(false)} onSaved={() => window.dispatchEvent(new Event('finnest:entry-saved'))} />
       </div>
     </div>
   );

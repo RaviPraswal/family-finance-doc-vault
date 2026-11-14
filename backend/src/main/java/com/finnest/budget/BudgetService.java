@@ -55,24 +55,24 @@ public class BudgetService {
         Map<String, BigDecimal> expensesByCategory = expenses.stream()
                 .filter(e -> "DEBIT".equalsIgnoreCase(e.getType()) && e.getKind() == com.finnest.expense.EntryKind.EXPENSE)
                 .collect(Collectors.groupingBy(
-                        e -> e.getCategory() == null || e.getCategory().isBlank() ? "Uncategorised" : e.getCategory(),
+                        e -> SpendingGroup.of(e.getCategory()), // Sprint 9: old category names count under their plain group
                         Collectors.reducing(BigDecimal.ZERO, e -> e.getAmount() == null ? BigDecimal.ZERO : e.getAmount(), BigDecimal::add)
                 ));
 
         // 2. Get all budgets defined for this month
         List<Budget> budgets = visibleBudgets(tenantId, monthStr);
         Map<String, Budget> budgetsByCategory = budgets.stream()
-                .collect(Collectors.toMap(Budget::getCategory, b -> b, (a, b) ->
-                        // an old duplicate row: keep the most recently updated one
+                .filter(b -> !SpendingGroup.NOT_SORTED.equals(SpendingGroup.of(b.getCategory()))) // "Investments"/"Projects" are not spending
+                .collect(Collectors.toMap(b -> SpendingGroup.of(b.getCategory()), b -> b, (a, b) ->
+                        // an old-name budget and a new one for the same group, or an old duplicate row: the latest wins
                         a.getUpdatedAt() != null && b.getUpdatedAt() != null && a.getUpdatedAt().isAfter(b.getUpdatedAt()) ? a : b));
 
         // Get a distinct set of all categories that have either a budget or an expense
         Set<String> allCategories = new HashSet<>(expensesByCategory.keySet());
         allCategories.addAll(budgetsByCategory.keySet());
         
-        // Also ensure all standard/Sprint categories are always included
-        List<String> defaultCategories = Arrays.asList("Daily Life", "Investments", "Projects", "Bills", "Medical", "Education");
-        allCategories.addAll(defaultCategories);
+        // The seven groups always show; "Not sorted yet" only when something is in it
+        allCategories.addAll(SpendingGroup.NAMES);
 
         List<BudgetSummaryResponse> summaries = new ArrayList<>();
         LocalDate today = LocalDate.now();
@@ -94,13 +94,15 @@ public class BudgetService {
                 // Fetch previous month's budget
                 YearMonth prevMonth = targetMonth.minusMonths(1);
                 String prevMonthStr = prevMonth.format(DateTimeFormatter.ofPattern("yyyy-MM"));
-                Optional<Budget> prevBudgetOpt = latest(visibleBudgets(tenantId, prevMonthStr), category);
+                Optional<Budget> prevBudgetOpt = visibleBudgets(tenantId, prevMonthStr).stream()
+                        .filter(b -> category.equals(SpendingGroup.of(b.getCategory())))
+                        .max(Comparator.comparing(Budget::getUpdatedAt, Comparator.nullsFirst(Comparator.naturalOrder())));
                 if (prevBudgetOpt.isPresent()) {
                     Budget prevBudget = prevBudgetOpt.get();
                     // Get previous month's expenses
                     List<Expense> prevExpenses = visibleExpenses(tenantId, prevMonth.atDay(1), prevMonth.atEndOfMonth());
                     BigDecimal prevSpent = prevExpenses.stream()
-                            .filter(e -> category.equalsIgnoreCase(e.getCategory()) && "DEBIT".equalsIgnoreCase(e.getType()) && e.getAmount() != null
+                            .filter(e -> category.equals(SpendingGroup.of(e.getCategory())) && "DEBIT".equalsIgnoreCase(e.getType()) && e.getAmount() != null
                                     && e.getKind() == com.finnest.expense.EntryKind.EXPENSE)
                             .map(Expense::getAmount)
                             .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -214,7 +216,13 @@ public class BudgetService {
         UUID tenantId = UUID.fromString(TenantContext.getCurrentTenant());
         budget.setTenantId(tenantId);
         // D-02: a member's budget is their own; it never overwrites the family (owner) budget for the same category
-        Optional<Budget> existing = latest(visibleBudgets(tenantId, budget.getMonth()), budget.getCategory());
+        // Sprint 9: one limit per plain group — an old-name budget ("Bills") is the limit for its group ("Home & bills")
+        String group = SpendingGroup.of(budget.getCategory());
+        List<Budget> visible = visibleBudgets(tenantId, budget.getMonth());
+        Optional<Budget> existing = SpendingGroup.NOT_SORTED.equals(group)
+                ? latest(visible, budget.getCategory())
+                : visible.stream().filter(b -> group.equals(SpendingGroup.of(b.getCategory())))
+                        .max(Comparator.comparing(Budget::getUpdatedAt, Comparator.nullsFirst(Comparator.naturalOrder())));
         if (existing.isPresent()) {
             Budget b = existing.get();
             b.setAmount(budget.getAmount());

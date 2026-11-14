@@ -13,6 +13,7 @@ import {
   Clock
 } from 'lucide-react';
 import { apiClient } from '../api/client';
+import { MONEY_OUT } from '../lib/simpleMoney';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
 import { PrimaryAction } from '../components/ui/LiquidControls';
@@ -47,6 +48,12 @@ interface ObligationsSummary {
   obligations: ScheduledPayment[];
 }
 
+/** Sprint 9: the seven Money Out groups in their usual order; anything else (unsorted spending) last. */
+const inGroupOrder = <T extends { category: string }>(rows: T[]): T[] => {
+  const at = (r: T) => { const i = MONEY_OUT.findIndex((g) => g.name === r.category); return i < 0 ? MONEY_OUT.length : i; };
+  return [...(Array.isArray(rows) ? rows : [])].sort((a, b) => at(a) - at(b));
+};
+
 export default function Budgets() {
   const toast = useToastStore();
   const confirm = useConfirmStore();
@@ -79,7 +86,7 @@ export default function Budgets() {
         apiClient(`/api/budgets/summary?month=${selectedMonth}`),
         apiClient(`/api/budgets/obligations?month=${selectedMonth}`)
       ]);
-      setBudgets(budgetsData);
+      setBudgets(inGroupOrder(budgetsData));
       setObligationsSummary(obligationsData);
     } catch (error: any) {
       toast.error('Failed to load budgets & obligations data');
@@ -246,6 +253,9 @@ export default function Budgets() {
                     <div className="flex justify-between items-start gap-4">
                       <div>
                         <h3 className="text-xs font-bold text-foreground">{budget.category}</h3>
+                        <p className="text-[10px] text-muted-foreground">
+                          {MONEY_OUT.find((g) => g.name === budget.category)?.examples.join(', ') ?? 'Entries without a group. Sort them in All entries.'}
+                        </p>
                         {budget.alert && (
                           <p className="text-[10px] text-red-500 font-medium mt-1 flex items-center gap-1">
                             <AlertTriangle className="h-3 w-3 shrink-0" /> {budget.alert}

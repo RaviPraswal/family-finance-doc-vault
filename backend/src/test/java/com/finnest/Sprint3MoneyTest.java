@@ -152,7 +152,7 @@ class Sprint3MoneyTest {
         postJson("/api/expenses", expense(2000, "DEBIT", "Bills", Map.of()));
         postJson("/api/expenses", expense(5000, "DEBIT", "Bills", Map.of("madeAgainst", "LOAN_EMI")));
 
-        assertThat(budgetSpent(month, "Bills")).isEqualByComparingTo("2000");
+        assertThat(budgetSpent(month, "Home & bills")).isEqualByComparingTo("2000");
     }
 
     @Test

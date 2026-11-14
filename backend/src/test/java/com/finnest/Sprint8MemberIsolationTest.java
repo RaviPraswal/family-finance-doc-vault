@@ -114,8 +114,8 @@ class Sprint8MemberIsolationTest {
     }
 
     private static JsonNode bills(JsonNode summary) {
-        for (JsonNode s : summary) if ("Bills".equals(s.get("category").asText())) return s;
-        throw new AssertionError("no Bills row");
+        for (JsonNode s : summary) if ("Home & bills".equals(s.get("category").asText())) return s; // Sprint 9: "Bills" is shown under its plain group
+        throw new AssertionError("no Home & bills row");
     }
 
     @Test

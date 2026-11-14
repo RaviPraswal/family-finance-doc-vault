@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Wallet, FileText, Calendar, Tag, Edit2, Trash2, Download, Printer } from 'lucide-react';
 import { apiClient } from '../api/client';
+import { MONEY_OUT, placeOf } from '../lib/simpleMoney';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
@@ -80,6 +81,12 @@ interface Expense {
   customFieldsData?: string;
   editHistory?: string;
 }
+
+const PLACE_TONE: Record<string, string> = {
+  'Money in': 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+  'Money out': 'bg-red-500/10 text-red-700 dark:text-red-300',
+  Moved: 'bg-muted text-muted-foreground',
+};
 
 export default function Expenses() {
   const toast = useToastStore();
@@ -358,6 +365,29 @@ export default function Expenses() {
     }
   };
 
+  /** Sprint 9: put an old entry into one of the plain groups — only its category changes. */
+  const sortInto = async (e: Expense, group: string) => {
+    if (!group) return;
+    const link = (x?: { id: string } | null) => (x?.id ? { id: x.id } : null);
+    try {
+      await apiClient(`/api/expenses/${e.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          amount: e.amount, category: group, expenseDate: e.expenseDate, description: e.description, type: e.type, madeAgainst: e.madeAgainst,
+          linkedAccount: link(e.linkedAccount), linkedLoan: link(e.linkedLoan), linkedChitFund: link(e.linkedChitFund),
+          linkedPeerLending: link(e.linkedPeerLending), linkedInvestment: link(e.linkedInvestment), linkedDeposit: link(e.linkedDeposit),
+          linkedProject: link(e.linkedProject), linkedIncomeSource: link(e.linkedIncomeSource), linkedCreditCard: link(e.linkedCreditCard),
+          customFieldsData: e.customFieldsData ?? null,
+        }),
+      });
+      toast.success('Entry sorted', `Now under ${group}.`);
+      fetchExpenses();
+      fetchCategories();
+    } catch (error: any) {
+      toast.error('Could not sort the entry', error.message || 'Please try again.');
+    }
+  };
+
   // Filter Transaction List
   const filteredExpenses = expenses.filter(e => {
     const matchesSearch = (e.description || '').toLowerCase().includes(search.toLowerCase()) || 
@@ -370,7 +400,8 @@ export default function Expenses() {
         ? !e.linkedAccount 
         : e.linkedAccount?.id === filterBankId;
 
-    const matchesType = filterType === '' ? true : e.type === filterType;
+    const place = placeOf(e);
+    const matchesType = filterType === '' ? true : filterType === 'UNSORTED' ? place.needsSorting : place.top === filterType;
     const matchesCategory = filterCategory === 'ALL' ? true : e.category === filterCategory;
 
     let matchesDate = true;
@@ -841,13 +872,16 @@ export default function Expenses() {
             <SearchBox value={search} onChange={setSearch} placeholder="Search ledger..." className="relative" iconClassName="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" inputClassName="pl-7 pr-2 py-1 w-full bg-background border border-border rounded text-xs outline-none focus:ring-1 focus:ring-primary text-foreground" />
 
             <select
+              aria-label="Show entries"
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
               className="px-2 py-1 bg-background border border-border rounded text-xs text-foreground outline-none cursor-pointer focus:ring-1 focus:ring-primary"
             >
-              <option value="">All Types</option>
-              <option value="DEBIT">Debit Only</option>
-              <option value="CREDIT">Credit Only</option>
+              <option value="">All entries</option>
+              <option value="Money in">Money in</option>
+              <option value="Money out">Money out</option>
+              <option value="Moved">Moved</option>
+              <option value="UNSORTED">Not sorted yet</option>
             </select>
 
             <select
@@ -901,6 +935,7 @@ export default function Expenses() {
                 <tbody className="bg-card/50 divide-y divide-border/20">
                   {paginatedExpenses.map((expense, idx) => {
                     const isCredit = expense.type === 'CREDIT';
+                    const place = placeOf(expense);
                     return (
                       <tr 
                         key={expense.id} 
@@ -910,11 +945,22 @@ export default function Expenses() {
                           {new Date(expense.expenseDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </td>
                         <td className="px-3 py-2 text-xs">
-                          <span className="font-semibold text-foreground block">{expense.category}</span>
-                          {expense.madeAgainst && expense.madeAgainst !== 'MANUAL_ENTRY' && (
-                            <span className="text-[9px] bg-blue-500/10 text-blue-500 px-1 py-0.5 rounded uppercase font-bold mt-0.5 inline-block">
-                              {expense.madeAgainst.replace('_', ' ')}
-                            </span>
+                          <span className={`text-[9px] px-1 py-0.5 rounded uppercase font-bold inline-block ${PLACE_TONE[place.top]}`}>{place.top}</span>
+                          {place.needsSorting ? (
+                            <select
+                              aria-label={`Sort ${expense.category || 'this entry'} into a group`}
+                              value=""
+                              onChange={(ev) => sortInto(expense, ev.target.value)}
+                              className="mt-1 block w-full px-1 py-0.5 bg-background border border-amber-500/60 rounded text-[11px] text-foreground"
+                            >
+                              <option value="">{expense.category || 'No category'} — sort into…</option>
+                              {MONEY_OUT.map((g) => <option key={g.name} value={g.name}>{g.name}</option>)}
+                            </select>
+                          ) : (
+                            <span className="font-semibold text-foreground block mt-0.5">{place.group}</span>
+                          )}
+                          {!place.needsSorting && expense.category !== place.group && (
+                            <span className="text-[10px] text-muted-foreground block">{expense.category}</span>
                           )}
                         </td>
                         <td className="px-3 py-2 text-xs text-muted-foreground truncate max-w-[120px]" title={expense.description}>

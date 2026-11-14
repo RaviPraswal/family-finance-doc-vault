@@ -85,6 +85,18 @@ const isRefund = (e: EntryLike) => /refund|reversal|return of purchase/.test(low
 const isSelfTransfer = (e: EntryLike) => /self transfer/.test(low(e.category));
 const add = (m: Record<string, number>, k: string, v: number) => { m[k] = sumRupees([m[k] ?? 0, v]); };
 
+const MOVED: Record<string, string> = { INVESTMENT: 'Into savings & investments', LOAN_PAYMENT: 'Loan payment', LENDING: 'Udhaar', TRANSFER: 'Between my own accounts' };
+
+/** Where one entry sits, in plain words — for lists. Uses the same rules as the month summary. */
+export function placeOf(e: EntryLike): { top: 'Money in' | 'Money out' | 'Moved'; group: string | null; needsSorting: boolean } {
+  const credit = (e.type ?? '').toUpperCase() === 'CREDIT';
+  const kind = (e.kind ?? (credit ? 'INCOME' : 'EXPENSE')).toUpperCase();
+  if (credit && (isRefund(e) || kind === 'EXPENSE')) return { top: 'Money out', group: 'Refund (lowers spending)', needsSorting: false };
+  if (kind === 'INCOME') return { top: 'Money in', group: incomeGroupOf(e), needsSorting: false };
+  if (kind === 'EXPENSE') { const group = spendingGroupOf(e.category); return { top: 'Money out', group, needsSorting: !group }; }
+  return { top: 'Moved', group: MOVED[kind] ?? 'Between my own accounts', needsSorting: false };
+}
+
 export function monthSummary(entries: EntryLike[], month: string) {
   const inGroups: Record<string, number> = {};
   const outGroups: Record<string, number> = {};

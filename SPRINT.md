@@ -110,5 +110,20 @@ Found by running the real app (CI-built JAR + local Postgres) as owner and membe
 | Liquid Glass "not up to the mark" | glass on every surface | rebuilt: solid content, glass chrome; screenshots checked |
 
 
+## Sprint 9 — Simple money (agreed 2026-11-14, Ravi: "go ahead") — branch `feature/s9-simple-money`
+Goal: a first-time user understands the app at a glance. Everything is one of four things — **Money In**, **Money Out**,
+**Savings & Investments** (what you own), **Debts** (what you owe). Moving your own money between your own places is
+not spending. Design: `docs/sprint9-simple-money.md`.
+
+| # | Stage | Status |
+|---|---|---|
+| S9-1 | Four-card Home, one "Add entry" (Money in / Money out / Move my money), menu grouped by the four categories | Done |
+| S9-2 | Daily Transactions shows the new groups; sort "not sorted yet" entries; budgets on the 7 Money Out groups | Next |
+| S9-3 | Quick Logger templates inside Add entry; Scheduled payments + Monthly Commitments → one "Upcoming payments" | Planned |
+| S9-4 | Udhaar split (lent / borrowed); Projects become a label on spending + a Goal | Planned |
+
+Open question for Ravi: a SIP/top-up raises an investment's *invested amount* but not its *current value*, so "what you own"
+dips until the value is updated. Should a contribution also raise the current value by the same amount?
+
 ## Carry-over / parked
 OTP/2FA, bank-statement import, Classic density, production rollout — next sprint candidates (Step 3 review decides).

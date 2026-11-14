@@ -743,6 +743,14 @@ html.skin-liquid [role='alert'].rounded-xl {
   color: hsl(var(--foreground));
 }
 
+/* The toast's own text is written white for the dark Classic toast; on glass it follows the theme so it stays readable. */
+html.skin-liquid :is([role='status'], [role='alert']).rounded-xl .text-white {
+  color: hsl(var(--foreground)) !important;
+}
+html.skin-liquid :is([role='status'], [role='alert']).rounded-xl :is(.text-white\/60, .text-white\/30) {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
 /* ---------- Scrollbars ---------- */
 html.skin-liquid .custom-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(120, 120, 128, 0.35);

@@ -20,11 +20,11 @@ const shift = (key: string, by: number) => { const d = new Date(`${key}-01T00:00
 
 const OWN_LINK: Record<string, string> = {
   'Bank & cash': 'bank-accounts', 'Fixed savings': 'deposits', 'Market investments': 'investments', 'Long-term schemes': 'investments',
-  'Gold & property': 'investments', 'Chit funds': 'chit-funds', 'Money others owe you': 'peer-lending',
+  'Gold & property': 'investments', 'Chit funds': 'chit-funds', 'Money others owe you': 'money-owed-to-me',
 };
 const OWE_LINK: Record<string, string> = {
   'Home & vehicle loans': 'loans', 'Personal & education loans': 'loans', 'Credit cards': 'credit-cards',
-  'Chit instalments still to pay': 'chit-funds', 'Money you borrowed from people': 'peer-lending',
+  'Chit instalments still to pay': 'chit-funds', 'Money you borrowed from people': 'money-i-borrowed',
 };
 
 function Card({ id, title, hint, total, totalTone, icon, groups, values, links, footer }: {

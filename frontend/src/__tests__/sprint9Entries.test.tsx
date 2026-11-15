@@ -73,4 +73,17 @@ describe('All entries', () => {
       madeAgainst: 'MANUAL_ENTRY', linkedAccount: { id: 'a1' }, linkedLoan: null, linkedChitFund: null, linkedPeerLending: null,
       linkedInvestment: null, linkedDeposit: null, linkedProject: null, linkedIncomeSource: null, linkedCreditCard: null, customFieldsData: null });
   });
+
+  it('adds through the one Add entry; the old detailed form is tucked away until asked for or editing', async () => {
+    render(<Expenses />);
+    await rowOf('Pay');
+    expect(screen.getByRole('heading', { level: 2, name: 'All entries' })).toBeInTheDocument();
+    expect(screen.queryByText('Made Against')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /^add entry$/i }));
+    expect(screen.getByRole('dialog', { name: /add entry/i })).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+
+    await userEvent.click(screen.getByRole('button', { name: /detailed form/i }));
+    expect(screen.getByText('Made Against')).toBeInTheDocument();
+  });
 });

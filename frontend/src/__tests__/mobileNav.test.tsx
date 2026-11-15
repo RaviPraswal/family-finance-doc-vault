@@ -64,10 +64,15 @@ describe('Phone navigation', () => {
     // every page still has exactly one place in the menu
     const hrefs = within(menu).getAllByRole('link').map((a) => a.getAttribute('href')).filter((h) => h?.startsWith('/dashboard'));
     expect(new Set(hrefs).size).toBe(hrefs.length);
-    expect(hrefs).toEqual(expect.arrayContaining(['/dashboard/portfolio', '/dashboard/expenses', '/dashboard/quick-logger', '/dashboard/income',
-      '/dashboard/budgets', '/dashboard/projects', '/dashboard/bank-accounts', '/dashboard/deposits', '/dashboard/investments',
-      '/dashboard/chit-funds', '/dashboard/peer-lending', '/dashboard/loans', '/dashboard/credit-cards', '/dashboard/goals',
-      '/dashboard/commitments', '/dashboard/ledger', '/dashboard/vault', '/dashboard/physical-vault', '/dashboard/family']));
+    expect(hrefs.sort()).toEqual(['/dashboard', '/dashboard/portfolio', '/dashboard/expenses', '/dashboard/quick-logger', '/dashboard/income',
+      '/dashboard/budgets', '/dashboard/bank-accounts', '/dashboard/deposits', '/dashboard/investments', '/dashboard/chit-funds',
+      '/dashboard/money-owed-to-me', '/dashboard/loans', '/dashboard/credit-cards', '/dashboard/money-i-borrowed', '/dashboard/goals',
+      '/dashboard/projects', '/dashboard/commitments', '/dashboard/vault', '/dashboard/physical-vault', '/dashboard/family'].sort());
+    // stage 4: udhaar is split — what you lent is something you own, what you borrowed is a debt; projects are planning
+    expect(within(section(/^savings & investments$/i)).getByRole('link', { name: /money others owe you/i })).toHaveAttribute('href', '/dashboard/money-owed-to-me');
+    expect(within(section(/^debts$/i)).getByRole('link', { name: /money you borrowed/i })).toHaveAttribute('href', '/dashboard/money-i-borrowed');
+    expect(within(section(/^planning$/i)).getByRole('link', { name: /projects/i })).toBeInTheDocument();
+    expect(within(section(/^planning$/i)).getByRole('link', { name: /upcoming payments/i })).toBeInTheDocument();
   });
 
   it('opens Add entry from anywhere', async () => {

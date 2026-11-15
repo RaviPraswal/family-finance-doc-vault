@@ -18,7 +18,12 @@ const data: Record<string, unknown[]> = {
   '/api/chitfunds': [{ id: 'ch1', organizerName: 'Test Chit' }],
   '/api/peerlendings': [{ id: 'p1', personName: 'Test Friend', type: 'GIVEN' }],
   '/api/incomesources': [{ id: 's1', name: 'Tuition', type: 'SIDE_INCOME' }],
-  '/api/projects': [],
+  '/api/projects': [{ id: 'pr1', name: 'House construction' }],
+  '/api/quick-templates': [
+    { id: 't1', name: 'Monthly pay', amount: 50000, category: 'Wages', type: 'CREDIT', madeAgainst: 'INCOME_SOURCE' },
+    { id: 't2', name: 'Fund SIP', amount: 5000, category: 'Investment', type: 'DEBIT', madeAgainst: 'SIP_INVESTMENT', linkedInvestmentId: 'i1' },
+    { id: 't3', name: 'Internet bill', amount: 700, category: 'Utilities', type: 'DEBIT', madeAgainst: 'MANUAL_ENTRY' },
+  ],
 };
 
 beforeEach(() => {
@@ -126,6 +131,42 @@ describe('Add entry', () => {
     const { dialog } = await start(/move my money/i);
     const to = within(dialog).getByLabelText(/^to/i);
     expect(within(to).queryByRole('option', { name: /locked bank/i })).toBeNull();
+  });
+
+  // Stage 3: Quick Logger templates are shortcuts inside Add entry.
+  it('a shortcut fills the form — the right choice, amount, group and target', async () => {
+    render(<AddEntry open onClose={vi.fn()} onSaved={vi.fn()} />);
+    const dialog = await screen.findByRole('dialog', { name: /add entry/i });
+    const shortcuts = await within(dialog).findByRole('group', { name: /shortcuts/i });
+
+    await userEvent.click(within(shortcuts).getByRole('button', { name: /internet bill/i }));
+    expect(within(dialog).getByRole('radio', { name: /money out/i })).toBeChecked();
+    expect(within(dialog).getByLabelText(/^amount/i)).toHaveValue('700');
+    expect(within(dialog).getByLabelText(/what was it for/i)).toHaveValue('Home & bills');
+    expect(within(dialog).getByLabelText(/note/i)).toHaveValue('Internet bill');
+
+    await userEvent.click(within(shortcuts).getByRole('button', { name: /monthly pay/i }));
+    expect(within(dialog).getByRole('radio', { name: /money in/i })).toBeChecked();
+    expect(within(dialog).getByLabelText(/what was it\?/i)).toHaveValue('Salary');
+
+    await userEvent.click(within(shortcuts).getByRole('button', { name: /fund sip/i }));
+    expect(within(dialog).getByRole('radio', { name: /move my money/i })).toBeChecked();
+    expect(within(dialog).getByLabelText(/^to/i)).toHaveValue('investment:i1');
+    await userEvent.selectOptions(within(dialog).getByLabelText(/from which account/i), 'a1');
+    await userEvent.click(within(dialog).getByRole('button', { name: /save entry/i }));
+    await waitFor(() => expect(posts()[0]).toMatchObject({ amount: 5000, madeAgainst: 'SIP_INVESTMENT', linkedInvestment: { id: 'i1' }, description: 'Fund SIP' }));
+  });
+
+  // Stage 4: a project is a label on spending, not a separate kind of entry.
+  it('money out can be labelled as part of a project', async () => {
+    const { dialog } = await start(/money out/i);
+    await userEvent.type(within(dialog).getByLabelText(/^amount/i), '9000');
+    await userEvent.selectOptions(within(dialog).getByLabelText(/what was it for/i), 'Home & bills');
+    await userEvent.selectOptions(within(dialog).getByLabelText(/paid from/i), 'account:a1');
+    await userEvent.selectOptions(within(dialog).getByLabelText(/part of a project/i), 'pr1');
+    await userEvent.click(within(dialog).getByRole('button', { name: /save entry/i }));
+    await waitFor(() => expect(posts()[0]).toMatchObject({ type: 'DEBIT', category: 'Home & bills', madeAgainst: 'PROJECT',
+      linkedProject: { id: 'pr1' }, linkedAccount: { id: 'a1' } }));
   });
 
   it('will not save without an amount above zero or an account', async () => {

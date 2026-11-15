@@ -43,30 +43,30 @@ const navGroups: { title?: string; items: NavItem[] }[] = [
     { name: 'Home', href: '/dashboard', icon: Home },
     { name: 'Full overview', href: '/dashboard/portfolio', icon: TrendingUp },
     { name: 'All entries', href: '/dashboard/expenses', icon: ListOrdered },
-    { name: 'Quick Logger', href: '/dashboard/quick-logger', icon: Zap },
+    { name: 'Entry shortcuts', href: '/dashboard/quick-logger', icon: Zap },
   ] },
   { title: 'Money In', items: [
     { name: 'Side income', href: '/dashboard/income', icon: ArrowDownLeft },
   ] },
   { title: 'Money Out', items: [
     { name: 'Spending limits', href: '/dashboard/budgets', icon: Percent },
-    { name: 'Projects', href: '/dashboard/projects', icon: HardHat },
   ] },
   { title: 'Savings & Investments', items: [
     { name: 'Bank Accounts', href: '/dashboard/bank-accounts', icon: Landmark },
     { name: 'Deposits (FD/RD)', href: '/dashboard/deposits', icon: Wallet },
     { name: 'Investments', href: '/dashboard/investments', icon: Briefcase },
     { name: 'Chit Funds', href: '/dashboard/chit-funds', icon: Users },
-    { name: 'Udhaar (lent & borrowed)', href: '/dashboard/peer-lending', icon: HandCoins },
+    { name: 'Money others owe you', href: '/dashboard/money-owed-to-me', icon: HandCoins },
   ] },
   { title: 'Debts', items: [
     { name: 'Loans & EMI', href: '/dashboard/loans', icon: Scale },
     { name: 'Credit Cards', href: '/dashboard/credit-cards', icon: CreditCard },
+    { name: 'Money you borrowed', href: '/dashboard/money-i-borrowed', icon: HandCoins },
   ] },
   { title: 'Planning', items: [
     { name: 'Goals', href: '/dashboard/goals', icon: Target },
+    { name: 'Projects', href: '/dashboard/projects', icon: HardHat },
     { name: 'Upcoming payments', href: '/dashboard/commitments', icon: CalendarClock },
-    { name: 'Scheduled payments (AI)', href: '/dashboard/ledger', icon: Clock },
   ] },
   { title: 'Papers & family', items: [
     { name: 'Document Vault', href: '/dashboard/vault', icon: FolderOpen },

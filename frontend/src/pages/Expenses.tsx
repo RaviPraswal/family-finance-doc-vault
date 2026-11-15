@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Wallet, FileText, Calendar, Tag, Edit2, Trash2, Download, Printer } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { MONEY_OUT, placeOf } from '../lib/simpleMoney';
+import AddEntry from '../components/AddEntry';
 import { useToastStore } from '../store/toastStore';
 import { useConfirmStore } from '../store/confirmStore';
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
-import { SearchBox, SecondaryAction } from '../components/ui/LiquidControls';
+import { PrimaryAction, SearchBox, SecondaryAction } from '../components/ui/LiquidControls';
 
 interface BankAccount {
   id: string;
@@ -365,6 +366,9 @@ export default function Expenses() {
     }
   };
 
+  const [adding, setAdding] = useState(false);
+  const [detailed, setDetailed] = useState(false);
+
   /** Sprint 9: put an old entry into one of the plain groups — only its category changes. */
   const sortInto = async (e: Expense, group: string) => {
     if (!group) return;
@@ -485,16 +489,24 @@ export default function Expenses() {
   return (
     <div className="space-y-6 flex flex-col h-full">
       <div>
-        <h2 className="text-2xl font-bold text-foreground">Daily Transactions</h2>
-        <p className="text-muted-foreground">Log and track your daily spending and income (EOD debit & credit entries)</p>
+        <h2 className="text-2xl font-bold text-foreground">All entries</h2>
+        <p className="text-muted-foreground">Everything that came in, went out or moved between your own accounts</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0 overflow-hidden">
         {/* Left Column: Form & Mini stats */}
         <div className="lg:col-span-1 flex flex-col gap-6 overflow-y-auto pr-1 h-[calc(100vh-12rem)] custom-scrollbar">
           <div id="transaction-form" className="glass-panel p-5 rounded-2xl border border-border/50 bg-card">
-            <h3 className="text-base font-semibold text-foreground mb-4">{editingExpense ? 'Edit Transaction' : 'Add Transaction'}</h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <h3 className="text-base font-semibold text-foreground mb-4">{editingExpense ? 'Edit entry' : 'Add an entry'}</h3>
+            {/* Sprint 9: adding goes through the one Add entry; this detailed form is for editing and special cases */}
+            {!editingExpense && !detailed && (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">Money in, money out, or moving your own money — one short form.</p>
+                <PrimaryAction onClick={() => setAdding(true)} className="w-full py-2 bg-primary text-primary-foreground font-bold rounded-lg text-sm">Add entry</PrimaryAction>
+                <button type="button" onClick={() => setDetailed(true)} className="text-xs font-semibold text-primary hover:underline">Use the detailed form</button>
+              </div>
+            )}
+            {(editingExpense || detailed) && <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Transaction Type</label>
                 <select
@@ -828,7 +840,7 @@ export default function Expenses() {
                   {editingExpense ? 'Update' : 'Add'}
                 </button>
               </div>
-            </form>
+            </form>}
           </div>
 
           <div className="space-y-3">
@@ -1064,6 +1076,7 @@ export default function Expenses() {
           )}
         </div>
       </div>
+      <AddEntry open={adding} onClose={() => setAdding(false)} onSaved={() => { fetchExpenses(); fetchCategories(); }} />
     </div>
   );
 }

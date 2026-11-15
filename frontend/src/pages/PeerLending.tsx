@@ -25,10 +25,20 @@ interface PeerLending {
 
 const EMPTY: Partial<PeerLending> = { type: 'GIVEN', personName: '', ownerName: '', amount: 0, date: '', expectedReturnDate: '', settled: false };
 
-export default function PeerLending() {
+/**
+ * Sprint 9 stage 4: `only` shows one side — GIVEN is "Money others owe you" (something you own), TAKEN is
+ * "Money you borrowed" (a debt). Without it both show, as before.
+ */
+const SIDE = {
+  GIVEN: { title: 'Money others owe you', hint: 'Udhaar you gave — it is yours until it comes back' },
+  TAKEN: { title: 'Money you borrowed', hint: 'Udhaar you took from people — a debt until you repay it' },
+} as const;
+
+export default function PeerLending({ only }: { only?: 'GIVEN' | 'TAKEN' } = {}) {
   const toast = useToastStore();
   const confirm = useConfirmStore();
-  const [lendings, setLendings] = useState<PeerLending[]>([]);
+  const [allLendings, setLendings] = useState<PeerLending[]>([]);
+  const lendings = only ? allLendings.filter((l) => l.type === only) : allLendings; // one side only, everywhere on the page
   const [expenses, setExpenses] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState<Partial<PeerLending>>(EMPTY);
@@ -108,7 +118,7 @@ export default function PeerLending() {
     }
   };
 
-  const openAdd = () => { setEditing(null); setFormData(EMPTY); setIsModalOpen(true); };
+  const openAdd = () => { setEditing(null); setFormData(only ? { ...EMPTY, type: only } : EMPTY); setIsModalOpen(true); };
   const openEdit = (lending: PeerLending) => { setEditing(lending); setFormData({ ...lending }); setIsModalOpen(true); };
   const closeModal = () => { setIsModalOpen(false); setEditing(null); setFormData(EMPTY); };
   const actionsFor = (lending: PeerLending) => {
@@ -262,8 +272,8 @@ export default function PeerLending() {
     <div className="min-h-full flex flex-col">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Udhaar (Given & Taken)</h1>
-          <p className="text-sm text-muted-foreground">Manage peer-to-peer loans, expectations and settlement statuses</p>
+          <h1 className="text-2xl font-bold text-foreground">{only ? SIDE[only].title : 'Udhaar (Given & Taken)'}</h1>
+          <p className="text-sm text-muted-foreground">{only ? SIDE[only].hint : 'Manage peer-to-peer loans, expectations and settlement statuses'}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {/* View Toggle */}
@@ -854,7 +864,7 @@ export default function PeerLending() {
           <div role="dialog" aria-modal="true" aria-labelledby="lending-modal-title" className="bg-card border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
             <h2 id="lending-modal-title" className="text-lg font-semibold text-foreground mb-4">{editing ? 'Edit Udhaar Record' : 'Add Udhaar Record'}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
+              {!only && <div>
                 <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Type</label>
                 <div className="flex gap-4">
                   <label className="flex items-center text-sm text-foreground">
@@ -866,7 +876,7 @@ export default function PeerLending() {
                     I Took Udhaar
                   </label>
                 </div>
-              </div>
+              </div>}
               <div>
                 <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Person Name</label>
                 <input required value={formData.personName} onChange={e => setFormData({...formData, personName: e.target.value})} className="w-full p-2.5 rounded-lg bg-background text-foreground border border-border focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm" />

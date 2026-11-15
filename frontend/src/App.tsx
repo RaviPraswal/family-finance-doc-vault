@@ -14,6 +14,7 @@ import { ConfirmDialog } from './components/ConfirmDialog';
 import { SessionExpiryModal } from './components/SessionExpiryModal';
 import Projects from './pages/Projects';
 import Home from './pages/Home';
+import UpcomingPayments from './pages/UpcomingPayments';
 import PortfolioOverview from './pages/PortfolioOverview';
 import BankAccounts from './pages/BankAccounts';
 import CreditCards from './pages/CreditCards';
@@ -23,13 +24,11 @@ import Loans from './pages/Loans';
 import ChitFunds from './pages/ChitFunds';
 import PeerLending from './pages/PeerLending';
 import SideIncome from './pages/SideIncome';
-import Ledger from './pages/Ledger';
 import Expenses from './pages/Expenses';
 import Goals from './pages/Goals';
 import FamilyMembers from './pages/FamilyMembers';
 import Budgets from './pages/Budgets';
 import QuickLogger from './pages/QuickLogger';
-import Commitments from './pages/Commitments';
 
 // Protected Route wrapper
 const ProtectedRoute = ({ children }: { children: ReactNode }) => {
@@ -92,7 +91,7 @@ function App() {
             <Route index element={<Home />} />
             
             <Route path="physical-vault" element={<PhysicalVault />} />
-            <Route path="ledger" element={<Ledger />} />
+            <Route path="ledger" element={<Navigate to="/dashboard/commitments?tab=scheduled" replace />} />
             <Route path="portfolio" element={<PortfolioOverview />} />
             <Route path="bank-accounts" element={<BankAccounts />} />
             <Route path="credit-cards" element={<CreditCards />} />
@@ -101,6 +100,8 @@ function App() {
             <Route path="loans" element={<Loans />} />
             <Route path="chit-funds" element={<ChitFunds />} />
             <Route path="peer-lending" element={<PeerLending />} />
+            <Route path="money-owed-to-me" element={<PeerLending only="GIVEN" />} />
+            <Route path="money-i-borrowed" element={<PeerLending only="TAKEN" />} />
             <Route path="income" element={<SideIncome />} />
             <Route path="projects" element={<Projects />} />
             <Route path="expenses" element={<Expenses />} />
@@ -108,7 +109,7 @@ function App() {
             <Route path="budgets" element={<Budgets />} />
             <Route path="family" element={<FamilyMembers />} />
             <Route path="quick-logger" element={<QuickLogger />} />
-            <Route path="commitments" element={<Commitments />} />
+            <Route path="commitments" element={<UpcomingPayments />} />
             <Route path="vault" element={<Dashboard />} />
           </Route>
         </Routes>

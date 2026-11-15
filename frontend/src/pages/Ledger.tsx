@@ -76,7 +76,7 @@ export default function Ledger() {
   return (
     <div className="space-y-6">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Ledger & Scheduled Payments</h1>
+        <h2 className="text-2xl font-bold text-foreground">Scheduled payments</h2>
         <p className="text-muted-foreground mt-2">Manage your upcoming manual payments and AI document parsing.</p>
       </header>
 

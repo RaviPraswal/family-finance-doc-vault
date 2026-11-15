@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight } from 'lucide-react';
 import { apiClient } from '../api/client';
 import { useToastStore } from '../store/toastStore';
-import { MONEY_IN, MONEY_OUT } from '../lib/simpleMoney';
+import { MONEY_IN, MONEY_OUT, incomeGroupOf, spendingGroupOf } from '../lib/simpleMoney';
 import { PrimaryAction, SecondaryAction } from './ui/LiquidControls';
 
 /**
@@ -59,6 +59,7 @@ export default function AddEntry({ open, onClose, onSaved, initial = 'out' }: {
   const [moveTo, setMoveTo] = useState('');
   const [source, setSource] = useState('');
   const [note, setNote] = useState('');
+  const [project, setProject] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [d, setD] = useState<Record<string, Named[]>>({});
@@ -66,7 +67,8 @@ export default function AddEntry({ open, onClose, onSaved, initial = 'out' }: {
   useEffect(() => {
     if (!open) return;
     const urls = { accounts: '/api/bankaccounts', cards: '/api/creditcards', deposits: '/api/deposits', investments: '/api/investments',
-      loans: '/api/loans', chits: '/api/chitfunds', udhaar: '/api/peerlendings', sources: '/api/incomesources' };
+      loans: '/api/loans', chits: '/api/chitfunds', udhaar: '/api/peerlendings', sources: '/api/incomesources',
+      projects: '/api/projects', templates: '/api/quick-templates' };
     Promise.all(Object.entries(urls).map(async ([k, u]) => [k, await list(u)] as const)).then((r) => setD(Object.fromEntries(r)));
   }, [open]);
 
@@ -83,8 +85,21 @@ export default function AddEntry({ open, onClose, onSaved, initial = 'out' }: {
 
   if (!open) return null;
 
-  const reset = () => { setAmount(''); setGroup(''); setNote(''); setSource(''); setMoveTo(''); setPaidFrom(''); setError(''); };
+  const reset = () => { setAmount(''); setGroup(''); setNote(''); setSource(''); setMoveTo(''); setPaidFrom(''); setProject(''); setError(''); };
   const pick = (c: Choice) => { setChoice(c); setGroup(''); setError(''); };
+
+  /** A saved shortcut (Quick Logger template) fills the form; the user still picks the account and saves. */
+  const applyTemplate = (t: Named) => {
+    const credit = t.type === 'CREDIT';
+    const toInvestment = t.madeAgainst === 'SIP_INVESTMENT' && t.linkedInvestmentId;
+    setError('');
+    setAmount(String(t.amount ?? ''));
+    setNote(String(t.name ?? ''));
+    setChoice(credit ? 'in' : toInvestment ? 'move' : 'out');
+    setGroup(credit ? incomeGroupOf({ category: String(t.category ?? ''), madeAgainst: String(t.madeAgainst ?? '') }) : spendingGroupOf(String(t.category ?? '')) ?? '');
+    setSource(credit && t.linkedIncomeSourceId ? String(t.linkedIncomeSourceId) : '');
+    setMoveTo(toInvestment ? `investment:${t.linkedInvestmentId}` : '');
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -104,10 +119,12 @@ export default function AddEntry({ open, onClose, onSaved, initial = 'out' }: {
       if (!group) return setError('Choose what it was for.');
       if (!paidFrom) return setError('Choose how you paid.');
       const [kind, id] = paidFrom.split(':');
+      const labelled = kind === 'account' && project; // a project is a label on bank spending
       entries.push({ ...base, type: 'DEBIT', category: group,
-        madeAgainst: kind === 'card' ? 'CREDIT_CARD' : 'MANUAL_ENTRY',
+        madeAgainst: kind === 'card' ? 'CREDIT_CARD' : labelled ? 'PROJECT' : 'MANUAL_ENTRY',
         linkedAccount: kind === 'account' ? { id } : null,
-        linkedCreditCard: kind === 'card' ? { id } : null });
+        linkedCreditCard: kind === 'card' ? { id } : null,
+        linkedProject: labelled ? { id: project } : null });
     } else {
       if (!account) return setError('Choose the account the money left.');
       if (!moveTo) return setError('Choose where the money went.');
@@ -143,6 +160,19 @@ export default function AddEntry({ open, onClose, onSaved, initial = 'out' }: {
       <div role="dialog" aria-modal="true" aria-labelledby="add-entry-title" onClick={(e) => e.stopPropagation()}
         className="bg-card border border-border rounded-2xl p-6 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto">
         <h2 id="add-entry-title" className="text-lg font-semibold text-foreground">Add entry</h2>
+        {(d.templates ?? []).length > 0 && (
+          <div role="group" aria-labelledby="entry-shortcuts" className="mt-3">
+            <p id="entry-shortcuts" className={labelCls}>Shortcuts</p>
+            <div className="flex flex-wrap gap-1.5">
+              {(d.templates ?? []).map((t) => (
+                <button key={t.id} type="button" onClick={() => applyTemplate(t)}
+                  className="px-2.5 py-1 rounded-full border border-border text-xs font-semibold text-foreground hover:bg-muted/50">
+                  {String(t.name)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <form onSubmit={submit} className="space-y-4 mt-4" noValidate>
           <fieldset>
             <legend className={labelCls}>What happened?</legend>
@@ -209,6 +239,16 @@ export default function AddEntry({ open, onClose, onSaved, initial = 'out' }: {
                 <option value="">Choose…</option>
                 {accounts.length > 0 && <optgroup label="Bank account">{opt(accounts, 'account:', accountName)}</optgroup>}
                 {(d.cards ?? []).length > 0 && <optgroup label="Credit card">{opt(d.cards ?? [], 'card:', (c) => String(c.cardName ?? c.bankName ?? 'Card'))}</optgroup>}
+              </select>
+            </div>
+          )}
+
+          {choice === 'out' && paidFrom.startsWith('account:') && (d.projects ?? []).length > 0 && (
+            <div>
+              <label htmlFor="entry-project" className={labelCls}>Part of a project? (optional)</label>
+              <select id="entry-project" value={project} onChange={(e) => setProject(e.target.value)} className={field}>
+                <option value="">No</option>
+                {(d.projects ?? []).map((p) => <option key={p.id} value={p.id}>{String(p.name ?? 'Project')}</option>)}
               </select>
             </div>
           )}

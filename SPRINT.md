@@ -118,9 +118,9 @@ not spending. Design: `docs/sprint9-simple-money.md`.
 | # | Stage | Status |
 |---|---|---|
 | S9-1 | Four-card Home, one "Add entry" (Money in / Money out / Move my money), menu grouped by the four categories | Done |
-| S9-2 | Daily Transactions shows the new groups; sort "not sorted yet" entries; budgets on the 7 Money Out groups | Next |
-| S9-3 | Quick Logger templates inside Add entry; Scheduled payments + Monthly Commitments → one "Upcoming payments" | Planned |
-| S9-4 | Udhaar split (lent / borrowed); Projects become a label on spending + a Goal | Planned |
+| S9-2 | All entries speaks the four categories; sort "not sorted yet" entries; spending limits on the 7 Money Out groups | Done |
+| S9-3 | Quick Logger templates are shortcuts inside Add entry; Monthly Commitments + scheduled payments = one "Upcoming payments" | Done |
+| S9-4 | Udhaar split: "Money others owe you" (own) / "Money you borrowed" (debt); a project is a label on spending | Done |
 
 Open question for Ravi: a SIP/top-up raises an investment's *invested amount* but not its *current value*, so "what you own"
 dips until the value is updated. Should a contribution also raise the current value by the same amount?

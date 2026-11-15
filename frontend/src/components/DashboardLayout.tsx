@@ -14,7 +14,6 @@ import {
   LogOut,
   Sun,
   Moon,
-  Clock,
   Percent,
   Zap,
   CalendarClock,
